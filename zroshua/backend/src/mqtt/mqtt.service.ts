@@ -161,10 +161,57 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    // one daily water counter per water source — chart well vs. barrel separately
+    const sources = await this.config.sources.find();
+    for (const s of sources) {
+      const sid = `zroshua_source_${s.id}_water_today`;
+      current.add(`sensor:${sid}`);
+      this.pub(
+        `${DISCOVERY_PREFIX}/sensor/${sid}/config`,
+        {
+          ...common,
+          name: `${s.name} water today`,
+          unique_id: sid,
+          unit_of_measurement: 'L',
+          device_class: 'water',
+          state_class: 'total_increasing',
+          icon: 'mdi:water-pump',
+          state_topic: `zroshua/source/${s.id}/liters_today`,
+        },
+        true,
+      );
+    }
+
+    // device_class + state_class make HA record long-term statistics (hourly/
+    // daily/weekly consumption charts, Energy dashboard). total_increasing
+    // treats the midnight reset to 0 as a meter reset, not negative usage.
     const globals: [string, string, object][] = [
       ['binary_sensor', 'zroshua_watering_active', { name: 'Watering active', device_class: 'running', state_topic: 'zroshua/active' }],
-      ['sensor', 'zroshua_liters_today', { name: 'Water today', unit_of_measurement: 'L', icon: 'mdi:water', state_topic: 'zroshua/stats/liters_today' }],
-      ['sensor', 'zroshua_energy_today', { name: 'Pump energy today', unit_of_measurement: 'kWh', device_class: 'energy', state_topic: 'zroshua/stats/energy_today' }],
+      [
+        'sensor',
+        'zroshua_liters_today',
+        {
+          name: 'Water today',
+          object_id: 'zroshua_water_today', // pin entity_id to sensor.zroshua_water_today
+          unit_of_measurement: 'L',
+          device_class: 'water',
+          state_class: 'total_increasing',
+          icon: 'mdi:water',
+          state_topic: 'zroshua/stats/liters_today',
+        },
+      ],
+      [
+        'sensor',
+        'zroshua_energy_today',
+        {
+          name: 'Pump energy today',
+          object_id: 'zroshua_pump_energy_today', // pin entity_id to sensor.zroshua_pump_energy_today
+          unit_of_measurement: 'kWh',
+          device_class: 'energy',
+          state_class: 'total_increasing',
+          state_topic: 'zroshua/stats/energy_today',
+        },
+      ],
       ['switch', 'zroshua_snooze', { name: 'Snooze all watering', icon: 'mdi:sleep', command_topic: 'zroshua/snooze/set', state_topic: 'zroshua/snooze/state' }],
       // rich hub state consumed by the Lovelace card (json_attributes carry the full snapshot)
       [
@@ -184,7 +231,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       this.pub(`${DISCOVERY_PREFIX}/${component}/${id}/config`, { ...common, unique_id: id, ...cfg }, true);
     }
 
-    // remove discovery configs for deleted zones
+    // remove discovery configs for deleted zones/sources
     for (const key of this.publishedIds) {
       if (!current.has(key)) {
         const [component, id] = key.split(':');
@@ -218,6 +265,17 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     const kwh = rows.reduce((acc, r) => acc + (r.energyKwh ?? 0), 0);
     this.pub('zroshua/stats/liters_today', liters.toFixed(1));
     this.pub('zroshua/stats/energy_today', kwh.toFixed(3));
+
+    // per-source breakdown; runs of zones without a source count only toward the total
+    const sources = await this.config.sources.find();
+    const litersBySource = new Map<string, number>();
+    for (const r of rows) {
+      if (!r.sourceId) continue;
+      litersBySource.set(r.sourceId, (litersBySource.get(r.sourceId) ?? 0) + ((r.litersMin ?? 0) + (r.litersMax ?? 0)) / 2);
+    }
+    for (const s of sources) {
+      this.pub(`zroshua/source/${s.id}/liters_today`, (litersBySource.get(s.id) ?? 0).toFixed(1));
+    }
 
     await this.publishHub(snapshot, zones, liters, kwh);
   }
