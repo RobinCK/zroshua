@@ -246,8 +246,10 @@ back through the `mqtt.publish` service — so it stays live and needs no per-en
 > add-on options. The add-on's **Settings** page shows a live MQTT status banner; if it says
 > *MQTT off*, the card will display "Waiting for sensor.zroshua_state".
 
-![Cards: dashboard & groups](docs/screenshots/card-dashboard-groups.png)
-![Cards: zones, upcoming & timeline](docs/screenshots/card-zones-upcoming-timeline.png)
+<p>
+  <img src="docs/screenshots/card-dashboard-groups.png" width="390" alt="Cards: dashboard & groups" />
+  <img src="docs/screenshots/card-zones-upcoming-timeline.png" width="390" alt="Cards: zones, upcoming & timeline" />
+</p>
 
 Tapping a zone opens a floating action sheet over the list — no scrolling even with
 dozens of zones:
