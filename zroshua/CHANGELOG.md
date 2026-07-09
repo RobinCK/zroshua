@@ -1,0 +1,199 @@
+# Changelog
+
+## 0.1.15
+
+- **Lovelace card: dashboard entities are now clickable** — tapping a running
+  zone in "Now" or a waiting zone in "Queue" opens the same action sheet as the
+  zones view (stop watering / duration presets). Stopping from the sheet closes
+  it immediately.
+- **Add-on UI refresh**: brand header with logo mark and translucent blur,
+  navigation grouped into sections (Overview / Watering / Insights / System),
+  dashboard stat tiles with colored icons matching the Lovelace card, rounded
+  cards with softer borders, centered modals with blurred overlay, unified
+  radii and shadows across all pages. No functional changes.
+
+## 0.1.14
+
+- **Fix: taps on zone chips sometimes not registering** (needed a second tap)
+  and random flicker on mobile. The card re-rendered on every `hass` update —
+  i.e. on any entity change anywhere in Home Assistant — so a tap could land on
+  DOM that was rebuilt mid-touch. The card now re-renders only when the Zroshua
+  hub entity itself changes.
+- Touch polish: hover styles (the gray border that stuck to a chip after a tap)
+  apply only on devices with a mouse; tap highlight and stray focus rings are
+  suppressed (keyboard focus still shows an outline); chips get a subtle press
+  effect instead. Hub entity lookup result is cached.
+
+## 0.1.13
+
+- Zone action sheet is now a **floating overlay fixed to the bottom of the
+  screen** (with a dimmed backdrop) instead of sitting at the end of the card —
+  on a phone with a long zone list you no longer scroll to reach the run/stop
+  controls; they pop over the spot you tapped. Opening animates once; live
+  state updates never re-trigger the animation, so nothing jumps or flickers.
+  Tap the backdrop or × to close.
+
+## 0.1.12
+
+- **Lovelace card redesign** (groups & zones made for real gardens, not demos):
+  - `zones` view: zones are grouped into sections by their watering group with
+    filter chips (All / Active / Idle / Off + live counts) — 32 zones fit on one
+    screen as a compact chip grid with type icons and status dots (pulsing while
+    watering, remaining time shown). Tapping a zone opens a bottom action sheet
+    with duration presets (5/10/15 min + the zone's default) and a Stop button.
+  - `groups` view: modern tiles with the execution-mode icon, zone/schedule
+    counts, a live "N watering · M queued" row with a progress shimmer while
+    running, a countdown to the next scheduled start ("in 1h 32m · 06:00 · 70m")
+    and a full-width Run / **Stop group** button.
+  - `dashboard` view: restyled stat tiles, run rows and quick actions to match.
+- New `stop_group` MQTT command (stops the group's active runs and clears its
+  queued zones); hub attributes extended additively — zones carry `groupIds` and
+  `endsAt`, groups carry `activeZones`, `queuedZones`, `nextTs`, `nextMinutes`.
+  Old cards keep working with the new add-on and vice versa during the update.
+
+## 0.1.11
+
+- **Fix: Lovelace card stuck on "Waiting for sensor.zroshua_state"** even though
+  the entity existed. Home Assistant's MQTT discovery can assign a different
+  entity_id (e.g. sensor.zroshua_zroshua_state) because of has_entity_name; the
+  card now auto-discovers the hub entity by its attribute shape regardless of
+  the exact id, and the error message lists the candidate entities it sees.
+  The hub also pins object_id so new installs get sensor.zroshua_state.
+
+## 0.1.10
+
+- **Fix: add-on failed to start after 0.1.9** when MQTT was not configured — the
+  nested `mqtt:` options block was treated as required by config validation.
+  MQTT options are now flat and truly optional (`mqtt_host`, `mqtt_port`,
+  `mqtt_username`, `mqtt_password`); with no MQTT configured the add-on starts
+  normally and the MQTT bridge stays dormant, exactly as before. If you use the
+  Mosquitto add-on, entities/cards keep working with zero configuration.
+
+## 0.1.9
+
+- MQTT can now be configured manually in the add-on options (mqtt.host/port/
+  username/password) for external brokers, in addition to the automatic
+  Mosquitto add-on detection.
+- Settings page shows a live MQTT status banner (connected / configured but
+  offline / off) with the reason, so the "Waiting for sensor.zroshua_state"
+  card state is diagnosable without reading logs. New /api/mqtt-status endpoint.
+
+## 0.1.8
+
+- **Lovelace cards**: a custom `zroshua-card` with five views (dashboard, groups,
+  zones, upcoming, timeline) to run groups/zones and see live status, the queue,
+  upcoming runs and today's timeline from a Home Assistant dashboard. Auto-deployed
+  to /config/www and registered as a resource when Mosquitto is present; commands go
+  through mqtt.publish, state from a new sensor.zroshua_state hub entity.
+- MQTT: sensor.zroshua_state with the full snapshot in json attributes and a
+  zroshua/command topic (run_group/run_zone/stop_zone/stop_all/rain_delay/snooze).
+
+## 0.1.7
+
+- Engine fix: same-tick start race — several zones of a sequential group (or
+  zones violating mutex/flow-budget/dependency constraints) could start
+  simultaneously because in-flight starts were not yet counted as active.
+  Starting runs are now reserved against all constraints.
+- Manual run on a zone that is already watering now returns "zone is already
+  running" instead of creating a duplicate run.
+- README rewritten with UI screenshots and a full settings guide.
+
+## 0.1.6
+
+- **Run conditions on schedules** (group and zone): each schedule can carry
+  criteria checked at start time — forecast max temperature, forecast rain
+  probability, or any sensor's live value (≥ / ≤ threshold). All must pass or
+  the run is skipped with a journal reason; unavailable data never blocks
+  watering. Extensible for more criteria later.
+- Dashboard: countdown to each upcoming watering ("in 2h 05m") and the
+  next-watering tile now shows time remaining.
+
+## 0.1.5
+
+- Fix false manual-run warning "source X depends on a source that is currently
+  running": it fired when any running zone had no water source assigned and the
+  started zone's source had no dependency (null matched null). The message now
+  also names the awaited source, and duplicate warnings are collapsed.
+
+## 0.1.4
+
+- **Time slot picker**: start times in schedule editors are now picked on a
+  24-hour occupancy strip — red bands are schedules of groups bound by
+  never-overlap/order rules (worst-case length included), gray bands are other
+  schedules, teal is this run. Click the strip or drag the slider (5-min
+  steps), quick presets, "free until HH:MM" hint and a live red warning when
+  the chosen slot overlaps a rule-bound group.
+- Saving a group with conflicting start times shows a loud warning naming the
+  overlaps (runtime behaviour still follows the conflict policy).
+- New /api/busy-week endpoint powering the editor visualization.
+- Timeline: fixed label column no longer scrolls away; phantom horizontal
+  scrollbar removed.
+- Review fixes: schedules crossing midnight now split onto the next weekday in
+  the occupancy strip and are detected in conflict checks; out-of-season
+  schedules no longer produce false conflict bands; a week schedule with no
+  days selected now means "off" everywhere (previously the engine ran it
+  daily) with an editor hint; zone editor applies the temperature worst-case
+  factor and warns on save like the group editor; picker dropdown fits phone
+  screens; duplicate bands deduplicated.
+
+## 0.1.3
+
+- Add-on icon and logo (shown in the store and sidebar).
+- Pre-start availability check: if a zone's switch/valve entity or its source
+  pump is unavailable within a configurable lead window (default 30 min) before
+  a scheduled start, a fault notification names the exact entity. Toggle and
+  lead time in Settings.
+
+## 0.1.2
+
+Production-safe additive update (no data migration required — new columns and
+settings keys get defaults automatically).
+
+- **Zone-level schedules**: any zone can now have its own schedules in addition
+  to its group (water one bed more often); zone runs still respect the group's
+  never-overlap/order rules, flow budgets and sensors. Per-schedule zone
+  duration overrides with an end-time preview in the editor.
+- **Timeline page**: 24-hour visualization per day (7 days ahead) — see exactly
+  when water is busy or free; bars include the worst-case temperature boost;
+  overlaps that violate never-overlap/order rules are highlighted in red.
+- **Conflict policy** (Settings): "wait in queue" (default) or "skip the run"
+  for strict timetables — a blocked scheduled run is skipped with a journal
+  reason instead of running late.
+- **Dashboard tiles**: watering now / queued, zones enabled/total, groups,
+  today's water and time, next watering.
+- Currency string for cost statistics; layout fixes for long names
+  (truncation/wrapping); schedule editor shows total run length.
+
+## 0.1.1
+
+- Runtime image switched to node:22-alpine (same as build stages) — fixes
+  better-sqlite3 native module ABI mismatch on the Home Assistant base image.
+- Options are read directly from /data/options.json; MQTT credentials come
+  from the Supervisor services API (bashio no longer required).
+- Native build toolchain in the backend build stage for musl targets.
+
+## 0.1.0
+
+Initial release.
+
+- Zones on top of HA `switch`/`valve` entities with flow rates (value or range),
+  max-runtime failsafe, cycle & soak, per-zone ignore flags.
+- Water sources: flow budgets, pump control with lead/lag delays and reference counting,
+  source dependencies (barrel ← well), water-availability sensor, idle-flow leak alert.
+- Groups with sequential / parallel / limited-parallel execution, inter-zone delay,
+  multiplier, priority; rules between groups: never-overlap, strict order, parallel-ok.
+- Scheduler: whole-week or per-day start times, several waterings per day, seasonal
+  windows, visible queue with wait reasons, rollover of below-minimum runs.
+- Weather: rain-probability skip, freeze protect, temperature scaling in % from forecast
+  and/or yesterday's local sensor max with worst-case window reservation.
+- Sensors: multi-sensor rain detection (quorum, dry-out, stop-during-run), soil-moisture
+  triggers with cooldown and wet-block.
+- Fault control: check-back, stuck-valve escalation with pump shutdown, external-switch
+  reconciliation, resume after restart.
+- Statistics: calculated liters, pump energy counted only during watering plus optional
+  refill tail, daily charts, CSV export.
+- SVG site map with live zone states and tap-to-water popups.
+- Notifications: Telegram and HA notify with per-event filters.
+- MQTT discovery: native HA entities (zone switches, next-run sensors, watering-active,
+  daily water/energy, snooze) published automatically when the Mosquitto add-on is present.
+- SQLite in /data (HA-backup friendly) or external MariaDB/PostgreSQL; JSON export/import.

@@ -1,0 +1,56 @@
+/* App-level polish on top of the Mantine theme. */
+
+[data-mantine-color-scheme='light'] body {
+  background: #f4f6f6;
+}
+[data-mantine-color-scheme='dark'] body {
+  background: #121315;
+}
+
+/* Softer card borders in dark mode (default gray.3/dark.4 is quite loud). */
+[data-mantine-color-scheme='dark'] .mantine-Card-root,
+[data-mantine-color-scheme='dark'] .mantine-Paper-root[data-with-border] {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+[data-mantine-color-scheme='light'] .mantine-Card-root,
+[data-mantine-color-scheme='light'] .mantine-Paper-root[data-with-border] {
+  border-color: rgba(0, 0, 0, 0.07);
+}
+
+/* Header: subtle translucency over the page background. */
+.z-header {
+  backdrop-filter: blur(10px);
+}
+[data-mantine-color-scheme='dark'] .z-header {
+  background: color-mix(in srgb, var(--mantine-color-body) 75%, transparent);
+}
+[data-mantine-color-scheme='light'] .z-header {
+  background: color-mix(in srgb, var(--mantine-color-body) 80%, transparent);
+}
+
+/* Brand mark in the header. */
+.z-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #12b886, #0b7d5c);
+  box-shadow: 0 2px 8px rgba(18, 184, 134, 0.35);
+  flex-shrink: 0;
+}
+
+/* Navbar section labels. */
+.z-navsec {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mantine-color-dimmed);
+  padding: 14px 12px 4px;
+}
+.z-navsec:first-child {
+  padding-top: 4px;
+}

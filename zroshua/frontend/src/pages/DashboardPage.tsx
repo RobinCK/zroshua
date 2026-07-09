@@ -1,0 +1,340 @@
+import { useEffect, useState } from 'react';
+import {
+  Button,
+  Card,
+  Grid,
+  Group,
+  Modal,
+  Progress,
+  Stack,
+  Text,
+  Title,
+  Badge,
+  SimpleGrid,
+  ActionIcon,
+} from '@mantine/core';
+import {
+  IconCloudRain,
+  IconPlayerStop,
+  IconZzz,
+  IconPlus,
+  IconDroplet,
+  IconPlant2,
+  IconCategory,
+  IconBucketDroplet,
+  IconClockHour4,
+  IconCalendarClock,
+} from '@tabler/icons-react';
+import { ThemeIcon } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { api, EngineState, Group as ZGroup, Upcoming, WeatherNow, Zone } from '../api';
+import { fmtDur, fmtTime, useResource } from '../hooks';
+import { SliderInput } from '../components/common';
+
+function InfoTile({
+  label,
+  value,
+  sub,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <Card p="sm">
+      <Group gap="sm" wrap="nowrap">
+        <ThemeIcon variant="light" color={color} size={40} radius="md">
+          {icon}
+        </ThemeIcon>
+        <div style={{ minWidth: 0 }}>
+          <Text size="xs" c="dimmed" truncate>
+            {label}
+          </Text>
+          <Text size="lg" fw={700} lh={1.25} truncate>
+            {value}
+          </Text>
+          {sub && (
+            <Text size="xs" c="dimmed" truncate>
+              {sub}
+            </Text>
+          )}
+        </div>
+      </Group>
+    </Card>
+  );
+}
+
+export default function DashboardPage({ state }: { state: EngineState | null }) {
+  const { data: weather } = useResource<WeatherNow>('/weather');
+  const { data: upcoming } = useResource<Upcoming[]>('/upcoming', [state?.active.length]);
+  const { data: zones } = useResource<Zone[]>('/zones');
+  const { data: groups } = useResource<ZGroup[]>('/groups');
+  const { data: today } = useResource<{ totals: { minutes: number; litersMin: number; litersMax: number } }>(
+    '/stats/daily?days=1',
+    [state?.active.length],
+  );
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const countdown = (ts: number) => {
+    const s = Math.max(0, Math.round((ts - nowTick) / 1000));
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (d > 0) return `in ${d}d ${h}h`;
+    if (h > 0) return `in ${h}h ${String(m).padStart(2, '0')}m`;
+    return `in ${m}m`;
+  };
+  const [delayOpen, setDelayOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [hours, setHours] = useState(24);
+
+  const act = async (fn: () => Promise<unknown>, ok: string) => {
+    try {
+      await fn();
+      notifications.show({ message: ok, color: 'teal' });
+    } catch (e: any) {
+      notifications.show({ message: e.message, color: 'red' });
+    }
+  };
+
+  const next = (upcoming ?? []).filter((u) => u.ts > Date.now()).slice(0, 5);
+  const litersToday = today
+    ? Math.round((today.totals.litersMin + today.totals.litersMax) / 2)
+    : null;
+
+  return (
+    <Stack>
+      <SimpleGrid cols={{ base: 2, xs: 3, md: 6 }}>
+        <InfoTile
+          label="Watering now"
+          value={String(state?.active.length ?? 0)}
+          sub={state?.queue.length ? `${state.queue.length} queued` : undefined}
+          icon={<IconDroplet size={22} />}
+          color="teal"
+        />
+        <InfoTile
+          label="Zones"
+          value={`${(zones ?? []).filter((z) => z.enabled).length}/${zones?.length ?? 0}`}
+          sub="enabled / total"
+          icon={<IconPlant2 size={22} />}
+          color="green"
+        />
+        <InfoTile
+          label="Groups"
+          value={String(groups?.length ?? 0)}
+          sub={`${(groups ?? []).filter((g) => g.enabled).length} enabled`}
+          icon={<IconCategory size={22} />}
+          color="violet"
+        />
+        <InfoTile
+          label="Today water"
+          value={litersToday !== null ? `${litersToday} L` : '—'}
+          icon={<IconBucketDroplet size={22} />}
+          color="blue"
+        />
+        <InfoTile
+          label="Today time"
+          value={today ? `${Math.round(today.totals.minutes)} min` : '—'}
+          icon={<IconClockHour4 size={22} />}
+          color="orange"
+        />
+        <InfoTile
+          label="Next watering"
+          value={next[0] ? countdown(next[0].ts) : '—'}
+          sub={next[0] ? `${new Date(next[0].ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · ${next[0].groupName}` : undefined}
+          icon={<IconCalendarClock size={22} />}
+          color="grape"
+        />
+      </SimpleGrid>
+      <Grid>
+        <Grid.Col span={{ base: 12, md: 7 }}>
+          <Card withBorder>
+            <Title order={4} mb="sm">
+              Now
+            </Title>
+            {state?.active.length ? (
+              <Stack gap="sm">
+                {state.active.map((a) => (
+                  <div key={a.zoneId}>
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <Text fw={600}>{a.zoneName}</Text>
+                        <Badge size="xs" variant="light">
+                          {a.triggeredBy}
+                        </Badge>
+                      </Group>
+                      <Group gap="xs">
+                        <Text size="sm" c="dimmed">
+                          ends {fmtTime(a.endsAt)}
+                        </Text>
+                        <ActionIcon
+                          variant="light"
+                          onClick={() => act(() => api.post(`/zones/${a.zoneId}/extend`, { minutes: 5 }), '+5 min')}
+                          title="+5 min"
+                        >
+                          <IconPlus size={16} />
+                        </ActionIcon>
+                        <ActionIcon
+                          color="red"
+                          variant="light"
+                          onClick={() => act(() => api.post(`/zones/${a.zoneId}/stop`), 'Stopped')}
+                          title="Stop"
+                        >
+                          <IconPlayerStop size={16} />
+                        </ActionIcon>
+                      </Group>
+                    </Group>
+                    <Progress value={a.progress * 100} animated />
+                  </div>
+                ))}
+              </Stack>
+            ) : (
+              <Text c="dimmed">Nothing is watering right now.</Text>
+            )}
+
+            {state?.queue.length ? (
+              <>
+                <Title order={5} mt="md" mb="xs">
+                  Queue
+                </Title>
+                <Stack gap={4}>
+                  {state.queue.map((q, i) => (
+                    <Group key={i} justify="space-between">
+                      <Text size="sm">
+                        {q.zoneName} — {fmtDur(q.durationMin)}
+                      </Text>
+                      <Badge variant="light" color="gray">
+                        {q.waitReason}
+                      </Badge>
+                    </Group>
+                  ))}
+                </Stack>
+              </>
+            ) : null}
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 5 }}>
+          <Card withBorder>
+            <Title order={4} mb="sm">
+              Weather
+            </Title>
+            {weather?.entity ? (
+              <>
+                <Group>
+                  <Text size="xl" fw={700}>
+                    {weather.temperature != null ? `${weather.temperature}°` : '—'}
+                  </Text>
+                  <Text c="dimmed">{weather.condition}</Text>
+                  {weather.humidity != null && <Text c="dimmed">💧 {weather.humidity}%</Text>}
+                </Group>
+                <SimpleGrid cols={{ base: 4, sm: 7 }} mt="sm">
+                  {weather.forecast.slice(0, 7).map((f, i) => (
+                    <Stack key={i} gap={0} align="center">
+                      <Text size="xs" c="dimmed">
+                        {new Date(Date.now() + i * 86400000).toLocaleDateString(undefined, { weekday: 'short' })}
+                      </Text>
+                      <Text size="sm" fw={600}>
+                        {f.tempMaxC != null ? `${Math.round(f.tempMaxC)}°` : '—'}
+                      </Text>
+                      <Text size="xs" c="blue">
+                        {f.precipitationProbability != null ? `${f.precipitationProbability}%` : ''}
+                      </Text>
+                    </Stack>
+                  ))}
+                </SimpleGrid>
+              </>
+            ) : (
+              <Text c="dimmed">No weather entity found in Home Assistant.</Text>
+            )}
+          </Card>
+
+          <Card withBorder mt="md">
+            <Title order={4} mb="sm">
+              Quick actions
+            </Title>
+            <Group>
+              <Button color="red" leftSection={<IconPlayerStop size={16} />} onClick={() => act(() => api.post('/stop-all'), 'All stopped')}>
+                Stop all
+              </Button>
+              <Button variant="light" leftSection={<IconCloudRain size={16} />} onClick={() => setDelayOpen(true)}>
+                {state?.rainDelayUntil ? 'Rain delay ✓' : 'Rain delay'}
+              </Button>
+              <Button variant="light" leftSection={<IconZzz size={16} />} onClick={() => setSnoozeOpen(true)}>
+                {state?.snoozeUntil ? 'Snoozed ✓' : 'Snooze'}
+              </Button>
+            </Group>
+            {state?.pumpStates.length ? (
+              <Group mt="sm" gap="xs">
+                {state.pumpStates.map((p) => (
+                  <Badge key={p.sourceId} color={p.on ? 'teal' : 'gray'} variant="light">
+                    pump {p.name}: {p.on ? 'ON' : 'off'}
+                  </Badge>
+                ))}
+              </Group>
+            ) : null}
+          </Card>
+        </Grid.Col>
+      </Grid>
+
+      <Card withBorder>
+        <Title order={4} mb="sm">
+          Upcoming waterings
+        </Title>
+        {next.length ? (
+          <Stack gap="xs">
+            {next.map((u, i) => (
+              <Group key={i} justify="space-between">
+                <Text>
+                  <b>{u.groupName}</b> — {u.zones.map((z) => z.name).join(', ')}
+                </Text>
+                <Group gap="xs">
+                  <Text size="sm" c="dimmed">
+                    {u.zones.length ? `${fmtDur(u.zones.reduce((a, z) => a + z.minutes, 0))} (max ${fmtDur(u.zones.reduce((a, z) => a + z.maxMinutes, 0))})` : ''}
+                  </Text>
+                  <Badge variant="light" color="grape">
+                    {countdown(u.ts)}
+                  </Badge>
+                  <Badge variant="light">{fmtTime(u.ts)}</Badge>
+                </Group>
+              </Group>
+            ))}
+          </Stack>
+        ) : (
+          <Text c="dimmed">No scheduled waterings in the next 7 days.</Text>
+        )}
+      </Card>
+
+      <Modal opened={delayOpen} onClose={() => setDelayOpen(false)} title="Rain delay">
+        <Stack>
+          <SliderInput label="Delay watering for" value={hours} onChange={setHours} min={0} max={336} step={6} unit="h" />
+          <Group>
+            <Button onClick={() => act(() => api.post('/rain-delay', { hours }), 'Rain delay set').then(() => setDelayOpen(false))}>Set</Button>
+            <Button variant="light" onClick={() => act(() => api.post('/rain-delay', { hours: 0 }), 'Cleared').then(() => setDelayOpen(false))}>
+              Clear
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={snoozeOpen} onClose={() => setSnoozeOpen(false)} title="Snooze all watering">
+        <Stack>
+          <SliderInput label="Snooze for" value={hours} onChange={setHours} min={0} max={336} step={6} unit="h" />
+          <Group>
+            <Button onClick={() => act(() => api.post('/snooze', { hours }), 'Snoozed').then(() => setSnoozeOpen(false))}>Set</Button>
+            <Button variant="light" onClick={() => act(() => api.post('/snooze', { hours: 0 }), 'Cleared').then(() => setSnoozeOpen(false))}>
+              Clear
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Stack>
+  );
+}

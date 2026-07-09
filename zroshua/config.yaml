@@ -1,0 +1,43 @@
+name: Zroshua
+version: "0.1.15"
+slug: zroshua
+description: Smart irrigation controller with zones, groups, scheduler, weather, sensors and statistics
+url: https://github.com/RobinCK/zroshua
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:sprinkler-variant
+panel_title: Zroshua
+panel_admin: true
+hassio_api: true
+homeassistant_api: true
+services:
+  - mqtt:want
+watchdog: "http://[HOST]:[PORT:8099]/api/health"
+map:
+  - type: addon_config
+    read_only: false
+  - type: homeassistant_config
+    read_only: false
+options:
+  log_level: info
+  database:
+    driver: sqlite
+schema:
+  log_level: list(trace|debug|info|warning|error)?
+  database:
+    driver: list(sqlite|mariadb|postgres)?
+    host: str?
+    port: port?
+    name: str?
+    username: str?
+    password: password?
+  telegram_bot_token: password?
+  mqtt_host: str?
+  mqtt_port: port?
+  mqtt_username: str?
+  mqtt_password: password?

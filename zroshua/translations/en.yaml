@@ -1,0 +1,15 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Backend logging verbosity.
+  database:
+    name: Database
+    description: >-
+      sqlite (default) stores everything in /data and is covered by Home Assistant
+      backups. Choose mariadb or postgres to use an external database server
+      (e.g. host core-mariadb for the official MariaDB add-on).
+  telegram_bot_token:
+    name: Telegram bot token
+    description: >-
+      Optional. Token from @BotFather. Add chat IDs in Zroshua → Settings →
+      Notifications to receive watering events.
