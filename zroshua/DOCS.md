@@ -121,8 +121,10 @@ shapes — rect, path, polygon, circle, ellipse, line. Shapes need no ids; Zrosh
 stable ids on upload, so a plain export works. In *Assign zones* mode pick a zone, then tap
 the shapes that make it up — **a zone can be several shapes**; tapping a shape owned by
 another zone moves it. The map colors shapes by live state (watering / queued / scheduled /
-fault / disabled) and tapping a zone opens a popup with status, next run and a water-now
-slider. The SVG is stored in the database and is part of config export/import.
+fault / disabled) and overlays a chip at each zone's centre with its **watering type**
+(sprinkler / drip / beds / lawn / shrubs) and the **remaining minutes** while it runs.
+Tapping a zone opens a popup with status, next run and a water-now slider. The SVG is stored
+in the database and is part of config export/import.
 
 ## Notifications
 

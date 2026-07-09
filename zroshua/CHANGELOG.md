@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.20
+
+- **Site map is now two-channel and far more informative.** Besides the live
+  state (fill color), each zone gets a chip at its center showing its **watering
+  type** — sprinkler / drip / beds / lawn / shrubs — with a monochrome glyph, and
+  the **remaining minutes** while it is watering. A type legend sits under the map
+  next to the state legend. At a glance the plan now says *what kind* of irrigation
+  each area is and how long it has left, not only whether it is running.
+
 ## 0.1.19
 
 - **Site map now works with any SVG, not just tagged polygons.** Exports from

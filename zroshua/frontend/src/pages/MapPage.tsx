@@ -16,6 +16,20 @@ const ASSIGN_SELECTED = '#12b886'; // shape belongs to the zone being edited
 const ASSIGN_OTHER = '#7048e8'; // shape belongs to a different zone
 const ASSIGN_FREE = '#adb5bd'; // shape not assigned to any zone
 
+// Monochrome 24×24 glyphs per zone type, drawn white on a chip at the zone centre.
+const TYPE_ICON: Record<string, string> = {
+  drip: '<path d="M12 4c3 4 5 6.9 5 9.6A5 5 0 0 1 7 13.6C7 10.9 9 8 12 4z" fill="#fff"/>',
+  sprinkler:
+    '<g fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="9.2" r="2.2" fill="#fff" stroke="none"/><path d="M12 11.4V19M7 20h10"/><path d="M6.5 6.8 8.2 8M17.5 6.8 15.8 8M12 3v2.4"/></g>',
+  beds:
+    '<path d="M12 21v-8M12 13c0-3.6-2.7-5.4-6.3-5.4 0 3.6 2.7 5.4 6.3 5.4zm0 0c0-3.6 2.7-5.4 6.3-5.4 0 3.6-2.7 5.4-6.3 5.4z" fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round"/>',
+  lawn: '<g fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M5 20c.8-4 1.6-6 2.6-7 .5 2 .5 4.2 0 7M11 20c.9-5 1.8-7.4 2.8-8.4M17 20c.8-4 1.6-6 2.6-7 .5 2 .5 4.2 0 7"/></g>',
+  shrubs:
+    '<g fill="#fff"><circle cx="8.5" cy="13" r="3.8"/><circle cx="14.5" cy="11" r="4.4"/></g><path d="M12 20v-6" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>',
+};
+const typeGlyph = (t: string) => TYPE_ICON[t] ?? TYPE_ICON.sprinkler;
+const SVGNS = 'http://www.w3.org/2000/svg';
+
 /** Elements that make up a zone: new array field, falling back to the legacy single id. */
 function elementsOf(z: Zone): string[] {
   if (z.svgElementIds && z.svgElementIds.length) return z.svgElementIds;
@@ -130,7 +144,67 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         }
       };
     }
-  }, [map, zoneByElement, assignSet, state, assignMode]);
+
+    // type/state overlay: a chip with the zone-type glyph (and remaining time
+    // while watering) at the centre of each zone — the map shows what kind of
+    // watering each area is, not only whether it runs.
+    if (svg && !assignMode) {
+      svg.querySelector('#zr-overlay')?.remove();
+      const vbW = svg.viewBox?.baseVal?.width || parseFloat(svg.getAttribute('width') || '0') || 300;
+      const S = Math.max(16, Math.min(46, vbW / 24)); // chip size in user units
+      const now = Date.now();
+      const overlay = document.createElementNS(SVGNS, 'g');
+      overlay.setAttribute('id', 'zr-overlay');
+      overlay.style.pointerEvents = 'none';
+      for (const z of zones ?? []) {
+        const nodes = elementsOf(z)
+          .map((id) => el.querySelector<SVGGraphicsElement>(`#${CSS.escape(id)}`))
+          .filter((n): n is SVGGraphicsElement => !!n);
+        if (!nodes.length) continue;
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const n of nodes) {
+          const b = n.getBBox();
+          x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+          x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
+        }
+        const cx = (x0 + x1) / 2;
+        const cy = (y0 + y1) / 2;
+        const g = document.createElementNS(SVGNS, 'g');
+        g.setAttribute('transform', `translate(${cx} ${cy})`);
+        const chip = document.createElementNS(SVGNS, 'rect');
+        chip.setAttribute('x', String(-S / 2));
+        chip.setAttribute('y', String(-S / 2));
+        chip.setAttribute('width', String(S));
+        chip.setAttribute('height', String(S));
+        chip.setAttribute('rx', String(S * 0.28));
+        chip.setAttribute('fill', 'rgba(15,17,20,0.62)');
+        chip.setAttribute('stroke', 'rgba(255,255,255,0.30)');
+        chip.setAttribute('stroke-width', String(Math.max(0.6, S * 0.03)));
+        g.appendChild(chip);
+        const icon = document.createElementNS(SVGNS, 'g');
+        const k = (S * 0.66) / 24;
+        icon.setAttribute('transform', `translate(${-S * 0.33} ${-S * 0.33}) scale(${k})`);
+        icon.innerHTML = typeGlyph(z.type);
+        g.appendChild(icon);
+        const run = state?.active.find((a) => a.zoneId === z.id);
+        if (run) {
+          const mins = Math.max(0, Math.round((run.endsAt - now) / 60000));
+          const t = document.createElementNS(SVGNS, 'text');
+          t.setAttribute('x', '0');
+          t.setAttribute('y', String(S * 0.5 + S * 0.42));
+          t.setAttribute('text-anchor', 'middle');
+          t.setAttribute('font-size', String(S * 0.42));
+          t.setAttribute('font-weight', '700');
+          t.setAttribute('fill', '#fff');
+          t.setAttribute('style', 'paint-order:stroke;stroke:rgba(0,0,0,0.65);stroke-width:3px');
+          t.textContent = `${mins}m`;
+          g.appendChild(t);
+        }
+        overlay.appendChild(g);
+      }
+      svg.appendChild(overlay);
+    }
+  }, [map, zoneByElement, assignSet, state, assignMode, zones]);
 
   useEffect(() => {
     if (!popupZone) return;
@@ -224,13 +298,36 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           )}
           <div ref={containerRef} />
           {!assignMode && (
-            <Group mt="sm" gap="xs">
-              {Object.entries(STATE_COLORS).map(([k, c]) => (
-                <Badge key={k} variant="light" style={{ backgroundColor: `${c}33`, color: c }}>
-                  {k}
-                </Badge>
-              ))}
-            </Group>
+            <Stack gap={6} mt="sm">
+              <Group gap="xs">
+                <Text size="xs" c="dimmed" w={44}>
+                  state
+                </Text>
+                {Object.entries(STATE_COLORS).map(([k, c]) => (
+                  <Badge key={k} variant="light" style={{ backgroundColor: `${c}33`, color: c }}>
+                    {k}
+                  </Badge>
+                ))}
+              </Group>
+              <Group gap="xs">
+                <Text size="xs" c="dimmed" w={44}>
+                  type
+                </Text>
+                {['sprinkler', 'drip', 'beds', 'lawn', 'shrubs'].map((t) => (
+                  <Group key={t} gap={5} wrap="nowrap">
+                    <span
+                      style={{ width: 18, height: 18, display: 'inline-flex', color: 'var(--mantine-color-text)' }}
+                      dangerouslySetInnerHTML={{
+                        __html: `<svg viewBox="0 0 24 24" width="18" height="18">${typeGlyph(t).replace(/#fff/g, 'currentColor')}</svg>`,
+                      }}
+                    />
+                    <Text size="xs" c="dimmed">
+                      {t}
+                    </Text>
+                  </Group>
+                ))}
+              </Group>
+            </Stack>
           )}
         </Card>
       ) : (
