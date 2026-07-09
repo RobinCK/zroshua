@@ -46,6 +46,7 @@ export interface Zone {
   schedules: Schedule[];
   enabled: boolean;
   orderIndex: number;
+  snoozeUntil: number | null;
 }
 
 export interface ScheduleStart {
@@ -114,7 +115,6 @@ export interface WaterSource {
 export interface EngineState {
   now: number;
   paused: boolean;
-  rainDelayUntil: number | null;
   snoozeUntil: number | null;
   haConnected: boolean;
   active: {

@@ -212,7 +212,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
           state_topic: 'zroshua/stats/energy_today',
         },
       ],
-      ['switch', 'zroshua_snooze', { name: 'Snooze all watering', icon: 'mdi:sleep', command_topic: 'zroshua/snooze/set', state_topic: 'zroshua/snooze/state' }],
+      ['switch', 'zroshua_snooze', { name: 'Pause all watering', icon: 'mdi:pause', command_topic: 'zroshua/snooze/set', state_topic: 'zroshua/snooze/state' }],
       // rich hub state consumed by the Lovelace card (json_attributes carry the full snapshot)
       [
         'sensor',
@@ -310,7 +310,6 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     const attrs = {
       updated: new Date().toISOString(),
       paused: snapshot.paused,
-      rainDelayUntil: snapshot.rainDelayUntil,
       snoozeUntil: snapshot.snoozeUntil,
       haConnected: snapshot.haConnected,
       litersToday: Math.round(litersToday),
@@ -334,6 +333,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
           maxMin: z.maxRuntimeMin,
           groupIds: groups.filter((g) => g.zoneIds.includes(z.id)).map((g) => g.id),
           endsAt: run ? run.endsAt : null,
+          pausedUntil: z.snoozeUntil && Number(z.snoozeUntil) > Date.now() ? Number(z.snoozeUntil) : null,
         };
       }),
       groups: groups.map((g) => {
@@ -350,6 +350,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
           schedules: (g.schedules ?? []).filter((s) => s.enabled).length,
           nextTs: next?.ts ?? null,
           nextMinutes: next?.minutes ?? null,
+          pausedUntil: g.snoozeUntil && Number(g.snoozeUntil) > Date.now() ? Number(g.snoozeUntil) : null,
         };
       }),
     };
@@ -374,7 +375,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         return;
       }
       if (topic === 'zroshua/snooze/set') {
-        await this.engine.setSnooze(payload === 'ON' ? 24 : 0);
+        await this.engine.setGlobalPause(payload === 'ON' ? 24 : 0);
         await this.publishStates();
         return;
       }
@@ -403,10 +404,13 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         return void (await this.engine.stopGroup(cmd.groupId));
       case 'stop_all':
         return void (await this.engine.stopAll('manual_stop'));
-      case 'rain_delay':
-        return void (await this.engine.setRainDelay(Number(cmd.hours) || 0));
       case 'snooze':
-        return void (await this.engine.setSnooze(Number(cmd.hours) || 0));
+      case 'pause':
+        return void (await this.engine.setGlobalPause(Number(cmd.hours) || 0));
+      case 'pause_group':
+        return void (await this.engine.setGroupPause(cmd.groupId, Number(cmd.hours) || 0));
+      case 'pause_zone':
+        return void (await this.engine.setZonePause(cmd.zoneId, Number(cmd.hours) || 0));
       default:
         this.log.warn(`unknown command action: ${cmd?.action}`);
     }

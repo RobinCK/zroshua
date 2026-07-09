@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.1.18
+
+- **Rain delay is gone; watering is now paused, not delayed.** The manual
+  "Rain delay" button duplicated Snooze and was confusing, so both are replaced
+  by a single **Pause** concept — "pause automatic watering for N hours, resume
+  automatically" — available at three levels:
+  - **Global** — *Pause all watering* on the dashboard (the hub switch keeps
+    its `switch.zroshua_snooze` entity id, relabeled "Pause all watering").
+  - **Per group** — a pause control on each group (add-on Groups page and the
+    Lovelace card group tile); a paused group shows a "paused until …" state.
+  - **Per zone** — a pause control on each zone (add-on Zones page and the card
+    zone action sheet), so you can **skip the next run of one bed without
+    disabling it** — no more toggling a zone/group off and remembering to turn
+    it back on.
+  A pause only skips **automatic** runs (schedules, soil and weather triggers);
+  manual runs always work. Automatic resume at the end of the window.
+- New API: `POST /api/groups/:id/pause` and `POST /api/zones/:id/pause`
+  (`{ hours }`, 0 = resume). New MQTT commands `pause`, `pause_group`,
+  `pause_zone`. Hub attributes gain `pausedUntil` on each group and zone.
+- Migration-safe: adds a nullable `snoozeUntil` column to zones (groups already
+  had one). The unused per-zone *ignore rain delay* flag is retired; the stored
+  field is left untouched.
+
 ## 0.1.17
 
 - **Fix: upcoming-run duration ignored the group's execution mode** — a

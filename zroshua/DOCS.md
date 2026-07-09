@@ -25,7 +25,7 @@ and applies instantly without restarts.
 
 - **Zone** — one irrigation line: one or more HA entities switched together, a default
   duration, an optional flow rate (exact l/min or a min–max range), a max-runtime failsafe,
-  optional cycle & soak, per-zone ignore flags (rain sensor / weather / rain delay).
+  optional cycle & soak, per-zone ignore flags (rain sensor / weather), a pause control.
 - **Water source** *(optional)* — declares hydraulics: max flow budget (l/min), a pump
   entity with start/stop delays (the pump is reference-counted across zones), a dependency
   on another source (a barrel refilled by the well is blocked while well zones run),
@@ -80,7 +80,10 @@ the run is skipped with a journal reason).
   above 30 °C → +30 %) driven by the forecast max, yesterday's local sensor max, or a
   combination (max / average). Schedule planning reserves the worst-case boost so extended
   runs can never violate group rules.
-- Manual rain delay (hours/days) and global snooze, both with automatic resume.
+- **Pause** at three levels — global (all watering), per group and per zone — for a chosen
+  number of hours, with automatic resume. A pause skips only automatic runs (schedules, soil
+  and weather triggers); manual runs always work. Use a group/zone pause to skip the next run
+  without disabling it.
 
 ## Sensors
 
@@ -154,7 +157,7 @@ Zroshua the credentials automatically and the following entities appear in Home 
 | `binary_sensor.zroshua_watering_active` | Whether anything is watering. |
 | `sensor.zroshua_water_today` / `sensor.zroshua_pump_energy_today` | Daily consumption totals. |
 | `sensor.<source>_water_today` per water source | Daily liters attributed to that source (a run is attributed via its zone's source; zones without a source count only toward the total). |
-| `switch.zroshua_snooze` | Pause all watering for 24 h. |
+| `switch.zroshua_snooze` | Pause all automatic watering for 24 h (turn off to resume). |
 
 The consumption sensors carry `device_class` (`water` / `energy`) and
 `state_class: total_increasing` (the midnight reset to 0 reads as a meter reset), so

@@ -98,7 +98,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   private startingZones = new Set<string>();
   /** queued items whose startRun() is in flight — counted as active by all constraints */
   private pendingStarts: QueuedRun[] = [];
-  rainDelayUntil = 0;
+  /** Global pause: skip all automatic runs until this ms timestamp. Manual runs ignore it. */
   snoozeUntil = 0;
   paused = false;
 
@@ -120,7 +120,6 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.reloadConfig();
-    this.rainDelayUntil = await this.config.getKV('rainDelayUntil', 0);
     this.snoozeUntil = await this.config.getKV('snoozeUntil', 0);
     this.lastWetTs = await this.config.getKV('lastWetTs', 0);
     this.firedOccurrences = new Set(await this.config.getKV<string[]>('firedOccurrences', []));
@@ -272,9 +271,11 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     const containing = this.groups.find((g) => g.zoneIds.includes(zone.id));
     const groupId = containing?.id ?? null;
-    if (this.snoozeUntil > now) return this.skip(groupId, zone.id, 'snoozed', 'snoozed');
-    if (this.rainDelayUntil > now && !zone.ignore?.rain_delay)
-      return this.skip(groupId, zone.id, 'rain_delay', 'rain delay is active');
+    if (this.snoozeUntil > now) return this.skip(groupId, zone.id, 'paused', 'all watering is paused');
+    if (containing?.snoozeUntil && Number(containing.snoozeUntil) > now)
+      return this.skip(groupId, zone.id, 'group_paused', 'group is paused');
+    if (zone.snoozeUntil && Number(zone.snoozeUntil) > now)
+      return this.skip(groupId, zone.id, 'zone_paused', 'zone is paused');
     const settings = await this.config.getSettings();
     if ((await this.rainIsWet(settings)) && !zone.ignore?.rain_sensor)
       return this.skip(groupId, zone.id, 'rain_sensor', 'rain sensor is wet (or in dry-out window)');
@@ -365,11 +366,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
     if (!manual) {
       if (this.snoozeUntil > now)
-        return this.skip(group.id, null, 'snoozed', `snoozed until ${new Date(this.snoozeUntil).toLocaleString()}`);
-      if (this.rainDelayUntil > now)
-        return this.skip(group.id, null, 'rain_delay', `rain delay until ${new Date(this.rainDelayUntil).toLocaleString()}`);
+        return this.skip(group.id, null, 'paused', `all watering paused until ${new Date(this.snoozeUntil).toLocaleString()}`);
       if (group.snoozeUntil && Number(group.snoozeUntil) > now)
-        return this.skip(group.id, null, 'group_snoozed', 'group is snoozed');
+        return this.skip(group.id, null, 'group_paused', `group paused until ${new Date(Number(group.snoozeUntil)).toLocaleString()}`);
     }
 
     if (!manual) {
@@ -397,6 +396,10 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (!zone || !zone.enabled) continue;
       if (this.faultZones.has(zone.id)) {
         await this.skip(group.id, zone.id, 'fault', 'zone is in fault state');
+        continue;
+      }
+      if (!manual && zone.snoozeUntil && Number(zone.snoozeUntil) > now) {
+        await this.skip(group.id, zone.id, 'zone_paused', `zone paused until ${new Date(Number(zone.snoozeUntil)).toLocaleString()}`);
         continue;
       }
       if (!manual && wet && !zone.ignore?.rain_sensor) {
@@ -1471,17 +1474,31 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     return { bands, worstFactor: maxBoost };
   }
 
-  async setRainDelay(hours: number) {
-    this.rainDelayUntil = hours > 0 ? Date.now() + hours * 3600_000 : 0;
-    await this.config.setKV('rainDelayUntil', this.rainDelayUntil);
-    await this.journal.add('info', { code: 'rain_delay', detail: hours > 0 ? `rain delay for ${hours}h` : 'rain delay cleared' });
+  /** Pause all automatic watering for `hours` (0 = resume now). Manual runs are unaffected. */
+  async setGlobalPause(hours: number) {
+    this.snoozeUntil = hours > 0 ? Date.now() + hours * 3600_000 : 0;
+    await this.config.setKV('snoozeUntil', this.snoozeUntil);
+    await this.journal.add('info', { code: 'pause', detail: hours > 0 ? `all watering paused for ${hours}h` : 'pause cleared' });
     this.broadcastState();
   }
 
-  async setSnooze(hours: number) {
-    this.snoozeUntil = hours > 0 ? Date.now() + hours * 3600_000 : 0;
-    await this.config.setKV('snoozeUntil', this.snoozeUntil);
-    await this.journal.add('info', { code: 'snooze', detail: hours > 0 ? `all watering snoozed for ${hours}h` : 'snooze cleared' });
+  /** Pause one group's automatic runs for `hours` (0 = resume). Manual runs still work. */
+  async setGroupPause(groupId: string, hours: number) {
+    const until = hours > 0 ? Date.now() + hours * 3600_000 : null;
+    await this.groupsRepo.update({ id: groupId }, { snoozeUntil: until });
+    const g = this.groups.find((x) => x.id === groupId);
+    if (g) g.snoozeUntil = until;
+    await this.journal.add('info', { groupId, code: 'group_pause', detail: hours > 0 ? `group paused for ${hours}h` : 'group pause cleared' });
+    this.broadcastState();
+  }
+
+  /** Pause one zone's automatic runs for `hours` (0 = resume). Manual runs still work. */
+  async setZonePause(zoneId: string, hours: number) {
+    const until = hours > 0 ? Date.now() + hours * 3600_000 : null;
+    await this.zonesRepo.update({ id: zoneId }, { snoozeUntil: until });
+    const z = this.zone(zoneId);
+    if (z) z.snoozeUntil = until;
+    await this.journal.add('info', { zoneId, code: 'zone_pause', detail: hours > 0 ? `zone paused for ${hours}h` : 'zone pause cleared' });
     this.broadcastState();
   }
 
@@ -1495,7 +1512,6 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     return {
       now,
       paused: this.paused,
-      rainDelayUntil: this.rainDelayUntil || null,
       snoozeUntil: this.snoozeUntil || null,
       haConnected: this.ha.connected,
       active: this.active.map((a) => ({

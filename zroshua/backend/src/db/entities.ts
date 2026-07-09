@@ -23,6 +23,8 @@ export class Zone {
   @Column('simple-json', { default: '[]' }) schedules: Schedule[];
   @Column({ default: true }) enabled: boolean;
   @Column({ default: 0 }) orderIndex: number;
+  // temporary pause: skip automatic runs until this timestamp (ms). Manual runs ignore it.
+  @Column({ type: 'bigint', nullable: true }) snoozeUntil: number | null;
 }
 
 export type GroupMode = 'sequential' | 'parallel' | 'parallel_limit';

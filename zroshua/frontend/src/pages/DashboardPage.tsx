@@ -14,9 +14,8 @@ import {
   ActionIcon,
 } from '@mantine/core';
 import {
-  IconCloudRain,
   IconPlayerStop,
-  IconZzz,
+  IconPlayerPause,
   IconPlus,
   IconDroplet,
   IconPlant2,
@@ -91,7 +90,6 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
     if (h > 0) return `in ${h}h ${String(m).padStart(2, '0')}m`;
     return `in ${m}m`;
   };
-  const [delayOpen, setDelayOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [hours, setHours] = useState(24);
 
@@ -264,11 +262,8 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
               <Button color="red" leftSection={<IconPlayerStop size={16} />} onClick={() => act(() => api.post('/stop-all'), 'All stopped')}>
                 Stop all
               </Button>
-              <Button variant="light" leftSection={<IconCloudRain size={16} />} onClick={() => setDelayOpen(true)}>
-                {state?.rainDelayUntil ? 'Rain delay ✓' : 'Rain delay'}
-              </Button>
-              <Button variant="light" leftSection={<IconZzz size={16} />} onClick={() => setSnoozeOpen(true)}>
-                {state?.snoozeUntil ? 'Snoozed ✓' : 'Snooze'}
+              <Button variant="light" leftSection={<IconPlayerPause size={16} />} onClick={() => setSnoozeOpen(true)}>
+                {state?.snoozeUntil ? `Paused until ${fmtTime(state.snoozeUntil)}` : 'Pause all'}
               </Button>
             </Group>
             {state?.pumpStates.length ? (
@@ -314,25 +309,16 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
         )}
       </Card>
 
-      <Modal opened={delayOpen} onClose={() => setDelayOpen(false)} title="Rain delay">
+      <Modal opened={snoozeOpen} onClose={() => setSnoozeOpen(false)} title="Pause all watering">
         <Stack>
-          <SliderInput label="Delay watering for" value={hours} onChange={setHours} min={0} max={336} step={6} unit="h" />
+          <Text size="sm" c="dimmed">
+            Skip all automatic (scheduled, soil, weather) watering for a while. Manual runs still work.
+          </Text>
+          <SliderInput label="Pause for" value={hours} onChange={setHours} min={0} max={336} step={6} unit="h" />
           <Group>
-            <Button onClick={() => act(() => api.post('/rain-delay', { hours }), 'Rain delay set').then(() => setDelayOpen(false))}>Set</Button>
-            <Button variant="light" onClick={() => act(() => api.post('/rain-delay', { hours: 0 }), 'Cleared').then(() => setDelayOpen(false))}>
-              Clear
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      <Modal opened={snoozeOpen} onClose={() => setSnoozeOpen(false)} title="Snooze all watering">
-        <Stack>
-          <SliderInput label="Snooze for" value={hours} onChange={setHours} min={0} max={336} step={6} unit="h" />
-          <Group>
-            <Button onClick={() => act(() => api.post('/snooze', { hours }), 'Snoozed').then(() => setSnoozeOpen(false))}>Set</Button>
-            <Button variant="light" onClick={() => act(() => api.post('/snooze', { hours: 0 }), 'Cleared').then(() => setSnoozeOpen(false))}>
-              Clear
+            <Button onClick={() => act(() => api.post('/snooze', { hours }), 'Paused').then(() => setSnoozeOpen(false))}>Pause</Button>
+            <Button variant="light" onClick={() => act(() => api.post('/snooze', { hours: 0 }), 'Resumed').then(() => setSnoozeOpen(false))}>
+              Resume now
             </Button>
           </Group>
         </Stack>

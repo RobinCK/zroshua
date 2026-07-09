@@ -93,13 +93,8 @@ export default function App() {
               </Badge>
             )}
             {state?.snoozeUntil && (
-              <Badge color="gray" variant="light" size="lg">
-                snoozed
-              </Badge>
-            )}
-            {state?.rainDelayUntil && (
-              <Badge color="blue" variant="light" size="lg">
-                rain delay
+              <Badge color="orange" variant="light" size="lg">
+                paused
               </Badge>
             )}
           </Group>

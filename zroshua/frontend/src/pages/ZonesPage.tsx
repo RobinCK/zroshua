@@ -19,7 +19,7 @@ import { IconDroplet, IconEdit, IconPlayerStop, IconTrash } from '@tabler/icons-
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Settings, WaterSource, Zone } from '../api';
 import { useResource, fmtDur } from '../hooks';
-import { EntityMultiSelect, SliderInput } from '../components/common';
+import { EntityMultiSelect, SliderInput, PauseControl } from '../components/common';
 import ScheduleEditor, { emptySchedule } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
 
@@ -133,6 +133,11 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               <Group gap="xs">
                 <Text fw={600}>{z.name}</Text>
                 {running.has(z.id) && <Badge color="teal">watering</Badge>}
+                {!!z.snoozeUntil && z.snoozeUntil > Date.now() && (
+                  <Badge color="orange" variant="light">
+                    paused
+                  </Badge>
+                )}
                 {faults.has(z.id) && (
                   <Badge
                     color="red"
@@ -145,6 +150,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                 )}
               </Group>
               <Group gap={4}>
+                <PauseControl path={`/zones/${z.id}`} pausedUntil={z.snoozeUntil} onChange={reload} />
                 <ActionIcon variant="subtle" onClick={() => openEdit(z)}>
                   <IconEdit size={18} />
                 </ActionIcon>

@@ -1,6 +1,56 @@
-import { Select, MultiSelect, Slider, Group, Text, NumberInput } from '@mantine/core';
+import { Select, MultiSelect, Slider, Group, Text, NumberInput, Menu, ActionIcon } from '@mantine/core';
+import { IconPlayerPause, IconPlayerPlay } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { useResource } from '../hooks';
-import { HaEntity } from '../api';
+import { api, HaEntity } from '../api';
+
+/** Pause/resume automatic runs for a group or zone. `path` is e.g. `/groups/beds` or `/zones/bed1`. */
+export function PauseControl({
+  path,
+  pausedUntil,
+  onChange,
+}: {
+  path: string;
+  pausedUntil: number | null;
+  onChange?: () => void;
+}) {
+  const paused = !!pausedUntil && pausedUntil > Date.now();
+  const until = paused ? new Date(pausedUntil!).toLocaleString() : '';
+  const set = (hours: number) =>
+    api
+      .post(`${path}/pause`, { hours })
+      .then(() => {
+        notifications.show({ message: hours ? 'Paused' : 'Resumed', color: hours ? 'orange' : 'teal' });
+        onChange?.();
+      })
+      .catch((e) => notifications.show({ message: e.message, color: 'red' }));
+  return (
+    <Menu shadow="md" position="bottom-end" withinPortal>
+      <Menu.Target>
+        <ActionIcon
+          variant={paused ? 'light' : 'subtle'}
+          color={paused ? 'orange' : 'gray'}
+          title={paused ? `Paused until ${until}` : 'Pause automatic runs'}
+        >
+          {paused ? <IconPlayerPlay size={18} /> : <IconPlayerPause size={18} />}
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>{paused ? `Paused until ${until}` : 'Pause automatic runs'}</Menu.Label>
+        {[3, 6, 12, 24, 48].map((h) => (
+          <Menu.Item key={h} onClick={() => set(h)}>
+            Pause {h}h
+          </Menu.Item>
+        ))}
+        {paused && (
+          <Menu.Item color="teal" onClick={() => set(0)}>
+            Resume now
+          </Menu.Item>
+        )}
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
 
 export function EntitySelect({
   label,

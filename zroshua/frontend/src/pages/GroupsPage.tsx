@@ -20,7 +20,7 @@ import { IconEdit, IconPlayerPlay, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, Group as ZGroup, GroupRule, Settings, Zone } from '../api';
 import { useResource } from '../hooks';
-import { SliderInput } from '../components/common';
+import { SliderInput, PauseControl } from '../components/common';
 import ScheduleEditor, { emptySchedule, estimateRunMinutes, ZoneInfo } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
 
@@ -124,6 +124,11 @@ export default function GroupsPage() {
               <Text fw={600}>{g.name}</Text>
               <Badge variant="light">{g.mode}</Badge>
               {!g.enabled && <Badge color="gray">disabled</Badge>}
+              {!!g.snoozeUntil && g.snoozeUntil > Date.now() && (
+                <Badge color="orange" variant="light">
+                  paused
+                </Badge>
+              )}
               <Badge variant="light" color="grape">
                 ×{g.multiplierPct}%
               </Badge>
@@ -142,6 +147,7 @@ export default function GroupsPage() {
               >
                 <IconPlayerPlay size={18} />
               </ActionIcon>
+              <PauseControl path={`/groups/${g.id}`} pausedUntil={g.snoozeUntil} onChange={reload} />
               <ActionIcon variant="subtle" onClick={() => openEditor(g)}>
                 <IconEdit size={18} />
               </ActionIcon>

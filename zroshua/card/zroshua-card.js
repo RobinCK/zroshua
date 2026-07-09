@@ -26,6 +26,7 @@ const I = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2" stroke-linecap="round"/></svg>',
   rain: '<svg viewBox="0 0 24 24"><path d="M7 15a5 5 0 0 1-.9-9.9 6 6 0 0 1 11.5 1.7A4 4 0 0 1 17 15H7z"/><path d="M8.5 17.5l-1.2 2.6M12.5 17.5l-1.2 2.6M16.5 17.5l-1.2 2.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>',
   zzz: '<svg viewBox="0 0 24 24"><path d="M5 8h6l-6 7h6M14 5h5l-5 6h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><rect x="6.5" y="5.5" width="4" height="13" rx="1.5"/><rect x="13.5" y="5.5" width="4" height="13" rx="1.5"/></svg>',
   warn: '<svg viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><rect x="11" y="9.5" width="2" height="5.5" fill="var(--card-background-color,#000)"/><rect x="11" y="16.6" width="2" height="2" fill="var(--card-background-color,#000)"/></svg>',
   queue:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h6"/></svg>',
@@ -119,6 +120,7 @@ class ZroshuaCard extends HTMLElement {
     if (z.fault) return { key: 'fault', label: 'fault', cls: 'danger' };
     if (z.running) return { key: 'running', label: z.endsAt ? this._left(z.endsAt) : 'watering', cls: 'ok' };
     if (z.queued) return { key: 'queued', label: 'queued', cls: 'warn' };
+    if (z.pausedUntil && z.pausedUntil > Date.now()) return { key: 'paused', label: 'paused', cls: 'warn' };
     if (!z.enabled) return { key: 'off', label: 'off', cls: 'muted' };
     return { key: 'idle', label: `${Math.round(z.baseMin)}m`, cls: 'idle' };
   }
@@ -161,8 +163,14 @@ class ZroshuaCard extends HTMLElement {
       if (this._sel) { this._sel = null; this._render(); }
     });
     on('[data-stop-all]', () => this._cmd('stop_all'));
-    on('[data-snooze]', () => this._cmd('snooze', { hours: 24 }));
-    on('[data-rain]', () => this._cmd('rain_delay', { hours: 24 }));
+    on('[data-pause-all]', (el) => this._cmd('pause', { hours: Number(el.dataset.pauseAll) }));
+    on('[data-pause-group]', (el) => {
+      this._cmd('pause_group', { groupId: el.dataset.pauseGroup, hours: Number(el.dataset.hours) });
+    });
+    on('[data-pause-zone]', (el) => {
+      this._cmd('pause_zone', { zoneId: el.dataset.pauseZone, hours: Number(el.dataset.hours) });
+      if (this._sel) { this._sel = null; this._render(); }
+    });
     on('[data-zone-sel]', (el) => {
       const next = this._sel === el.dataset.zoneSel ? null : el.dataset.zoneSel;
       this._openAnim = next !== null && this._sel === null; // animate only on open, not re-render
@@ -214,8 +222,11 @@ class ZroshuaCard extends HTMLElement {
         ${queue ? `<div class="sec">Queue</div>${queue}` : ''}
         <div class="actions">
           ${this._btn({ cls: 'danger', data: 'data-stop-all', icon: I.stop, label: 'Stop all' })}
-          ${this._btn({ cls: 'ghost', data: 'data-rain', icon: I.rain, label: a.rainDelayUntil ? 'Rain delay ✓' : 'Rain delay 24h' })}
-          ${this._btn({ cls: 'ghost', data: 'data-snooze', icon: I.zzz, label: a.snoozeUntil ? 'Snoozed ✓' : 'Snooze 24h' })}
+          ${
+            a.snoozeUntil
+              ? this._btn({ cls: 'ghost', data: 'data-pause-all="0"', icon: I.play, label: `Resume (paused till ${this._fmtTime(a.snoozeUntil)})` })
+              : this._btn({ cls: 'ghost', data: 'data-pause-all="24"', icon: I.pause, label: 'Pause 24h' })
+          }
         </div>
         ${this._sheet(a)}
       </div>`;
@@ -224,21 +235,27 @@ class ZroshuaCard extends HTMLElement {
   _view_groups(a) {
     const tiles = (a.groups || [])
       .map((g) => {
-        const state = g.running ? 'run' : g.enabled ? 'idle' : 'off';
+        const paused = g.pausedUntil && g.pausedUntil > Date.now();
+        const state = g.running ? 'run' : paused ? 'paused' : g.enabled ? 'idle' : 'off';
         const modeIcon = g.mode === 'sequential' ? I.seq : I.par;
+        const pauseBtn = paused
+          ? this._btn({ cls: 'ghost icon', data: `data-pause-group="${this._esc(g.id)}" data-hours="0"`, icon: I.play, title: 'Resume group' })
+          : this._btn({ cls: 'ghost icon', data: `data-pause-group="${this._esc(g.id)}" data-hours="12"`, icon: I.pause, title: 'Pause group 12h' });
         const nextRow = g.running
           ? `<div class="gnext ok"><span class="ci">${I.drop}</span>${g.activeZones != null ? `${g.activeZones} watering` : 'watering'}${g.queuedZones ? ` &middot; ${g.queuedZones} queued` : ''}</div>
              <div class="shimmer"></div>`
-          : g.nextTs
-            ? `<div class="gnext"><span class="ci">${I.clock}</span>${this._countdown(g.nextTs)} &middot; ${this._fmtTime(g.nextTs)}${g.nextMinutes ? ` &middot; ${g.nextMinutes}m` : ''}</div>`
-            : `<div class="gnext muted"><span class="ci">${I.clock}</span>no schedule</div>`;
+          : paused
+            ? `<div class="gnext warn"><span class="ci">${I.pause}</span>paused &middot; until ${this._fmtTime(g.pausedUntil)}</div>`
+            : g.nextTs
+              ? `<div class="gnext"><span class="ci">${I.clock}</span>${this._countdown(g.nextTs)} &middot; ${this._fmtTime(g.nextTs)}${g.nextMinutes ? ` &middot; ${g.nextMinutes}m` : ''}</div>`
+              : `<div class="gnext muted"><span class="ci">${I.clock}</span>no schedule</div>`;
         const btn = g.running
           ? this._btn({ cls: 'danger block', data: `data-stop-group="${this._esc(g.id)}"`, icon: I.stop, label: 'Stop group' })
           : this._btn({ cls: 'primary block', data: `data-run-group="${this._esc(g.id)}"`, icon: I.play, label: 'Run', disabled: !g.enabled });
         return `<div class="gtile ${state}">
           <div class="ghead">
             <span class="gname" title="${this._esc(g.name)}">${this._esc(g.name)}</span>
-            <span class="gmode" title="${g.mode}">${modeIcon}</span>
+            <span class="ghead-actions">${pauseBtn}<span class="gmode" title="${g.mode}">${modeIcon}</span></span>
           </div>
           <div class="gmeta muted small">${g.zoneCount} zones &middot; ${g.schedules} schedule${g.schedules === 1 ? '' : 's'}${g.enabled ? '' : ' &middot; disabled'}</div>
           ${nextRow}
@@ -321,12 +338,16 @@ class ZroshuaCard extends HTMLElement {
     const st = this._status(z);
     const base = Math.round(z.baseMin) || 10;
     const presets = [...new Set([5, 10, 15, base])].sort((x, y) => x - y).filter((m) => m <= (z.maxMin || 999));
+    const paused = z.pausedUntil && z.pausedUntil > Date.now();
     const anim = this._openAnim ? ' anim' : '';
     this._openAnim = false;
+    const pauseRow = paused
+      ? this._btn({ cls: 'ghost block', data: `data-pause-zone="${this._esc(z.id)}" data-hours="0"`, icon: I.play, label: `Resume (paused till ${this._fmtTime(z.pausedUntil)})` })
+      : this._btn({ cls: 'ghost block', data: `data-pause-zone="${this._esc(z.id)}" data-hours="12"`, icon: I.pause, label: 'Pause 12h' });
     return `<div class="ovl" data-close-sel></div><div class="sheet${anim}">
       <div class="shead">
         <span class="zi big">${zoneIcon(z.type)}</span>
-        <div class="grow"><b>${this._esc(z.name)}</b><div class="zs ${st.cls} small"><span class="dot"></span>${st.label}</div></div>
+        <div class="grow"><b>${this._esc(z.name)}</b><div class="zs ${paused ? 'warn' : st.cls} small"><span class="dot"></span>${paused ? 'paused' : st.label}</div></div>
         ${this._btn({ cls: 'ghost icon', data: 'data-close-sel', icon: I.x, title: 'Close' })}
       </div>
       ${
@@ -346,6 +367,7 @@ class ZroshuaCard extends HTMLElement {
                 .join('')}
             </div>`
       }
+      <div class="srow" style="margin-top:7px">${pauseRow}</div>
     </div>`;
   }
 
@@ -466,13 +488,16 @@ const STYLE = `
     display: flex; flex-direction: column; gap: 7px; overflow: hidden; }
   .gtile.run { border-color: color-mix(in srgb, var(--z-ok) 55%, transparent);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z-ok) 40%, transparent); }
+  .gtile.paused { border-color: color-mix(in srgb, var(--z-warn) 45%, transparent); }
   .gtile.off { opacity: .55; }
   .ghead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ghead-actions { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
   .gname { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gmode { color: var(--secondary-text-color); }
   .gmode svg { width: 16px; height: 16px; }
   .gnext { font-size: .82rem; color: var(--secondary-text-color); display: flex; align-items: center; }
   .gnext.ok { color: var(--z-ok); font-weight: 600; }
+  .gnext.warn { color: var(--z-warn); font-weight: 600; }
   .gnext .ci svg { width: 14px; height: 14px; }
   .shimmer { height: 4px; border-radius: 3px; overflow: hidden; position: relative; background: color-mix(in srgb, var(--z-ok) 22%, transparent); }
   .shimmer::after { content: ''; position: absolute; inset: 0; width: 45%; border-radius: 3px;

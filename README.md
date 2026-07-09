@@ -65,7 +65,8 @@ Live overview: what is watering right now (with progress, `+5 min` and stop butt
 **queue with the exact reason** each run is waiting (`sequential group busy`, `mutex with
 group X`, `flow budget exceeded`…), info tiles (zones, groups, today's water and time),
 weather with a 7-day forecast, countdowns to upcoming waterings and quick actions
-(stop all / rain delay / snooze).
+(stop all / pause all watering for a set number of hours). Tapping a running or queued
+zone opens its action sheet (stop, water for a preset, pause).
 
 ### Timeline
 
@@ -121,14 +122,20 @@ sensor won't leave the garden dry.
 A zone = one irrigation line: one or more HA entities switched together, a default duration
 (the preset for manual runs), an optional **flow rate** (exact l/min or a min–max range) used
 for statistics and flow budgets, a **max-runtime failsafe**, optional cycle & soak, per-zone
-ignore flags (rain sensor / weather / rain delay) and — when one bed needs more water than
+ignore flags (rain sensor / weather) and — when one bed needs more water than
 its group — **own schedules** in addition to the group's.
 
 ![Zones](docs/screenshots/zones.png)
 
-**Manual runs always start**: they ignore the rain sensor, weather and rain delay; hydraulic
+**Manual runs always start**: they ignore the rain sensor, weather and any pause; hydraulic
 conflicts produce a warning, not a block. Every manual run is a timer — the zone always
 switches off by itself (with the max-runtime failsafe as a second, independent layer).
+
+**Pause** (skip without disabling): every zone and every group has a pause control — pause
+its automatic runs for a chosen number of hours (3 / 6 / 12 / 24 / 48) and it resumes by
+itself, or resume it manually. There is also a global *Pause all watering* on the dashboard.
+A pause only skips **automatic** watering (schedules, soil and weather triggers); manual runs
+still work. Use it to skip today's run for one bed or group without turning it off.
 
 ### Water sources
 
@@ -231,7 +238,7 @@ title: Irrigation # optional
 
 | View | What it shows |
 |---|---|
-| `dashboard` | Tiles (watering now / queued / water today / next), live runs with progress + stop, the queue with reasons, and stop-all / rain-delay / snooze buttons. |
+| `dashboard` | Tiles (watering now / queued / water today / next), live runs with progress + stop, the queue with reasons, tap a run/queued zone for its action sheet, and stop-all / pause-all buttons. |
 | `groups` | Modern tiles per group: execution mode, "N watering · M queued" while running, countdown to the next start and a full-width **Run / Stop group** button. |
 | `zones` | Zones grouped into sections by watering group with **filter chips** (All / Active / Idle / Off); tapping a zone opens an action sheet with duration presets and Stop — built for dozens of zones. |
 | `upcoming` | The next scheduled runs with countdowns. |
@@ -256,8 +263,9 @@ back through the `mqtt.publish` service — so it stays live and needs no per-en
 
 ![Card: timeline](docs/screenshots/card-timeline.png)
 
-Tapping a zone opens a floating action sheet over the list — no scrolling even with
-dozens of zones:
+Group tiles have a **pause** control (and the zone action sheet a Pause / Resume button) so
+you can skip a group or a single zone for a few hours without disabling it. Tapping a zone
+opens a floating action sheet over the list — no scrolling even with dozens of zones:
 
 <img src="docs/screenshots/card-zone-sheet.png" width="320" alt="Zone action sheet on mobile" />
 
@@ -266,7 +274,7 @@ dozens of zones:
 With the Mosquitto add-on installed, Zroshua automatically publishes a "Zroshua" device:
 per-zone watering switches (turn on = manual run with auto-off), next-watering timestamp
 sensors, a watering-active binary sensor, daily water/energy sensors **plus a daily water
-sensor per water source** (well vs. barrel) and a snooze switch. The consumption sensors
+sensor per water source** (well vs. barrel) and a pause-all switch. The consumption sensors
 carry `device_class`/`state_class`, so Home Assistant records long-term statistics — the
 built-in *statistics-graph* card charts liters per hour / day / week out of the box, and
 the sensors fit the Energy dashboard. Availability uses a Last-Will message, so a dead

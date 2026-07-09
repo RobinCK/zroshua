@@ -98,15 +98,21 @@ export class ActionsController {
     return { ok: true };
   }
 
-  @Post('rain-delay')
-  async rainDelay(@Body() body: { hours: number }) {
-    await this.engine.setRainDelay(body?.hours ?? 0);
+  @Post('snooze')
+  async snooze(@Body() body: { hours: number }) {
+    await this.engine.setGlobalPause(body?.hours ?? 0);
     return { ok: true };
   }
 
-  @Post('snooze')
-  async snooze(@Body() body: { hours: number }) {
-    await this.engine.setSnooze(body?.hours ?? 0);
+  @Post('groups/:id/pause')
+  async pauseGroup(@Param('id') id: string, @Body() body: { hours: number }) {
+    await this.engine.setGroupPause(id, body?.hours ?? 0);
+    return { ok: true };
+  }
+
+  @Post('zones/:id/pause')
+  async pauseZone(@Param('id') id: string, @Body() body: { hours: number }) {
+    await this.engine.setZonePause(id, body?.hours ?? 0);
     return { ok: true };
   }
 
