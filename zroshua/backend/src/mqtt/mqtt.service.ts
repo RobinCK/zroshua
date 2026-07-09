@@ -292,7 +292,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       groupId: u.groupId,
       groupName: u.groupName,
       ts: u.ts,
-      minutes: Math.round(u.zones.reduce((a: number, z: any) => a + z.minutes, 0)),
+      minutes: Math.round(u.durationMin ?? u.zones.reduce((a: number, z: any) => a + z.minutes, 0)),
       zones: u.zones.map((z: any) => z.name),
     }));
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.17
+
+- **Fix: upcoming-run duration ignored the group's execution mode** — a
+  parallel group (e.g. 13 beds × 7 min all together) was shown as the *sum* of
+  its zones ("70m") instead of the real wall-clock length ("7m"). The
+  dashboard's upcoming list, the Lovelace card group tiles and the card's
+  upcoming view now honor the mode: parallel = longest zone, limited parallel =
+  batches, sequential = sum, plus inter-zone delays — matching what the
+  timeline always showed.
+- Upcoming durations also apply per-schedule zone duration overrides and the
+  max-runtime clamp, so the preview matches what will actually run.
+
 ## 0.1.16
 
 - **Daily water sensor per water source**: every water source now gets its own

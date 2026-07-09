@@ -297,7 +297,9 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                 </Text>
                 <Group gap="xs">
                   <Text size="sm" c="dimmed">
-                    {u.zones.length ? `${fmtDur(u.zones.reduce((a, z) => a + z.minutes, 0))} (max ${fmtDur(u.zones.reduce((a, z) => a + z.maxMinutes, 0))})` : ''}
+                    {u.zones.length
+                      ? `${fmtDur(u.durationMin ?? u.zones.reduce((a, z) => a + z.minutes, 0))} (max ${fmtDur(u.maxDurationMin ?? u.zones.reduce((a, z) => a + z.maxMinutes, 0))})`
+                      : ''}
                   </Text>
                   <Badge variant="light" color="grape">
                     {countdown(u.ts)}

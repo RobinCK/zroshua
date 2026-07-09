@@ -1173,25 +1173,58 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     return best;
   }
 
+  /** Wall-clock length of one group run, honoring the execution mode:
+   *  sequential = sum, parallel = longest zone, parallel_limit = batches
+   *  (same batching as plan()), plus the inter-zone delay between batches. */
+  private groupRunMinutes(group: Group, minutes: number[]) {
+    if (!minutes.length) return 0;
+    const batchSize =
+      group.mode === 'parallel' ? minutes.length : group.mode === 'parallel_limit' ? Math.max(1, group.parallelLimit) : 1;
+    let total = 0;
+    let batches = 0;
+    for (let i = 0; i < minutes.length; i += batchSize) {
+      total += Math.max(...minutes.slice(i, i + batchSize));
+      batches++;
+    }
+    return total + ((batches - 1) * (group.interZoneDelayS ?? 0)) / 60;
+  }
+
   async upcoming(days = 7) {
     const now = Date.now();
-    const out: { groupId: string; groupName: string; ts: number; zones: { zoneId: string; name: string; minutes: number; maxMinutes: number }[] }[] = [];
+    const out: {
+      groupId: string;
+      groupName: string;
+      ts: number;
+      durationMin: number;
+      maxDurationMin: number;
+      zones: { zoneId: string; name: string; minutes: number; maxMinutes: number }[];
+    }[] = [];
     const maxBoost = await this.weather.maxBoostPct();
     for (const group of this.groups) {
       for (const occ of occurrences(group, now, now + days * 24 * 3600_000)) {
+        const schedule = (group.schedules ?? []).find((s) => s.id === occ.scheduleId);
+        const zones = group.zoneIds
+          .map((id) => this.zone(id))
+          .filter((z): z is Zone => !!z && z.enabled)
+          .map((z) => {
+            const minutes = Math.min(
+              ((schedule?.zoneDurations?.[z.id] ?? z.baseDurationMin) * group.multiplierPct) / 100,
+              z.maxRuntimeMin || 1e9,
+            );
+            return {
+              zoneId: z.id,
+              name: z.name,
+              minutes,
+              maxMinutes: Math.min((minutes * maxBoost) / 100, z.maxRuntimeMin || 1e9),
+            };
+          });
         out.push({
           groupId: group.id,
           groupName: group.name,
           ts: occ.ts,
-          zones: group.zoneIds
-            .map((id) => this.zone(id))
-            .filter((z): z is Zone => !!z && z.enabled)
-            .map((z) => ({
-              zoneId: z.id,
-              name: z.name,
-              minutes: (z.baseDurationMin * group.multiplierPct) / 100,
-              maxMinutes: Math.min((z.baseDurationMin * group.multiplierPct * maxBoost) / 10000, z.maxRuntimeMin || 1e9),
-            })),
+          durationMin: this.groupRunMinutes(group, zones.map((z) => z.minutes)),
+          maxDurationMin: this.groupRunMinutes(group, zones.map((z) => z.maxMinutes)),
+          zones,
         });
       }
     }

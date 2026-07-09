@@ -193,6 +193,9 @@ export interface Upcoming {
   groupId: string;
   groupName: string;
   ts: number;
+  /** Wall-clock run length honoring the group's execution mode (parallel = longest zone). */
+  durationMin?: number;
+  maxDurationMin?: number;
   zones: { zoneId: string; name: string; minutes: number; maxMinutes: number }[];
 }
 
