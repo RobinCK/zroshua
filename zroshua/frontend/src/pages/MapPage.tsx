@@ -39,7 +39,6 @@ const TYPE_ICON: Record<string, string> = {
     '<g fill="#fff"><circle cx="8.5" cy="13" r="3.8"/><circle cx="14.5" cy="11" r="4.4"/></g><path d="M12 20v-6" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>',
 };
 const typeGlyph = (t: string) => TYPE_ICON[t] ?? TYPE_ICON.sprinkler;
-const SVGNS = 'http://www.w3.org/2000/svg';
 
 /** Elements that make up a zone: new array field, falling back to the legacy single id. */
 function elementsOf(z: Zone): string[] {
@@ -51,6 +50,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
   const { data: map, reload } = useResource<{ svg: string | null; ids: { id: string; label: string | null }[] }>('/map');
   const { data: zones, reload: reloadZones } = useResource<Zone[]>('/zones');
   const containerRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [assignMode, setAssignMode] = useState(false);
   const [assignZoneId, setAssignZoneId] = useState<string | null>(null);
   const [popupZone, setPopupZone] = useState<Zone | null>(null);
@@ -114,9 +114,6 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       svg.removeAttribute('height');
       svg.style.maxHeight = '75vh';
     }
-    const vbW = svg?.viewBox?.baseVal?.width || parseFloat(svg?.getAttribute('width') || '0') || 300;
-    const strokeW = Math.max(1, vbW / 260);
-
     for (const { id } of map.ids) {
       const node = el.querySelector<SVGElement>(`#${CSS.escape(id)}`);
       if (!node) continue;
@@ -128,6 +125,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       node.style.stroke = '';
       node.style.strokeWidth = '';
       node.style.strokeDasharray = '';
+      node.style.vectorEffect = '';
 
       if (assignMode) {
         if (assignSet.has(id)) {
@@ -159,9 +157,11 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         } else if (st === 'queued') {
           node.style.fill = tc;
           node.style.fillOpacity = '0.5';
+          // constant-width dashed outline regardless of the plan's scale
           node.style.stroke = STATE_COLORS.queued;
-          node.style.strokeWidth = String(strokeW);
-          node.style.strokeDasharray = `${strokeW * 3} ${strokeW * 2}`;
+          node.style.strokeWidth = '2';
+          node.style.strokeDasharray = '6 4';
+          node.style.vectorEffect = 'non-scaling-stroke';
           node.style.animation = 'zroshua-dash 0.8s linear infinite';
         } else {
           node.style.fill = tc; // idle
@@ -183,43 +183,57 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       };
     }
 
-    // overlay: remaining minutes at the centre of each watering zone (no chip —
-    // the zone itself carries type via colour and state via the pulse animation).
-    if (svg && !assignMode) {
-      svg.querySelector('#zr-overlay')?.remove();
+    // Remaining-minute labels live in a separate HTML layer (see the layout
+    // effect below) so their size is fixed in pixels and independent of the
+    // plan's scale — SVG <text> would grow/shrink with each different map.
+  }, [map, zoneByElement, assignSet, state, assignMode, zones]);
+
+  // Position the pixel-sized remaining-time labels over the SVG, and keep them
+  // aligned when the map is resized (responsive / different plan aspect ratios).
+  useEffect(() => {
+    const host = containerRef.current;
+    const ov = overlayRef.current;
+    if (!host || !ov) return;
+
+    const layout = () => {
+      ov.innerHTML = '';
+      if (assignMode || !map?.svg) return;
+      const hostRect = host.getBoundingClientRect();
       const now = Date.now();
-      const fs = Math.max(9, vbW / 42);
-      const overlay = document.createElementNS(SVGNS, 'g');
-      overlay.setAttribute('id', 'zr-overlay');
-      overlay.style.pointerEvents = 'none';
       for (const z of zones ?? []) {
         const run = state?.active.find((a) => a.zoneId === z.id);
         if (!run) continue;
         const nodes = elementsOf(z)
-          .map((id) => el.querySelector<SVGGraphicsElement>(`#${CSS.escape(id)}`))
+          .map((id) => host.querySelector<SVGGraphicsElement>(`#${CSS.escape(id)}`))
           .filter((n): n is SVGGraphicsElement => !!n);
         if (!nodes.length) continue;
-        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
         for (const n of nodes) {
-          const b = n.getBBox();
-          x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
-          x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
+          const rc = n.getBoundingClientRect();
+          l = Math.min(l, rc.left); t = Math.min(t, rc.top);
+          r = Math.max(r, rc.right); b = Math.max(b, rc.bottom);
         }
         const mins = Math.max(0, Math.round((run.endsAt - now) / 60000));
-        const t = document.createElementNS(SVGNS, 'text');
-        t.setAttribute('x', String((x0 + x1) / 2));
-        t.setAttribute('y', String((y0 + y1) / 2 + fs * 0.35));
-        t.setAttribute('text-anchor', 'middle');
-        t.setAttribute('font-size', String(fs));
-        t.setAttribute('font-weight', '800');
-        t.setAttribute('fill', '#fff');
-        t.setAttribute('style', 'paint-order:stroke;stroke:rgba(0,0,0,0.55);stroke-width:3px');
-        t.textContent = `${mins}m`;
-        overlay.appendChild(t);
+        const lab = document.createElement('div');
+        lab.textContent = `${mins}m`;
+        lab.style.cssText =
+          `position:absolute;left:${(l + r) / 2 - hostRect.left}px;top:${(t + b) / 2 - hostRect.top}px;` +
+          `transform:translate(-50%,-50%);font:800 13px/1 system-ui,sans-serif;color:#fff;` +
+          `text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.85);white-space:nowrap`;
+        ov.appendChild(lab);
       }
-      svg.appendChild(overlay);
-    }
-  }, [map, zoneByElement, assignSet, state, assignMode, zones]);
+    };
+
+    const raf = requestAnimationFrame(layout);
+    const ro = new ResizeObserver(() => layout());
+    ro.observe(host);
+    window.addEventListener('resize', layout);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener('resize', layout);
+    };
+  }, [map, state, assignMode, zones]);
 
   useEffect(() => {
     if (!popupZone) return;
@@ -314,7 +328,10 @@ export default function MapPage({ state }: { state: EngineState | null }) {
               </Group>
             </Stack>
           )}
-          <div ref={containerRef} />
+          <div style={{ position: 'relative' }}>
+            <div ref={containerRef} />
+            <div ref={overlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+          </div>
           {!assignMode && (
             <Stack gap={8} mt="sm">
               <Group gap="sm">

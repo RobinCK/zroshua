@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.22
+
+- **Map labels are now scale-independent.** The remaining-minute labels were
+  drawn as SVG text in the plan's own coordinates, so they looked different on
+  every map (tiny on large plans, huge on small ones). They are now a separate
+  HTML layer at a fixed pixel size, positioned over each watering zone from its
+  on-screen box and re-aligned on resize. The queued dashed outline is likewise
+  a constant 2 px regardless of the plan's scale.
+
 ## 0.1.21
 
 - **The open page now survives a browser refresh.** The add-on's sidebar
