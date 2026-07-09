@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.16
+
+- **Daily water sensor per water source**: every water source now gets its own
+  `<source name> water today` sensor over MQTT discovery, so well vs. barrel
+  consumption can be charted separately. A run is attributed to its zone's
+  source; runs of zones without a source count only toward the total.
+- **Water & energy sensors are statistics-ready**: `sensor.zroshua_water_today`,
+  `sensor.zroshua_pump_energy_today` and the new per-source sensors carry
+  `device_class` (`water` / `energy`) and `state_class: total_increasing`.
+  Home Assistant now records long-term statistics for them — the built-in
+  *statistics-graph* card charts consumption per hour / day / week, and the
+  sensors fit the Energy dashboard (water source / individual device). The
+  daily midnight reset is understood as a meter reset. Statistics accumulate
+  from this version onward; earlier history is not backfilled.
+- Entity ids of the two totals are pinned via `object_id`
+  (`sensor.zroshua_water_today` / `sensor.zroshua_pump_energy_today`) so new
+  installs get the documented ids; existing installs keep their registered ids.
+
 ## 0.1.15
 
 - **Lovelace card: dashboard entities are now clickable** — tapping a running

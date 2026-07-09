@@ -265,9 +265,12 @@ dozens of zones:
 
 With the Mosquitto add-on installed, Zroshua automatically publishes a "Zroshua" device:
 per-zone watering switches (turn on = manual run with auto-off), next-watering timestamp
-sensors, a watering-active binary sensor, daily water/energy sensors (Energy-dashboard
-ready) and a snooze switch. Availability uses a Last-Will message, so a dead add-on shows
-*unavailable* instead of stale states.
+sensors, a watering-active binary sensor, daily water/energy sensors **plus a daily water
+sensor per water source** (well vs. barrel) and a snooze switch. The consumption sensors
+carry `device_class`/`state_class`, so Home Assistant records long-term statistics — the
+built-in *statistics-graph* card charts liters per hour / day / week out of the box, and
+the sensors fit the Energy dashboard. Availability uses a Last-Will message, so a dead
+add-on shows *unavailable* instead of stale states.
 
 ## Documentation
 

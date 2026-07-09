@@ -152,11 +152,37 @@ Zroshua the credentials automatically and the following entities appear in Home 
 | `switch.<zone>_watering` per zone | Turn on = manual run with the zone default duration (auto-off timer); turn off = stop. Usable in automations and by voice assistants. |
 | `sensor.<zone>_next_watering` per zone | Timestamp of the next scheduled run. |
 | `binary_sensor.zroshua_watering_active` | Whether anything is watering. |
-| `sensor.zroshua_water_today` / `sensor.zroshua_pump_energy_today` | Daily consumption (the energy sensor fits the HA Energy dashboard). |
+| `sensor.zroshua_water_today` / `sensor.zroshua_pump_energy_today` | Daily consumption totals. |
+| `sensor.<source>_water_today` per water source | Daily liters attributed to that source (a run is attributed via its zone's source; zones without a source count only toward the total). |
 | `switch.zroshua_snooze` | Pause all watering for 24 h. |
+
+The consumption sensors carry `device_class` (`water` / `energy`) and
+`state_class: total_increasing` (the midnight reset to 0 reads as a meter reset), so
+Home Assistant records **long-term statistics** for them and they can be added to the
+**Energy dashboard** (water source / individual device).
 
 Availability is handled with a Last-Will message: if the add-on dies, entities show
 *unavailable* instead of stale states. Without a broker the bridge stays dormant.
+
+### Consumption charts
+
+With statistics recorded, the built-in `statistics-graph` card charts water per hour,
+day or week — no extra custom cards:
+
+```yaml
+type: statistics-graph
+title: Water per hour
+chart_type: bar
+period: hour
+days_to_show: 1
+stat_types: [change]
+entities:
+  - sensor.zroshua_water_today   # or the per-source sensors to compare sources
+```
+
+Use `period: day` + `days_to_show: 7` for a week-by-day view, or `period: week` for
+weekly totals. Statistics accumulate from the first start of add-on version 0.1.16 —
+earlier history is not backfilled.
 
 ## Backup & restore
 
