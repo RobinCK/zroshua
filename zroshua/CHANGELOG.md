@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.19
+
+- **Site map now works with any SVG, not just tagged polygons.** Exports from
+  Figma / Sketch / Illustrator are made of plain shapes (`rect`, `path`,
+  `circle`, …) with no `id`, so nothing was clickable. Zroshua now injects a
+  stable id into every shape on upload (existing maps are backfilled on load),
+  and all shape types — not only `polygon` — are assignable.
+- **A zone can be made of several shapes.** *Assign zones* is now a paint flow:
+  pick a zone, then tap the shapes that belong to it (tap again to remove).
+  Tapping a shape owned by another zone moves it. A zone stored as multiple
+  shapes is colored and clickable as one. New per-zone `svgElementIds` field
+  (additive; the legacy single `svgElementId` is migrated automatically).
+- Fix: on a paused group the add-on Groups page showed two play-like icons side
+  by side; the pause control now stays a pause glyph (orange when active).
+
 ## 0.1.18
 
 - **Rain delay is gone; watering is now paused, not delayed.** The manual

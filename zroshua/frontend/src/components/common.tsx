@@ -1,5 +1,5 @@
 import { Select, MultiSelect, Slider, Group, Text, NumberInput, Menu, ActionIcon } from '@mantine/core';
-import { IconPlayerPause, IconPlayerPlay } from '@tabler/icons-react';
+import { IconPlayerPause, IconPlayerPauseFilled } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useResource } from '../hooks';
 import { api, HaEntity } from '../api';
@@ -30,9 +30,9 @@ export function PauseControl({
         <ActionIcon
           variant={paused ? 'light' : 'subtle'}
           color={paused ? 'orange' : 'gray'}
-          title={paused ? `Paused until ${until}` : 'Pause automatic runs'}
+          title={paused ? `Paused until ${until} — click to resume` : 'Pause automatic runs'}
         >
-          {paused ? <IconPlayerPlay size={18} /> : <IconPlayerPause size={18} />}
+          {paused ? <IconPlayerPauseFilled size={18} /> : <IconPlayerPause size={18} />}
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>

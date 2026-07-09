@@ -116,11 +116,13 @@ the run is skipped with a journal reason).
 
 ## Site map
 
-Upload an SVG plan of your property (Inkscape/Figma; one path/polygon per zone). Use
-*Assign zones* mode: tap a polygon, pick the zone. The map colors polygons by live state
-(watering / queued / scheduled / fault / disabled) and tapping a zone opens a popup with
-status, next run and a water-now slider. The SVG is stored in the database and is part of
-config export/import.
+Upload an SVG plan of your property from any editor (Inkscape, Figma, Illustrator) using any
+shapes — rect, path, polygon, circle, ellipse, line. Shapes need no ids; Zroshua injects
+stable ids on upload, so a plain export works. In *Assign zones* mode pick a zone, then tap
+the shapes that make it up — **a zone can be several shapes**; tapping a shape owned by
+another zone moves it. The map colors shapes by live state (watering / queued / scheduled /
+fault / disabled) and tapping a zone opens a popup with status, next run and a water-now
+slider. The SVG is stored in the database and is part of config export/import.
 
 ## Notifications
 

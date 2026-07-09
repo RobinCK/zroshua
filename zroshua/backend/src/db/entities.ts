@@ -17,7 +17,9 @@ export class Zone {
   @Column('float', { default: 60 }) maxRuntimeMin: number;
   @Column('simple-json', { default: '{}' }) ignore: ZoneIgnore;
   @Column('simple-json', { nullable: true }) cycleSoak: CycleSoak;
+  // legacy single SVG element (kept for migration); prefer svgElementIds for multiple shapes
   @Column({ type: 'varchar', nullable: true }) svgElementId: string | null;
+  @Column('simple-json', { default: '[]' }) svgElementIds: string[];
   @Column({ type: 'varchar', nullable: true }) soilSensor: string | null;
   // zone-level schedules: water this zone more often than its group
   @Column('simple-json', { default: '[]' }) schedules: Schedule[];

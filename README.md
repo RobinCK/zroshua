@@ -159,12 +159,20 @@ energy for N minutes after selected groups finish — e.g. while the barrel refi
 
 ### Site map
 
-Draw your property as an SVG (Inkscape/Figma — one path/polygon per zone), upload it and
-link polygons to zones by simply tapping them in *Assign zones* mode. The map colors
-everything by live state — watering (pulsing), queued, scheduled, fault, disabled — and
-tapping a zone opens a popup with its status, next run and a water-now slider.
+Draw your property as an SVG in any editor (Inkscape, Figma, Illustrator) using **any shapes**
+— rectangles, paths, polygons, circles — and upload it. Shapes don't need ids; Zroshua adds
+them automatically, so a plain Figma export works. In *Assign zones* mode you pick a zone and
+tap the shapes that make it up — **a single zone can be several shapes** (a bed drawn as two
+rectangles, a lawn split by a path). The map colors everything by live state — watering
+(pulsing), queued, scheduled, fault, disabled — and tapping a zone opens a popup with its
+status, next run and a water-now slider.
 
 ![Site map](docs/screenshots/map.png)
+
+In *Assign zones* mode you pick a zone and paint the shapes that belong to it (green = this
+zone, purple = another zone, gray = free):
+
+![Assign zones on the map](docs/screenshots/map-assign.png)
 
 ### Statistics
 

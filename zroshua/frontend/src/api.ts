@@ -42,6 +42,7 @@ export interface Zone {
   ignore: { rain_sensor?: boolean; rain_delay?: boolean; weather?: boolean };
   cycleSoak: { max_cycle_min: number; min_soak_min: number } | null;
   svgElementId: string | null;
+  svgElementIds: string[];
   soilSensor: string | null;
   schedules: Schedule[];
   enabled: boolean;
