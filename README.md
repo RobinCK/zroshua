@@ -163,11 +163,11 @@ Draw your property as an SVG in any editor (Inkscape, Figma, Illustrator) using 
 — rectangles, paths, polygons, circles — and upload it. Shapes don't need ids; Zroshua adds
 them automatically, so a plain Figma export works. In *Assign zones* mode you pick a zone and
 tap the shapes that make it up — **a single zone can be several shapes** (a bed drawn as two
-rectangles, a lawn split by a path). The map is two-channel: **fill color = live state**
-(watering / queued / fault / disabled / idle) and a **chip in the middle of each zone shows
-its watering type** (sprinkler, drip, beds, lawn, shrubs), plus the **remaining minutes** while
-it runs — so the plan tells you what kind of irrigation each area is, not only whether it is on.
-Tapping a zone opens a popup with its status, next run and a water-now slider.
+rectangles, a lawn split by a path). The map is two-channel: **fill color = watering type**
+(sprinkler, drip, beds, lawn, shrubs) so the plan reads like a real garden legend, and **live
+state = brightness/animation** — a watering zone brightens and pulses (with its **remaining
+minutes** on it), idle is steady, queued shows a moving dashed outline, fault turns red,
+disabled fades out. Tapping a zone opens a popup with its status, next run and a water-now slider.
 
 ![Site map](docs/screenshots/map.png)
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppShell, Badge, Burger, Group, NavLink, ScrollArea, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -59,10 +59,29 @@ const sections = [
 
 type PageKey = (typeof sections)[number]['items'][number]['key'];
 
+const PAGE_KEYS = new Set<string>(sections.flatMap((s) => s.items.map((i) => i.key)));
+const pageFromHash = (): PageKey => {
+  const h = window.location.hash.replace(/^#/, '');
+  return (PAGE_KEYS.has(h) ? h : 'dashboard') as PageKey;
+};
+
 export default function App() {
   const [opened, { toggle, close }] = useDisclosure();
-  const [page, setPage] = useState<PageKey>('dashboard');
+  // remember the open page across refreshes via the URL hash (also enables back/forward)
+  const [page, setPage] = useState<PageKey>(pageFromHash);
   const { state, journalTick } = useEngineState();
+
+  useEffect(() => {
+    const onHash = () => setPage(pageFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const goto = (k: PageKey) => {
+    if (window.location.hash.replace(/^#/, '') !== k) window.location.hash = k;
+    setPage(k);
+    close();
+  };
 
   return (
     <AppShell
@@ -113,10 +132,7 @@ export default function App() {
                   leftSection={<p.icon size={18} stroke={1.8} />}
                   active={page === p.key}
                   variant="light"
-                  onClick={() => {
-                    setPage(p.key);
-                    close();
-                  }}
+                  onClick={() => goto(p.key)}
                 />
               ))}
             </div>

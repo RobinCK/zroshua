@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.21
+
+- **The open page now survives a browser refresh.** The add-on's sidebar
+  navigation is client-side; it stores the current page in the URL hash, so a
+  reload (or the browser back/forward buttons) keeps you where you were instead
+  of jumping back to the dashboard.
+- **Site map redesign — cleaner and more informative.** Instead of dark icon
+  chips, zones are now **filled by their watering type** (sprinkler / drip / beds
+  / lawn / shrubs — a colored legend maps each), and **live state is shown by the
+  fill itself**: a watering zone brightens and pulses with its remaining minutes
+  on it, idle is steady, queued gets a moving dashed outline, fault turns red,
+  disabled fades. The plan reads at a glance like a real garden diagram.
+
 ## 0.1.20
 
 - **Site map is now two-channel and far more informative.** Besides the live

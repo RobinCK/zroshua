@@ -12,6 +12,17 @@ const STATE_COLORS: Record<string, string> = {
   disabled: '#868e96',
   idle: '#4dabf7',
 };
+
+// Zones are filled by their watering TYPE; live state is shown by opacity/animation.
+const TYPE_COLORS: Record<string, string> = {
+  sprinkler: '#4dabf7',
+  drip: '#22b8cf',
+  beds: '#40c057',
+  lawn: '#82c91e',
+  shrubs: '#9775fa',
+};
+const typeColor = (t: string) => TYPE_COLORS[t] ?? TYPE_COLORS.sprinkler;
+const FAULT_COLOR = '#fa5252';
 const ASSIGN_SELECTED = '#12b886'; // shape belongs to the zone being edited
 const ASSIGN_OTHER = '#7048e8'; // shape belongs to a different zone
 const ASSIGN_FREE = '#adb5bd'; // shape not assigned to any zone
@@ -103,6 +114,9 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       svg.removeAttribute('height');
       svg.style.maxHeight = '75vh';
     }
+    const vbW = svg?.viewBox?.baseVal?.width || parseFloat(svg?.getAttribute('width') || '0') || 300;
+    const strokeW = Math.max(1, vbW / 260);
+
     for (const { id } of map.ids) {
       const node = el.querySelector<SVGElement>(`#${CSS.escape(id)}`);
       if (!node) continue;
@@ -111,6 +125,9 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       node.style.transition = 'fill-opacity 0.3s';
       node.style.outline = '';
       node.style.animation = '';
+      node.style.stroke = '';
+      node.style.strokeWidth = '';
+      node.style.strokeDasharray = '';
 
       if (assignMode) {
         if (assignSet.has(id)) {
@@ -125,10 +142,31 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           node.style.fillOpacity = '0.28';
         }
       } else if (zone) {
+        // fill = watering TYPE color; live state = opacity + animation
         const st = stateOfZone(zone);
-        node.style.fill = STATE_COLORS[st];
-        node.style.fillOpacity = st === 'watering' ? '0.85' : '0.5';
-        if (st === 'watering') node.style.animation = 'zroshua-pulse 1.5s ease-in-out infinite';
+        const tc = typeColor(zone.type);
+        if (st === 'fault') {
+          node.style.fill = FAULT_COLOR;
+          node.style.fillOpacity = '0.8';
+          node.style.animation = 'zroshua-pulse 1.1s ease-in-out infinite';
+        } else if (st === 'disabled') {
+          node.style.fill = tc;
+          node.style.fillOpacity = '0.14';
+        } else if (st === 'watering') {
+          node.style.fill = tc;
+          node.style.fillOpacity = '0.85';
+          node.style.animation = 'zroshua-pulse 1.6s ease-in-out infinite';
+        } else if (st === 'queued') {
+          node.style.fill = tc;
+          node.style.fillOpacity = '0.5';
+          node.style.stroke = STATE_COLORS.queued;
+          node.style.strokeWidth = String(strokeW);
+          node.style.strokeDasharray = `${strokeW * 3} ${strokeW * 2}`;
+          node.style.animation = 'zroshua-dash 0.8s linear infinite';
+        } else {
+          node.style.fill = tc; // idle
+          node.style.fillOpacity = '0.5';
+        }
       } else {
         // unassigned shape in view mode: keep the plan's original look
         node.style.fill = '';
@@ -145,18 +183,18 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       };
     }
 
-    // type/state overlay: a chip with the zone-type glyph (and remaining time
-    // while watering) at the centre of each zone — the map shows what kind of
-    // watering each area is, not only whether it runs.
+    // overlay: remaining minutes at the centre of each watering zone (no chip —
+    // the zone itself carries type via colour and state via the pulse animation).
     if (svg && !assignMode) {
       svg.querySelector('#zr-overlay')?.remove();
-      const vbW = svg.viewBox?.baseVal?.width || parseFloat(svg.getAttribute('width') || '0') || 300;
-      const S = Math.max(16, Math.min(46, vbW / 24)); // chip size in user units
       const now = Date.now();
+      const fs = Math.max(9, vbW / 42);
       const overlay = document.createElementNS(SVGNS, 'g');
       overlay.setAttribute('id', 'zr-overlay');
       overlay.style.pointerEvents = 'none';
       for (const z of zones ?? []) {
+        const run = state?.active.find((a) => a.zoneId === z.id);
+        if (!run) continue;
         const nodes = elementsOf(z)
           .map((id) => el.querySelector<SVGGraphicsElement>(`#${CSS.escape(id)}`))
           .filter((n): n is SVGGraphicsElement => !!n);
@@ -167,40 +205,17 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
           x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
         }
-        const cx = (x0 + x1) / 2;
-        const cy = (y0 + y1) / 2;
-        const g = document.createElementNS(SVGNS, 'g');
-        g.setAttribute('transform', `translate(${cx} ${cy})`);
-        const chip = document.createElementNS(SVGNS, 'rect');
-        chip.setAttribute('x', String(-S / 2));
-        chip.setAttribute('y', String(-S / 2));
-        chip.setAttribute('width', String(S));
-        chip.setAttribute('height', String(S));
-        chip.setAttribute('rx', String(S * 0.28));
-        chip.setAttribute('fill', 'rgba(15,17,20,0.62)');
-        chip.setAttribute('stroke', 'rgba(255,255,255,0.30)');
-        chip.setAttribute('stroke-width', String(Math.max(0.6, S * 0.03)));
-        g.appendChild(chip);
-        const icon = document.createElementNS(SVGNS, 'g');
-        const k = (S * 0.66) / 24;
-        icon.setAttribute('transform', `translate(${-S * 0.33} ${-S * 0.33}) scale(${k})`);
-        icon.innerHTML = typeGlyph(z.type);
-        g.appendChild(icon);
-        const run = state?.active.find((a) => a.zoneId === z.id);
-        if (run) {
-          const mins = Math.max(0, Math.round((run.endsAt - now) / 60000));
-          const t = document.createElementNS(SVGNS, 'text');
-          t.setAttribute('x', '0');
-          t.setAttribute('y', String(S * 0.5 + S * 0.42));
-          t.setAttribute('text-anchor', 'middle');
-          t.setAttribute('font-size', String(S * 0.42));
-          t.setAttribute('font-weight', '700');
-          t.setAttribute('fill', '#fff');
-          t.setAttribute('style', 'paint-order:stroke;stroke:rgba(0,0,0,0.65);stroke-width:3px');
-          t.textContent = `${mins}m`;
-          g.appendChild(t);
-        }
-        overlay.appendChild(g);
+        const mins = Math.max(0, Math.round((run.endsAt - now) / 60000));
+        const t = document.createElementNS(SVGNS, 'text');
+        t.setAttribute('x', String((x0 + x1) / 2));
+        t.setAttribute('y', String((y0 + y1) / 2 + fs * 0.35));
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('font-size', String(fs));
+        t.setAttribute('font-weight', '800');
+        t.setAttribute('fill', '#fff');
+        t.setAttribute('style', 'paint-order:stroke;stroke:rgba(0,0,0,0.55);stroke-width:3px');
+        t.textContent = `${mins}m`;
+        overlay.appendChild(t);
       }
       svg.appendChild(overlay);
     }
@@ -240,7 +255,10 @@ export default function MapPage({ state }: { state: EngineState | null }) {
 
   return (
     <Stack>
-      <style>{`@keyframes zroshua-pulse { 0%,100% { fill-opacity: 0.85; } 50% { fill-opacity: 0.35; } }`}</style>
+      <style>{`
+        @keyframes zroshua-pulse { 0%,100% { fill-opacity: 0.9; } 50% { fill-opacity: 0.32; } }
+        @keyframes zroshua-dash { to { stroke-dashoffset: -10; } }
+      `}</style>
       <Group justify="space-between">
         <Title order={3}>Site map</Title>
         <Group>
@@ -298,34 +316,43 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           )}
           <div ref={containerRef} />
           {!assignMode && (
-            <Stack gap={6} mt="sm">
-              <Group gap="xs">
-                <Text size="xs" c="dimmed" w={44}>
-                  state
-                </Text>
-                {Object.entries(STATE_COLORS).map(([k, c]) => (
-                  <Badge key={k} variant="light" style={{ backgroundColor: `${c}33`, color: c }}>
-                    {k}
-                  </Badge>
-                ))}
-              </Group>
-              <Group gap="xs">
-                <Text size="xs" c="dimmed" w={44}>
+            <Stack gap={8} mt="sm">
+              <Group gap="sm">
+                <Text size="xs" c="dimmed" w={40}>
                   type
                 </Text>
                 {['sprinkler', 'drip', 'beds', 'lawn', 'shrubs'].map((t) => (
-                  <Group key={t} gap={5} wrap="nowrap">
+                  <Group key={t} gap={6} wrap="nowrap">
                     <span
-                      style={{ width: 18, height: 18, display: 'inline-flex', color: 'var(--mantine-color-text)' }}
-                      dangerouslySetInnerHTML={{
-                        __html: `<svg viewBox="0 0 24 24" width="18" height="18">${typeGlyph(t).replace(/#fff/g, 'currentColor')}</svg>`,
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 6,
+                        background: typeColor(t),
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
                       }}
+                      dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 24 24" width="13" height="13">${typeGlyph(t)}</svg>` }}
                     />
                     <Text size="xs" c="dimmed">
                       {t}
                     </Text>
                   </Group>
                 ))}
+              </Group>
+              <Group gap="sm">
+                <Text size="xs" c="dimmed" w={40}>
+                  state
+                </Text>
+                <Text size="xs" c="dimmed">
+                  <b style={{ color: 'var(--mantine-color-text)' }}>watering</b> pulses ·{' '}
+                  <b style={{ color: 'var(--mantine-color-text)' }}>idle</b> steady ·{' '}
+                  <b style={{ color: STATE_COLORS.queued }}>queued</b> dashed outline ·{' '}
+                  <b style={{ color: STATE_COLORS.fault }}>fault</b> red ·{' '}
+                  <b>disabled</b> faded
+                </Text>
               </Group>
             </Stack>
           )}

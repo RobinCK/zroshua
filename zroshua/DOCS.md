@@ -120,11 +120,11 @@ Upload an SVG plan of your property from any editor (Inkscape, Figma, Illustrato
 shapes — rect, path, polygon, circle, ellipse, line. Shapes need no ids; Zroshua injects
 stable ids on upload, so a plain export works. In *Assign zones* mode pick a zone, then tap
 the shapes that make it up — **a zone can be several shapes**; tapping a shape owned by
-another zone moves it. The map colors shapes by live state (watering / queued / scheduled /
-fault / disabled) and overlays a chip at each zone's centre with its **watering type**
-(sprinkler / drip / beds / lawn / shrubs) and the **remaining minutes** while it runs.
-Tapping a zone opens a popup with status, next run and a water-now slider. The SVG is stored
-in the database and is part of config export/import.
+another zone moves it. Shapes are **filled by watering type** (sprinkler / drip / beds / lawn
+/ shrubs) and **live state is shown by brightness/animation**: watering brightens and pulses
+(with remaining minutes on it), idle is steady, queued shows a moving dashed outline, fault
+turns red, disabled fades. Tapping a zone opens a popup with status, next run and a water-now
+slider. The SVG is stored in the database and is part of config export/import.
 
 ## Notifications
 
