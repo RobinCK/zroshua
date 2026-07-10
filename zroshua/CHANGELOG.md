@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.24
+
+- **Map zoom reworked for touch.** Removed wheel-to-zoom on desktop (it hijacked
+  page scrolling); desktop now zooms with the corner buttons and pans by
+  dragging. On mobile you can **pinch-to-zoom and drag with one finger**.
+- **Zoom buttons no longer cover the plan.** The SVG gets right padding so the
+  floating zoom controls sit in a clear strip — top-right shapes stay clickable.
+- **Dashboard stat tiles: aligned icons.** The tile icon was vertically centred
+  on the whole text, so tiles with a sub-line (3 rows) showed the icon lower
+  than tiles without one (2 rows). Icons are now top-aligned and line up across
+  all tiles.
+
 ## 0.1.23
 
 - **Map zoom & pan** for large plans. Zoom buttons in the top-right corner (and

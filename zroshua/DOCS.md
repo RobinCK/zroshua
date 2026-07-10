@@ -124,8 +124,8 @@ another zone moves it. Shapes are **filled by watering type** (sprinkler / drip 
 / shrubs) and **live state is shown by brightness/animation**: watering brightens and pulses
 (with remaining minutes on it), idle is steady, queued shows a moving dashed outline, fault
 turns red, disabled fades. Tapping a zone opens a popup with status, next run and a water-now
-slider. Large plans can be **zoomed and panned** (corner buttons / mouse wheel; drag on
-desktop, one-finger drag on mobile). The SVG is stored in the database and is part of config
+slider. Large plans can be **zoomed and panned** — corner buttons and drag on desktop, pinch-to-zoom
+and one-finger drag on mobile. The SVG is stored in the database and is part of config
 export/import.
 
 ## Notifications

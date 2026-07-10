@@ -45,7 +45,7 @@ function InfoTile({
 }) {
   return (
     <Card p="sm">
-      <Group gap="sm" wrap="nowrap">
+      <Group gap="sm" wrap="nowrap" align="flex-start">
         <ThemeIcon variant="light" color={color} size={40} radius="md">
           {icon}
         </ThemeIcon>

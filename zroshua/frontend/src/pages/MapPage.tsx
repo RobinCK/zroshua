@@ -246,71 +246,119 @@ export default function MapPage({ state }: { state: EngineState | null }) {
     };
   }, [map, state, assignMode, zones, scale]);
 
-  // ---- pan & zoom (mouse wheel + drag, buttons; touch pans natively) --------
+  // ---- pan & zoom: buttons + mouse drag on desktop; one-finger pan and
+  //      two-finger pinch on touch. No wheel-zoom (it hijacks desktop scroll). --
   const clampScale = (s: number) => Math.min(6, Math.max(1, s));
-  const zoomAround = (ns: number, ax?: number, ay?: number) => {
+  // apply a scale imperatively (no React re-render) and keep the point (ax,ay in
+  // viewport px) anchored; returns nothing, updates scaleRef + DOM directly.
+  const applyScale = (ns: number, ax: number, ay: number) => {
+    const vp = viewportRef.current;
+    const stage = stageRef.current;
+    if (!vp || !stage) return;
+    ns = clampScale(ns);
+    const fx = vp.scrollWidth ? (vp.scrollLeft + ax) / vp.scrollWidth : 0.5;
+    const fy = vp.scrollHeight ? (vp.scrollTop + ay) / vp.scrollHeight : 0.5;
+    scaleRef.current = ns;
+    stage.style.width = `${ns * 100}%`;
+    vp.scrollLeft = fx * vp.scrollWidth - ax;
+    vp.scrollTop = fy * vp.scrollHeight - ay;
+  };
+  const commitScale = () => setScale(scaleRef.current); // sync React (labels, buttons)
+  const zoomButton = (factor: number) => {
     const vp = viewportRef.current;
     if (!vp) return;
-    ns = clampScale(ns);
-    const cxPx = vp.scrollLeft + (ax ?? vp.clientWidth / 2);
-    const cyPx = vp.scrollTop + (ay ?? vp.clientHeight / 2);
-    const fx = vp.scrollWidth ? cxPx / vp.scrollWidth : 0.5;
-    const fy = vp.scrollHeight ? cyPx / vp.scrollHeight : 0.5;
-    scaleRef.current = ns;
-    setScale(ns);
-    requestAnimationFrame(() => {
-      vp.scrollLeft = fx * vp.scrollWidth - (ax ?? vp.clientWidth / 2);
-      vp.scrollTop = fy * vp.scrollHeight - (ay ?? vp.clientHeight / 2);
-    });
+    applyScale(scaleRef.current * factor, vp.clientWidth / 2, vp.clientHeight / 2);
+    commitScale();
   };
   const resetZoom = () => {
     const vp = viewportRef.current;
+    const stage = stageRef.current;
     scaleRef.current = 1;
+    if (stage) stage.style.width = '100%';
+    if (vp) vp.scrollLeft = vp.scrollTop = 0;
     setScale(1);
-    if (vp) requestAnimationFrame(() => (vp.scrollLeft = vp.scrollTop = 0));
   };
 
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp) return;
+    const pts = new Map<number, { x: number; y: number }>();
+    let pan: { x: number; y: number; sl: number; st: number; mouse: boolean } | null = null;
+    let pinch: { dist: number; scale: number } | null = null;
+    const distOf = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = vp.getBoundingClientRect();
-      zoomAround(scaleRef.current * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX - rect.left, e.clientY - rect.top);
-    };
-    // drag-to-pan with a mouse (touch uses the browser's native scrolling)
-    let sx = 0, sy = 0, sl = 0, st = 0, dragging = false;
     const onDown = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse' || scaleRef.current <= 1) return;
-      dragging = true;
+      if (e.pointerType === 'mouse') {
+        if (scaleRef.current <= 1) return; // nothing to pan
+        pan = { x: e.clientX, y: e.clientY, sl: vp.scrollLeft, st: vp.scrollTop, mouse: true };
+        movedRef.current = false;
+        vp.setPointerCapture(e.pointerId);
+        vp.style.cursor = 'grabbing';
+        return;
+      }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       movedRef.current = false;
-      sx = e.clientX; sy = e.clientY; sl = vp.scrollLeft; st = vp.scrollTop;
-      vp.setPointerCapture(e.pointerId);
-      vp.style.cursor = 'grabbing';
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        pinch = { dist: distOf(a, b) || 1, scale: scaleRef.current };
+        pan = null;
+      } else if (pts.size === 1) {
+        pan = { x: e.clientX, y: e.clientY, sl: vp.scrollLeft, st: vp.scrollTop, mouse: false };
+      }
     };
     const onMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      const dx = e.clientX - sx, dy = e.clientY - sy;
-      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) movedRef.current = true;
-      vp.scrollLeft = sl - dx;
-      vp.scrollTop = st - dy;
+      if (e.pointerType === 'mouse') {
+        if (!pan?.mouse) return;
+        const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) movedRef.current = true;
+        vp.scrollLeft = pan.sl - dx;
+        vp.scrollTop = pan.st - dy;
+        return;
+      }
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const rect = vp.getBoundingClientRect();
+      if (pinch && pts.size >= 2) {
+        const [a, b] = [...pts.values()];
+        const nd = distOf(a, b);
+        movedRef.current = true;
+        applyScale(pinch.scale * (nd / pinch.dist), (a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top);
+      } else if (pan && pts.size === 1) {
+        const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) movedRef.current = true;
+        vp.scrollLeft = pan.sl - dx;
+        vp.scrollTop = pan.st - dy;
+      }
     };
     const onUp = (e: PointerEvent) => {
-      if (!dragging) return;
-      dragging = false;
-      try { vp.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-      vp.style.cursor = scaleRef.current > 1 ? 'grab' : '';
-      setTimeout(() => (movedRef.current = false), 0);
+      if (e.pointerType === 'mouse') {
+        if (pan?.mouse) {
+          try { vp.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+          vp.style.cursor = scaleRef.current > 1 ? 'grab' : '';
+        }
+        pan = null;
+        setTimeout(() => (movedRef.current = false), 0);
+        return;
+      }
+      pts.delete(e.pointerId);
+      if (pts.size < 2 && pinch) {
+        pinch = null;
+        commitScale(); // re-render once the pinch ends (repositions labels)
+      }
+      if (pts.size === 1) {
+        const p = [...pts.values()][0];
+        pan = { x: p.x, y: p.y, sl: vp.scrollLeft, st: vp.scrollTop, mouse: false };
+      } else if (pts.size === 0) {
+        pan = null;
+        setTimeout(() => (movedRef.current = false), 0);
+      }
     };
 
-    vp.addEventListener('wheel', onWheel, { passive: false });
     vp.addEventListener('pointerdown', onDown);
     vp.addEventListener('pointermove', onMove);
     vp.addEventListener('pointerup', onUp);
     vp.addEventListener('pointercancel', onUp);
     return () => {
-      vp.removeEventListener('wheel', onWheel);
       vp.removeEventListener('pointerdown', onDown);
       vp.removeEventListener('pointermove', onMove);
       vp.removeEventListener('pointerup', onUp);
@@ -416,26 +464,28 @@ export default function MapPage({ state }: { state: EngineState | null }) {
               ref={viewportRef}
               style={{
                 position: 'relative',
-                overflow: 'auto',
+                overflow: 'hidden',
                 maxHeight: '78vh',
-                touchAction: 'pan-x pan-y',
+                touchAction: 'none',
                 cursor: scale > 1 ? 'grab' : 'default',
                 borderRadius: 8,
               }}
             >
-              <div ref={stageRef} style={{ position: 'relative', width: `${scale * 100}%` }}>
+              {/* right padding keeps the SVG clear of the floating zoom buttons so
+                  top-right shapes stay clickable */}
+              <div ref={stageRef} style={{ position: 'relative', width: `${scale * 100}%`, paddingRight: 52 }}>
                 <div ref={containerRef} />
                 <div ref={overlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
               </div>
             </div>
             <Stack gap={6} style={{ position: 'absolute', top: 8, right: 8 }}>
-              <ActionIcon variant="default" size="lg" onClick={() => zoomAround(scaleRef.current * 1.5)} title="Zoom in">
+              <ActionIcon variant="default" size="lg" onClick={() => zoomButton(1.5)} title="Zoom in">
                 <IconPlus size={18} />
               </ActionIcon>
               <ActionIcon
                 variant="default"
                 size="lg"
-                onClick={() => zoomAround(scaleRef.current / 1.5)}
+                onClick={() => zoomButton(1 / 1.5)}
                 disabled={scale <= 1}
                 title="Zoom out"
               >
