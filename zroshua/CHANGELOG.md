@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.23
+
+- **Map zoom & pan** for large plans. Zoom buttons in the top-right corner (and
+  the mouse wheel) zoom toward the cursor/centre; drag to pan on desktop, one
+  finger on mobile. Remaining-time labels keep their fixed pixel size at any zoom.
+- **Better zone-type colours.** Sprinkler was a flat blue that blended with the
+  drip colour; the type palette is now a distinct, dark-mode- and CVD-checked
+  set — sprinkler indigo, drip mint, beds amber, lawn lime, shrubs rose — so the
+  two water types no longer read as the same colour.
+
 ## 0.1.22
 
 - **Map labels are now scale-independent.** The remaining-minute labels were

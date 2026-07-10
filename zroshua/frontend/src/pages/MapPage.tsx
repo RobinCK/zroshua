@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, FileButton, Group, Modal, Select, Stack, Text, Title, Badge } from '@mantine/core';
+import { ActionIcon, Button, Card, FileButton, Group, Modal, Select, Stack, Text, Title, Badge } from '@mantine/core';
+import { IconPlus, IconMinus, IconZoomReset } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Zone } from '../api';
 import { fmtDur, fmtTime, useResource } from '../hooks';
@@ -14,12 +15,14 @@ const STATE_COLORS: Record<string, string> = {
 };
 
 // Zones are filled by their watering TYPE; live state is shown by opacity/animation.
+// Distinct hues (validated for dark + CVD with the legend icons as secondary encoding):
+// water types stay clearly apart — sprinkler indigo vs drip mint — instead of two blues.
 const TYPE_COLORS: Record<string, string> = {
-  sprinkler: '#4dabf7',
-  drip: '#22b8cf',
-  beds: '#40c057',
-  lawn: '#82c91e',
-  shrubs: '#9775fa',
+  sprinkler: '#4c6ef5', // indigo
+  drip: '#38d9a9', // mint / teal
+  beds: '#f59f00', // amber (soil)
+  lawn: '#82c91e', // lime green
+  shrubs: '#e64980', // rose
 };
 const typeColor = (t: string) => TYPE_COLORS[t] ?? TYPE_COLORS.sprinkler;
 const FAULT_COLOR = '#fa5252';
@@ -51,6 +54,11 @@ export default function MapPage({ state }: { state: EngineState | null }) {
   const { data: zones, reload: reloadZones } = useResource<Zone[]>('/zones');
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const movedRef = useRef(false); // set while dragging so a pan doesn't trigger a shape click
+  const [scale, setScale] = useState(1);
+  const scaleRef = useRef(1);
   const [assignMode, setAssignMode] = useState(false);
   const [assignZoneId, setAssignZoneId] = useState<string | null>(null);
   const [popupZone, setPopupZone] = useState<Zone | null>(null);
@@ -112,7 +120,8 @@ export default function MapPage({ state }: { state: EngineState | null }) {
     if (svg) {
       svg.setAttribute('width', '100%');
       svg.removeAttribute('height');
-      svg.style.maxHeight = '75vh';
+      svg.style.height = 'auto';
+      svg.style.display = 'block';
     }
     for (const { id } of map.ids) {
       const node = el.querySelector<SVGElement>(`#${CSS.escape(id)}`);
@@ -175,6 +184,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
 
       node.onclick = (e) => {
         e.stopPropagation();
+        if (movedRef.current) return; // a pan drag, not a tap
         if (assignMode) void toggleElement(id);
         else if (zone) {
           setPopupZone(zone);
@@ -193,12 +203,13 @@ export default function MapPage({ state }: { state: EngineState | null }) {
   useEffect(() => {
     const host = containerRef.current;
     const ov = overlayRef.current;
-    if (!host || !ov) return;
+    const stage = stageRef.current;
+    if (!host || !ov || !stage) return;
 
     const layout = () => {
       ov.innerHTML = '';
       if (assignMode || !map?.svg) return;
-      const hostRect = host.getBoundingClientRect();
+      const hostRect = stage.getBoundingClientRect(); // overlay is inside the (scrolled/zoomed) stage
       const now = Date.now();
       for (const z of zones ?? []) {
         const run = state?.active.find((a) => a.zoneId === z.id);
@@ -233,7 +244,79 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       ro.disconnect();
       window.removeEventListener('resize', layout);
     };
-  }, [map, state, assignMode, zones]);
+  }, [map, state, assignMode, zones, scale]);
+
+  // ---- pan & zoom (mouse wheel + drag, buttons; touch pans natively) --------
+  const clampScale = (s: number) => Math.min(6, Math.max(1, s));
+  const zoomAround = (ns: number, ax?: number, ay?: number) => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    ns = clampScale(ns);
+    const cxPx = vp.scrollLeft + (ax ?? vp.clientWidth / 2);
+    const cyPx = vp.scrollTop + (ay ?? vp.clientHeight / 2);
+    const fx = vp.scrollWidth ? cxPx / vp.scrollWidth : 0.5;
+    const fy = vp.scrollHeight ? cyPx / vp.scrollHeight : 0.5;
+    scaleRef.current = ns;
+    setScale(ns);
+    requestAnimationFrame(() => {
+      vp.scrollLeft = fx * vp.scrollWidth - (ax ?? vp.clientWidth / 2);
+      vp.scrollTop = fy * vp.scrollHeight - (ay ?? vp.clientHeight / 2);
+    });
+  };
+  const resetZoom = () => {
+    const vp = viewportRef.current;
+    scaleRef.current = 1;
+    setScale(1);
+    if (vp) requestAnimationFrame(() => (vp.scrollLeft = vp.scrollTop = 0));
+  };
+
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = vp.getBoundingClientRect();
+      zoomAround(scaleRef.current * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX - rect.left, e.clientY - rect.top);
+    };
+    // drag-to-pan with a mouse (touch uses the browser's native scrolling)
+    let sx = 0, sy = 0, sl = 0, st = 0, dragging = false;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || scaleRef.current <= 1) return;
+      dragging = true;
+      movedRef.current = false;
+      sx = e.clientX; sy = e.clientY; sl = vp.scrollLeft; st = vp.scrollTop;
+      vp.setPointerCapture(e.pointerId);
+      vp.style.cursor = 'grabbing';
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) movedRef.current = true;
+      vp.scrollLeft = sl - dx;
+      vp.scrollTop = st - dy;
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      try { vp.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      vp.style.cursor = scaleRef.current > 1 ? 'grab' : '';
+      setTimeout(() => (movedRef.current = false), 0);
+    };
+
+    vp.addEventListener('wheel', onWheel, { passive: false });
+    vp.addEventListener('pointerdown', onDown);
+    vp.addEventListener('pointermove', onMove);
+    vp.addEventListener('pointerup', onUp);
+    vp.addEventListener('pointercancel', onUp);
+    return () => {
+      vp.removeEventListener('wheel', onWheel);
+      vp.removeEventListener('pointerdown', onDown);
+      vp.removeEventListener('pointermove', onMove);
+      vp.removeEventListener('pointerup', onUp);
+      vp.removeEventListener('pointercancel', onUp);
+    };
+  }, [map]);
 
   useEffect(() => {
     if (!popupZone) return;
@@ -329,8 +412,39 @@ export default function MapPage({ state }: { state: EngineState | null }) {
             </Stack>
           )}
           <div style={{ position: 'relative' }}>
-            <div ref={containerRef} />
-            <div ref={overlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+            <div
+              ref={viewportRef}
+              style={{
+                position: 'relative',
+                overflow: 'auto',
+                maxHeight: '78vh',
+                touchAction: 'pan-x pan-y',
+                cursor: scale > 1 ? 'grab' : 'default',
+                borderRadius: 8,
+              }}
+            >
+              <div ref={stageRef} style={{ position: 'relative', width: `${scale * 100}%` }}>
+                <div ref={containerRef} />
+                <div ref={overlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+              </div>
+            </div>
+            <Stack gap={6} style={{ position: 'absolute', top: 8, right: 8 }}>
+              <ActionIcon variant="default" size="lg" onClick={() => zoomAround(scaleRef.current * 1.5)} title="Zoom in">
+                <IconPlus size={18} />
+              </ActionIcon>
+              <ActionIcon
+                variant="default"
+                size="lg"
+                onClick={() => zoomAround(scaleRef.current / 1.5)}
+                disabled={scale <= 1}
+                title="Zoom out"
+              >
+                <IconMinus size={18} />
+              </ActionIcon>
+              <ActionIcon variant="default" size="lg" onClick={resetZoom} disabled={scale <= 1} title="Reset zoom">
+                <IconZoomReset size={18} />
+              </ActionIcon>
+            </Stack>
           </div>
           {!assignMode && (
             <Stack gap={8} mt="sm">

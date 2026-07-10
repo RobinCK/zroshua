@@ -167,7 +167,9 @@ rectangles, a lawn split by a path). The map is two-channel: **fill color = wate
 (sprinkler, drip, beds, lawn, shrubs) so the plan reads like a real garden legend, and **live
 state = brightness/animation** — a watering zone brightens and pulses (with its **remaining
 minutes** on it), idle is steady, queued shows a moving dashed outline, fault turns red,
-disabled fades out. Tapping a zone opens a popup with its status, next run and a water-now slider.
+disabled fades out. Tapping a zone opens a popup with its status, next run and a water-now
+slider. Large plans **zoom and pan** — zoom buttons in the corner (or the mouse wheel), drag
+to pan on desktop, one-finger drag on mobile.
 
 ![Site map](docs/screenshots/map.png)
 
