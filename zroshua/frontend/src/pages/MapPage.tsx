@@ -292,7 +292,6 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         if (scaleRef.current <= 1) return; // nothing to pan
         pan = { x: e.clientX, y: e.clientY, sl: vp.scrollLeft, st: vp.scrollTop, mouse: true };
         movedRef.current = false;
-        vp.setPointerCapture(e.pointerId);
         vp.style.cursor = 'grabbing';
         return;
       }
@@ -332,10 +331,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
     };
     const onUp = (e: PointerEvent) => {
       if (e.pointerType === 'mouse') {
-        if (pan?.mouse) {
-          try { vp.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-          vp.style.cursor = scaleRef.current > 1 ? 'grab' : '';
-        }
+        if (pan?.mouse) vp.style.cursor = scaleRef.current > 1 ? 'grab' : '';
         pan = null;
         setTimeout(() => (movedRef.current = false), 0);
         return;
@@ -403,6 +399,8 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       <style>{`
         @keyframes zroshua-pulse { 0%,100% { fill-opacity: 0.9; } 50% { fill-opacity: 0.32; } }
         @keyframes zroshua-dash { to { stroke-dashoffset: -10; } }
+        .zr-map-vp { scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: contain; }
+        .zr-map-vp::-webkit-scrollbar { display: none; }
       `}</style>
       <Group justify="space-between">
         <Title order={3}>Site map</Title>
@@ -462,9 +460,10 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           <div style={{ position: 'relative' }}>
             <div
               ref={viewportRef}
+              className="zr-map-vp"
               style={{
                 position: 'relative',
-                overflow: 'hidden',
+                overflow: 'auto',
                 maxHeight: '78vh',
                 touchAction: 'none',
                 cursor: scale > 1 ? 'grab' : 'default',

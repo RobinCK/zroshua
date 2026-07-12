@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.25
+
+- **Fix: the Lovelace card kept showing the old version after an add-on update**
+  (e.g. it still had Snooze/Rain-delay instead of Pause). The dashboard resource
+  URL was unversioned, so Home Assistant and the browser served a cached copy.
+  The resource is now versioned by the card's content hash and the existing
+  registered resource is updated on change, so the new card loads after an update.
+- **Fix: the add-on forgot the open page on refresh.** Page state was kept in the
+  URL hash, which Home Assistant's ingress drops when it reloads the panel. It is
+  now stored in `localStorage`, so a refresh keeps you on the same page.
+- **Fix: could not drag/pan the map on mobile** (pinch-zoom worked, panning did
+  not). The scroll viewport used `overflow: hidden`, which blocks programmatic
+  scrolling on mobile browsers; it now uses `overflow: auto` with hidden
+  scrollbars. One-finger drag pans, two-finger pinch zooms.
+
 ## 0.1.24
 
 - **Map zoom reworked for touch.** Removed wheel-to-zoom on desktop (it hijacked

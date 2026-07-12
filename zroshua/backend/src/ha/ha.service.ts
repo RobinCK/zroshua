@@ -120,11 +120,21 @@ export class HaService extends EventEmitter implements OnModuleInit {
     await this.callService(domain === 'valve' ? 'valve' : d, svc, { entity_id: entityId });
   }
 
-  /** Register a Lovelace module resource (storage mode only); idempotent. */
-  async ensureLovelaceResource(url: string): Promise<'created' | 'exists' | 'unsupported'> {
+  /**
+   * Register (or update) a Lovelace module resource (storage mode only).
+   * If a resource with the same base URL exists but a different query (version),
+   * it is updated so a new card version is not masked by the browser cache.
+   */
+  async ensureLovelaceResource(url: string): Promise<'created' | 'updated' | 'exists' | 'unsupported'> {
     try {
+      const base = url.split('?')[0];
       const list: any[] = await this.send({ type: 'lovelace/resources' });
-      if (list.some((r) => (r.url ?? '').split('?')[0] === url.split('?')[0])) return 'exists';
+      const existing = list.find((r) => (r.url ?? '').split('?')[0] === base);
+      if (existing) {
+        if (existing.url === url) return 'exists';
+        await this.send({ type: 'lovelace/resources/update', resource_id: existing.id, res_type: 'module', url });
+        return 'updated';
+      }
       await this.send({ type: 'lovelace/resources/create', res_type: 'module', url });
       return 'created';
     } catch {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AppShell, Badge, Burger, Group, NavLink, ScrollArea, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -60,25 +60,25 @@ const sections = [
 type PageKey = (typeof sections)[number]['items'][number]['key'];
 
 const PAGE_KEYS = new Set<string>(sections.flatMap((s) => s.items.map((i) => i.key)));
-const pageFromHash = (): PageKey => {
+const STORE_KEY = 'zroshua.page';
+// Persist via localStorage, not the URL hash: Home Assistant's ingress reloads the
+// add-on iframe at its base URL on refresh, which would drop a hash.
+const initialPage = (): PageKey => {
+  try {
+    const s = localStorage.getItem(STORE_KEY);
+    if (s && PAGE_KEYS.has(s)) return s as PageKey;
+  } catch { /* private mode */ }
   const h = window.location.hash.replace(/^#/, '');
   return (PAGE_KEYS.has(h) ? h : 'dashboard') as PageKey;
 };
 
 export default function App() {
   const [opened, { toggle, close }] = useDisclosure();
-  // remember the open page across refreshes via the URL hash (also enables back/forward)
-  const [page, setPage] = useState<PageKey>(pageFromHash);
+  const [page, setPage] = useState<PageKey>(initialPage);
   const { state, journalTick } = useEngineState();
 
-  useEffect(() => {
-    const onHash = () => setPage(pageFromHash());
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, []);
-
   const goto = (k: PageKey) => {
-    if (window.location.hash.replace(/^#/, '') !== k) window.location.hash = k;
+    try { localStorage.setItem(STORE_KEY, k); } catch { /* private mode */ }
     setPage(k);
     close();
   };
