@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.27
+
+- **Timeline: the finish window is now clearly readable.** The translucent
+  bands from 0.1.26 were hard to tell apart (the "may finish earlier" band hid
+  under the bars and the boost tail blended into the track). Now a **white tick**
+  marks the planned end, **dark hatching inside the bar** shows how much earlier
+  a run may finish (negative scaling), and a **hatched tail** after the tick
+  shows the worst-case temperature boost.
+
 ## 0.1.26
 
 - **Timeline: temperature scaling no longer draws overlapping zones inside a

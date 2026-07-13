@@ -135,22 +135,6 @@ export default function TimelinePage() {
                   {Array.from({ length: 12 }, (_, i) => (
                     <Box key={i} pos="absolute" top={0} bottom={0} style={{ left: `${(i + 1) * 2 * HOUR_W}%`, width: 1, background: 'var(--mantine-color-default-border)' }} />
                   ))}
-                  {/* finish window per run: temp scaling ends the run anywhere in [minEnd..worstEnd] */}
-                  {row.envs.map((e, i) => {
-                    const color = e.kind === 'zone' ? 'var(--mantine-color-grape-5)' : 'var(--mantine-color-teal-6)';
-                    return (
-                      <Tooltip key={`e${i}`} label={`${e.groupName}: finishes between ${fmt(e.minEnd)} and ${fmt(e.worstEnd)} (base ${fmt(e.end)}) depending on temperature scaling`}>
-                        <Box pos="absolute" top={3} h={20} style={{ left: `${pct(Math.min(e.minEnd, e.end))}%`, width: `${Math.max(0, pct(e.worstEnd) - pct(Math.min(e.minEnd, e.end)))}%` }}>
-                          {e.minEnd < e.end && (
-                            <Box pos="absolute" top={0} bottom={0} style={{ left: 0, width: `${((e.end - e.minEnd) / Math.max(1, e.worstEnd - Math.min(e.minEnd, e.end))) * 100}%`, background: color, opacity: 0.45 }} />
-                          )}
-                          {e.worstEnd > e.end && (
-                            <Box pos="absolute" top={0} bottom={0} style={{ right: 0, width: `${((e.worstEnd - e.end) / Math.max(1, e.worstEnd - Math.min(e.minEnd, e.end))) * 100}%`, background: color, opacity: 0.25, borderRadius: '0 4px 4px 0' }} />
-                          )}
-                        </Box>
-                      </Tooltip>
-                    );
-                  })}
                   {/* zone segments at their base (unscaled) positions — no overlap within a group */}
                   {row.segs.map((s, i) => (
                     <Tooltip
@@ -172,6 +156,41 @@ export default function TimelinePage() {
                       />
                     </Tooltip>
                   ))}
+                  {/* finish window per run, drawn over the bars: hatched inside = may
+                      finish earlier, hatched tail = worst-case boost, white tick = planned end */}
+                  {row.envs.map((e, i) => {
+                    const color = e.kind === 'zone' ? 'var(--mantine-color-grape-4)' : 'var(--mantine-color-teal-4)';
+                    const hatch = (c: string) => `repeating-linear-gradient(135deg, ${c} 0 3px, transparent 3px 7px)`;
+                    return (
+                      <Box key={`e${i}`} style={{ pointerEvents: 'none' }}>
+                        {e.minEnd < e.end && (
+                          <Box
+                            pos="absolute"
+                            top={3}
+                            h={20}
+                            style={{ left: `${pct(e.minEnd)}%`, width: `${Math.max(0, pct(e.end) - pct(e.minEnd))}%`, background: hatch('rgba(0,0,0,.5)') }}
+                          />
+                        )}
+                        {e.worstEnd > e.end && (
+                          <Tooltip label={`${e.groupName}: finishes between ${fmt(e.minEnd)} and ${fmt(e.worstEnd)} (planned ${fmt(e.end)}) depending on temperature scaling`}>
+                            <Box
+                              pos="absolute"
+                              top={3}
+                              h={20}
+                              style={{
+                                left: `${pct(e.end)}%`,
+                                width: `${Math.max(0, pct(e.worstEnd) - pct(e.end))}%`,
+                                background: hatch(color),
+                                borderRadius: '0 4px 4px 0',
+                                pointerEvents: 'auto',
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                        <Box pos="absolute" top={1} style={{ left: `${pct(e.end)}%`, width: 2, height: 24, background: 'rgba(255,255,255,.85)', borderRadius: 1 }} />
+                      </Box>
+                    );
+                  })}
                   {Number(dayOffset) === 0 && nowPct > 0 && nowPct < 100 && (
                     <Box pos="absolute" top={0} bottom={0} style={{ left: `${nowPct}%`, width: 2, background: 'var(--mantine-color-blue-5)' }} />
                   )}
@@ -187,8 +206,9 @@ export default function TimelinePage() {
           <Badge variant="light" color="red">rule conflict</Badge>
           <Text size="xs" c="dimmed">
             Solid bars = planned zones (temperature scaling shifts the following zones, they never overlap).
-            The translucent tail is the run's finish window: medium = may finish earlier, faint = worst-case
-            temperature boost. Gaps after the faint tail are guaranteed free water time.
+            The white tick is the planned end; dark hatching inside the bar = may finish earlier (negative
+            scaling), hatched tail after the tick = worst-case temperature boost. Gaps after the hatched
+            tail are guaranteed free water time.
           </Text>
         </Group>
       </Card>
