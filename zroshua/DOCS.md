@@ -31,6 +31,19 @@ and applies instantly without restarts.
   on another source (a barrel refilled by the well is blocked while well zones run),
   a "water available" binary sensor, an energy meter and an optional flow sensor with an
   idle-flow leak alert.
+  - **Exclusivity**: sources marked *never run at the same time* make every pair of groups
+    drawing from them mutually exclusive — the scheduler, the timeline conflict check and
+    the time-slot picker treat it like a never-overlap rule without one being written.
+  - **Volume tracking**: a capacity (liters) turns the source into a tracked barrel — the
+    level is estimated from running zones' flow rates minus a constant refill rate, or read
+    from an **analog level sensor (%)**. Shown on the dashboard, published as
+    `sensor.<source>_level`, warns below the low-reserve threshold and can **block
+    scheduled starts** below a critical percentage (manual runs are never blocked).
+  - **Flow deviation**: with a flow sensor, the measured flow is compared to the expected
+    sum of running zones; a deviation beyond the threshold sustained for 2 minutes raises a
+    fault that names the direction (higher → possible burst pipe, lower → clogged emitters
+    or low pressure), at most once an hour. Zones without a known flow rate disable the
+    check while they run.
 - **Group** — an ordered set of zones with schedules. Execution mode: sequential,
   parallel, or parallel with a limit; inter-zone delay; a 0–200 % duration multiplier;
   priority for queue conflicts.
@@ -43,11 +56,21 @@ and applies instantly without restarts.
 
 - Whole-week template or individual per-day start times; several start times per day;
   seasonal window (`MM-DD`…`MM-DD`).
+- Every start time is a **start at** or a **finish by** anchor. With *finish by*, the start
+  is computed from the worst-case run length (temperature boost, group batching and
+  max-runtime clamps included), so the run is done by the configured time even on the
+  hottest planned day.
+- **Zone selection per schedule**: each schedule can water only a subset of the group's
+  zones (a midday refresh for the two thirstiest beds); unticked zones keep their durations
+  for the other schedules.
 - Durations = zone default × group multiplier × weather percentage, clamped by the zone's
   min (rollover) and max-runtime limits. Runs shorter than the minimum are skipped and the
   minutes are added to the next run.
 - The 7-day forecast of upcoming runs shows both the planned and the worst-case
-  (max temperature boost) durations.
+  (max temperature boost) durations, and **predicts skips**: a run that would be skipped
+  under the current state (pause, rain dry-out window with its end time, forecast/weather
+  triggers, temperature skip steps) is marked *will skip* with the reasons; conditions that
+  depend on start-time data are marked *may skip*.
 - Manual runs: one tap, preset duration adjustable with a slider before or during the run,
   guaranteed auto-off. Manual always starts — rain/weather are ignored, hydraulic
   violations only warn.
@@ -95,6 +118,11 @@ the run is skipped with a journal reason).
   scheduled runs above a wet threshold; stale sensor data is ignored safely. A trigger can be
   set to **ignore the rain sensor** (greenhouse / covered soil): it fires and keeps watering
   even while rain is detected; by default a wet rain sensor postpones the trigger until dry.
+- **Temperature (heat burst)** — when a temperature sensor is at or above a threshold inside
+  a daily time window (e.g. ≥ 30 °C between 13:00 and 16:00), water a zone or group for a
+  fixed number of minutes, then hold a cooldown. Respects the rain sensor unless the trigger
+  is set to ignore it. Replaces the "midday cooling schedule + sensor condition" pattern
+  with one setting.
 
 ## Fault control
 
@@ -142,6 +170,15 @@ Events (each provider can subscribe selectively): watering started, watering fin
 (duration + time until the next run), skipped (with reason), stopped by rain, faults,
 system events.
 
+- **Group-level messages** (default on): a group run sends one *started* message (zones
+  planned) and one *finished* message (zones, minutes, liters, next run) instead of a
+  message per zone. Rain stops and faults stay per-zone; standalone zone runs are
+  unaffected.
+- **Daily digest**: one message at a chosen time with the day's totals — runs, minutes,
+  liters, energy (and cost with a tariff), skips and faults.
+- **Quiet hours**: inside the window (may wrap past midnight) everything except **faults**
+  is suppressed.
+
 ## Lovelace cards
 
 A custom card (`custom:zroshua-card`) with five views — `dashboard`, `groups`, `zones`,
@@ -165,6 +202,7 @@ Zroshua the credentials automatically and the following entities appear in Home 
 | `binary_sensor.zroshua_watering_active` | Whether anything is watering. |
 | `sensor.zroshua_water_today` / `sensor.zroshua_pump_energy_today` | Daily consumption totals. |
 | `sensor.<source>_water_today` per water source | Daily liters attributed to that source (a run is attributed via its zone's source; zones without a source count only toward the total). |
+| `sensor.<source>_level` per capacity-tracked source | Estimated (or sensor-measured) fill level of a barrel-type source, in %. |
 | `switch.zroshua_snooze` | Pause all automatic watering for 24 h (turn off to resume). |
 
 The consumption sensors carry `device_class` (`water` / `energy`) and

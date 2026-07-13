@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.2.0
+
+Feature release. Everything is additive — existing configurations keep working
+unchanged.
+
+- **Water source exclusivity.** Mark sources that must never run at the same
+  time (Water sources → "Never run at the same time as"). Every pair of groups
+  drawing from such sources becomes mutually exclusive automatically — in the
+  scheduler, the timeline conflict check and the time-slot picker — replacing
+  hand-written never-overlap rules for each group pair.
+- **"Finish by" schedule anchor.** Each start time can be a *start at* or a
+  *finish by* time. With *finish by*, the start is computed from the worst-case
+  run length (temperature boost, batching, max-runtime clamps included), so the
+  run is guaranteed done by the configured time even on the hottest planned day.
+- **Per-schedule zone selection.** A schedule can water only a subset of the
+  group's zones (checkboxes in the schedule editor) — e.g. a midday refresh for
+  the two thirstiest beds only. Unticked zones keep their durations for the
+  other schedules. Replaces the "set duration 0 in this schedule" workaround.
+- **Barrel volume tracking.** Give a source a capacity (L) and optionally a
+  refill rate (L/min): Zroshua estimates the live level from running zones'
+  flow rates, or reads an analog **level sensor (%)** directly. The level is
+  shown on the dashboard, published as `sensor.<source>_level` via MQTT
+  discovery, warns below a low-reserve threshold and can block scheduled
+  starts below a critical percentage (manual runs are never blocked).
+- **Temperature triggers (heat burst).** Sensors → Temperature triggers: when
+  a temperature sensor passes a threshold inside a daily window (e.g. ≥ 30 °C
+  between 13:00 and 16:00), water a zone or group for N minutes with a
+  cooldown — replaces the "midday schedule + sensor condition" pattern.
+  Respects the rain sensor unless set to ignore it.
+- **Flow deviation alerts.** Per source: with a flow sensor, the measured flow
+  is compared against the expected sum of running zones; a sustained deviation
+  beyond your threshold raises a fault naming the direction (higher → possible
+  burst pipe, lower → clogged emitters / low pressure), at most once an hour.
+- **Smarter notifications.** Group-level messages (one *started* / *finished*
+  message per group run instead of one per zone — on by default), an optional
+  **daily digest** (runs, minutes, liters, energy, cost, skips, faults at a
+  chosen time) and **quiet hours** that suppress everything except faults.
+- **Upcoming waterings predict skips.** Runs that would be skipped under the
+  current state are marked *will skip* with the reasons — including the rain
+  **dry-out window with its end time** (the sensor may already be dry while
+  the delay still blocks) — and *may skip* for start-time-dependent conditions.
+  Shown on the dashboard and in the Lovelace card's `upcoming` view.
+- The **time-slot picker** now draws the run's planned length solid with a
+  hatched worst-case tail (and a tick at the planned end), and the **Lovelace
+  card timeline** shows the same worst-case boost tails as the Timeline page.
+- Fixed source level accounting losing consumption between the once-a-minute
+  persists.
+
 ## 0.1.27
 
 - **Timeline: the finish window is now clearly readable.** The translucent

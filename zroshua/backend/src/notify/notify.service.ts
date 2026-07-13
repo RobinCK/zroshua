@@ -26,6 +26,13 @@ export class NotifyService {
 
   async emit(event: NotifyEvent, message: string) {
     const settings = await this.config.getSettings();
+    // quiet hours: suppress everything except faults (the daily digest still summarizes)
+    const quiet = settings.notifications.quiet;
+    if (quiet?.enabled && event !== 'fault') {
+      const hhmm = new Date().toTimeString().slice(0, 5);
+      const inWindow = quiet.from <= quiet.to ? hhmm >= quiet.from && hhmm < quiet.to : hhmm >= quiet.from || hhmm < quiet.to;
+      if (inWindow) return;
+    }
     for (const provider of settings.notifications.providers) {
       if (provider.events.length && !provider.events.includes(event)) continue;
       try {

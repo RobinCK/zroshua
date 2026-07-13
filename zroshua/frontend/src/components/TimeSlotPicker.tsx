@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActionIcon, Badge, Box, Button, Group, Popover, Slider, Stack, Text, TextInput, Tooltip, UnstyledButton } from '@mantine/core';
+import { ActionIcon, Badge, Box, Button, Group, Popover, SegmentedControl, Slider, Stack, Text, TextInput, Tooltip, UnstyledButton } from '@mantine/core';
 import { IconAlertTriangle, IconClock, IconMinus, IconPlus } from '@tabler/icons-react';
 
 export interface BusyBand {
@@ -75,6 +75,9 @@ export default function TimeSlotPicker({
   onChange,
   bands,
   durationMin,
+  baseDurationMin,
+  anchor = 'start',
+  onAnchorChange,
   size = 'xs',
 }: {
   value: string;
@@ -82,10 +85,18 @@ export default function TimeSlotPicker({
   bands: BusyBand[];
   /** own run length in minutes, already including the worst-case boost */
   durationMin: number;
+  /** planned (unscaled) run length — shown solid, the boost tail is hatched */
+  baseDurationMin?: number;
+  /** 'finish' = the picked time is when the run must be done */
+  anchor?: 'start' | 'finish';
+  onAnchorChange?: (a: 'start' | 'finish') => void;
   size?: string;
 }) {
   const [opened, setOpened] = useState(false);
-  const startMin = toMin(value);
+  const pickedMin = toMin(value);
+  // with a finish anchor the configured time is the end — the run occupies the strip BEFORE it
+  const startMin = anchor === 'finish' ? Math.max(0, pickedMin - durationMin) : pickedMin;
+  const baseMin = Math.min(baseDurationMin ?? durationMin, durationMin);
   const conflict = useMemo(() => overlapsConflict(startMin, durationMin, bands), [startMin, durationMin, bands]);
   const until = useMemo(() => freeUntil(startMin, bands), [startMin, bands]);
 
@@ -114,7 +125,7 @@ export default function TimeSlotPicker({
               leftSection={conflict ? <IconAlertTriangle size={13} /> : <IconClock size={13} />}
               style={{ cursor: 'pointer', textTransform: 'none' }}
             >
-              {value} → {toHHMM(startMin + durationMin)}
+              {anchor === 'finish' ? `${toHHMM(startMin)} → ${value} (by)` : `${value} → ${toHHMM(startMin + durationMin)}`}
             </Badge>
           </Group>
         </UnstyledButton>
@@ -146,6 +157,19 @@ export default function TimeSlotPicker({
             </Text>
           </Group>
 
+          {onAnchorChange && (
+            <SegmentedControl
+              size="xs"
+              fullWidth
+              value={anchor}
+              onChange={(v) => onAnchorChange(v as 'start' | 'finish')}
+              data={[
+                { label: 'Start at this time', value: 'start' },
+                { label: 'Finish by this time', value: 'finish' },
+              ]}
+            />
+          )}
+
           {/* 24h occupancy strip */}
           <Box
             pos="relative"
@@ -175,20 +199,42 @@ export default function TimeSlotPicker({
                 />
               </Tooltip>
             ))}
-            {/* own run */}
+            {/* own run: solid = planned length, hatched = worst-case temp boost, white tick = planned end */}
             <Box
               pos="absolute"
               top={0}
               h={38}
               style={{
                 left: `${pct(startMin)}%`,
-                width: `${Math.max(0.6, pct(startMin + durationMin) - pct(startMin))}%`,
+                width: `${Math.max(0.6, pct(startMin + baseMin) - pct(startMin))}%`,
                 background: 'var(--mantine-color-teal-5)',
                 opacity: 0.95,
-                borderRadius: 4,
+                borderRadius: durationMin > baseMin ? '4px 0 0 4px' : 4,
                 boxShadow: '0 0 0 1px var(--mantine-color-teal-8)',
               }}
             />
+            {durationMin > baseMin && (
+              <>
+                <Box
+                  pos="absolute"
+                  top={0}
+                  h={38}
+                  style={{
+                    left: `${pct(startMin + baseMin)}%`,
+                    width: `${Math.max(0, pct(startMin + durationMin) - pct(startMin + baseMin))}%`,
+                    background:
+                      'repeating-linear-gradient(135deg, var(--mantine-color-teal-5) 0 3px, transparent 3px 7px)',
+                    borderRadius: '0 4px 4px 0',
+                  }}
+                />
+                <Box
+                  pos="absolute"
+                  top={2}
+                  h={34}
+                  style={{ left: `${pct(startMin + baseMin)}%`, width: 2, background: 'rgba(255,255,255,.9)', borderRadius: 1 }}
+                />
+              </>
+            )}
           </Box>
           <Group gap={2} justify="space-between">
             {['00', '04', '08', '12', '16', '20', '24'].map((h) => (

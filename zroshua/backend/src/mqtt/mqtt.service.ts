@@ -180,6 +180,23 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         },
         true,
       );
+      // estimated level of finite sources (barrel volume tracking)
+      if (s.capacityL) {
+        const lid = `zroshua_source_${s.id}_level`;
+        current.add(`sensor:${lid}`);
+        this.pub(
+          `${DISCOVERY_PREFIX}/sensor/${lid}/config`,
+          {
+            ...common,
+            name: `${s.name} level`,
+            unique_id: lid,
+            unit_of_measurement: '%',
+            icon: 'mdi:storage-tank',
+            state_topic: `zroshua/source/${s.id}/level`,
+          },
+          true,
+        );
+      }
     }
 
     // device_class + state_class make HA record long-term statistics (hourly/
@@ -275,6 +292,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     }
     for (const s of sources) {
       this.pub(`zroshua/source/${s.id}/liters_today`, (litersBySource.get(s.id) ?? 0).toFixed(1));
+      if (s.capacityL) {
+        const lvl = this.engine.sourceLevelL(s.id);
+        if (lvl !== null) this.pub(`zroshua/source/${s.id}/level`, String(Math.round((lvl / s.capacityL) * 100)));
+      }
     }
 
     await this.publishHub(snapshot, zones, liters, kwh);
@@ -294,10 +315,13 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       ts: u.ts,
       minutes: Math.round(u.durationMin ?? u.zones.reduce((a: number, z: any) => a + z.minutes, 0)),
       zones: u.zones.map((z: any) => z.name),
+      willSkip: u.willSkip ?? false,
+      skipReason: u.skipReasons?.[0] ?? null,
+      maybeSkip: u.maybeSkip?.[0] ?? null,
     }));
 
-    // 2-day timeline for the card (compact)
-    const plan = await this.engine.plan(2).catch(() => ({ segments: [] as any[] }));
+    // 2-day timeline for the card (compact) + per-run finish windows
+    const plan = await this.engine.plan(2).catch(() => ({ segments: [] as any[], envelopes: [] as any[] }));
     const timeline = (plan.segments ?? []).slice(0, 200).map((s: any) => ({
       g: s.groupName,
       z: s.zoneName,
@@ -305,6 +329,12 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       e: s.end,
       c: s.conflict ? 1 : 0,
       k: s.kind === 'zone' ? 'z' : 'g',
+    }));
+    const timelineEnv = ((plan as any).envelopes ?? []).slice(0, 100).map((e: any) => ({
+      g: e.groupName,
+      s: e.start,
+      e: e.end,
+      w: e.worstEnd,
     }));
 
     const attrs = {
@@ -319,6 +349,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       queue: snapshot.queue,
       upcoming,
       timeline,
+      timelineEnv,
+      sourceLevels: (snapshot as any).sourceLevels ?? [],
       zones: zones.map((z) => {
         const run = snapshot.active.find((a: any) => a.zoneId === z.id);
         return {

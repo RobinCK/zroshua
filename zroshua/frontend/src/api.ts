@@ -52,6 +52,8 @@ export interface Zone {
 
 export interface ScheduleStart {
   start: string;
+  /** 'finish' = the configured time is when the run must be DONE */
+  anchor?: 'start' | 'finish';
 }
 
 export interface ScheduleCondition {
@@ -70,6 +72,8 @@ export interface Schedule {
   perDay: Record<string, ScheduleStart[]>;
   season?: { from: string; to: string } | null;
   zoneDurations?: Record<string, number>;
+  /** subset of the group's zones this schedule waters; null/undefined = all */
+  zoneSelection?: string[] | null;
   conditions?: ScheduleCondition[];
   enabled: boolean;
 }
@@ -111,6 +115,13 @@ export interface WaterSource {
   okSensor: string | null;
   flowSensor: string | null;
   idleFlowAlertLpm: number | null;
+  exclusiveWithSourceIds: string[];
+  capacityL: number | null;
+  refillLpm: number | null;
+  levelEntity: string | null;
+  lowReservePct: number | null;
+  blockBelowPct: number | null;
+  flowDeviationPct: number | null;
 }
 
 export interface EngineState {
@@ -132,6 +143,7 @@ export interface EngineState {
   queue: { zoneId: string; zoneName: string; groupId: string | null; durationMin: number; waitReason: string }[];
   faults: string[];
   pumpStates: { sourceId: string; name: string; on: boolean }[];
+  sourceLevels?: { sourceId: string; name: string; capacityL: number; levelL: number | null; levelPct: number | null }[];
 }
 
 export interface Settings {
@@ -158,7 +170,13 @@ export interface Settings {
     combine: 'forecast_only' | 'sensor_only' | 'max' | 'avg';
   };
   soilTriggers: SoilTrigger[];
-  notifications: { providers: NotificationProvider[] };
+  tempTriggers: TempTrigger[];
+  notifications: {
+    providers: NotificationProvider[];
+    groupLevel: boolean;
+    digest: { enabled: boolean; time: string };
+    quiet: { enabled: boolean; from: string; to: string };
+  };
   externalOnPolicy: 'adopt' | 'turn_off';
   preStartCheck: { enabled: boolean; minutes: number };
 }
@@ -173,6 +191,20 @@ export interface SoilTrigger {
   cooldownHours: number;
   blockAbovePct: number | null;
   staleAfterHours: number;
+  enabled: boolean;
+  ignoreRainSensor?: boolean;
+}
+
+export interface TempTrigger {
+  id: string;
+  sensor: string;
+  aboveC: number;
+  windowFrom: string;
+  windowTo: string;
+  targetKind: 'zone' | 'group';
+  targetId: string;
+  runMin: number;
+  cooldownHours: number;
   enabled: boolean;
   ignoreRainSensor?: boolean;
 }
@@ -198,6 +230,9 @@ export interface Upcoming {
   /** Wall-clock run length honoring the group's execution mode (parallel = longest zone). */
   durationMin?: number;
   maxDurationMin?: number;
+  willSkip?: boolean;
+  skipReasons?: string[];
+  maybeSkip?: string[];
   zones: { zoneId: string; name: string; minutes: number; maxMinutes: number }[];
 }
 

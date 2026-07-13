@@ -9,11 +9,12 @@ import {
   Stack,
   Switch,
   Text,
+  TextInput,
   Title,
 } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { api, Group as ZGroup, Settings, SoilTrigger, Zone } from '../api';
+import { api, Group as ZGroup, Settings, SoilTrigger, TempTrigger, Zone } from '../api';
 import { useResource } from '../hooks';
 import { EntityMultiSelect, EntitySelect, SliderInput } from '../components/common';
 
@@ -187,6 +188,98 @@ export default function SensorsPage() {
                   mt="xs"
                   label="Ignore rain sensor"
                   description="Fire and keep watering even while the rain sensor is wet — e.g. soil under a roof or in a greenhouse"
+                  checked={!!t.ignoreRainSensor}
+                  onChange={(e) => set({ ignoreRainSensor: e.currentTarget.checked })}
+                />
+              </Card>
+            );
+          })}
+        </Stack>
+      </Card>
+
+      <Card withBorder>
+        <Group justify="space-between" mb="sm">
+          <Title order={4}>Temperature triggers (heat burst)</Title>
+          <Button
+            size="xs"
+            variant="light"
+            onClick={() =>
+              setS({
+                ...s,
+                tempTriggers: [
+                  ...(s.tempTriggers ?? []),
+                  {
+                    id: `tt${Date.now()}`,
+                    sensor: '',
+                    aboveC: 33,
+                    windowFrom: '12:00',
+                    windowTo: '16:00',
+                    targetKind: 'zone',
+                    targetId: zones?.[0]?.id ?? '',
+                    runMin: 10,
+                    cooldownHours: 24,
+                    enabled: true,
+                  },
+                ],
+              })
+            }
+          >
+            Add trigger
+          </Button>
+        </Group>
+        <Text size="xs" c="dimmed" mb="sm">
+          Cooling runs on hot days: when the live temperature crosses the threshold inside the daily window, water the
+          target for a few minutes — at most once per cooldown. More flexible than a fixed midday schedule: it fires at
+          12:10 in a heat wave and stays quiet on a cloudy day.
+        </Text>
+        <Stack>
+          {(s.tempTriggers ?? []).map((t, i) => {
+            const set = (patch: Partial<TempTrigger>) => {
+              const next = [...(s.tempTriggers ?? [])];
+              next[i] = { ...t, ...patch };
+              setS({ ...s, tempTriggers: next });
+            };
+            return (
+              <Card key={t.id} withBorder p="sm">
+                <Group justify="space-between" mb="xs">
+                  <Switch label="Enabled" checked={t.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} />
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    onClick={() => setS({ ...s, tempTriggers: (s.tempTriggers ?? []).filter((_, j) => j !== i) })}
+                  >
+                    <IconTrash size={16} />
+                  </ActionIcon>
+                </Group>
+                <Group grow>
+                  <EntitySelect label="Temperature sensor" value={t.sensor || null} onChange={(v) => set({ sensor: v ?? '' })} domains={['sensor']} />
+                  <Select
+                    label="Waters"
+                    data={targetOpts}
+                    value={`${t.targetKind}:${t.targetId}`}
+                    onChange={(v) => {
+                      const [kind, id] = (v ?? 'zone:').split(':');
+                      set({ targetKind: kind as 'zone' | 'group', targetId: id });
+                    }}
+                  />
+                </Group>
+                <Group grow mt="xs">
+                  <NumberInput label="Above (°C)" value={t.aboveC} onChange={(v) => set({ aboveC: Number(v) || 30 })} />
+                  <TextInput type="time" label="Window from" value={t.windowFrom} onChange={(e) => e.target.value && set({ windowFrom: e.target.value })} />
+                  <TextInput type="time" label="Window to" value={t.windowTo} onChange={(e) => e.target.value && set({ windowTo: e.target.value })} />
+                </Group>
+                <Group grow mt="xs">
+                  <NumberInput label="Run (min)" value={t.runMin} onChange={(v) => set({ runMin: Number(v) || 10 })} />
+                  <NumberInput
+                    label="Cooldown (h)"
+                    description="24 = at most once a day"
+                    value={t.cooldownHours}
+                    onChange={(v) => set({ cooldownHours: Number(v) || 24 })}
+                  />
+                </Group>
+                <Switch
+                  mt="xs"
+                  label="Ignore rain sensor"
                   checked={!!t.ignoreRainSensor}
                   onChange={(e) => set({ ignoreRainSensor: e.currentTarget.checked })}
                 />

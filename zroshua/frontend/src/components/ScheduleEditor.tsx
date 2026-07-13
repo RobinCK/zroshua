@@ -44,7 +44,10 @@ export function estimateRunMinutes(
   interZoneDelayS: number,
   multiplierPct: number,
 ): number {
-  const durs = zones.map((z) => Math.min(((schedule.zoneDurations?.[z.id] ?? z.baseMin) * multiplierPct) / 100, z.maxRuntimeMin || 1e9));
+  const sel = schedule.zoneSelection?.length ? new Set(schedule.zoneSelection) : null;
+  const durs = zones
+    .filter((z) => !sel || sel.has(z.id))
+    .map((z) => Math.min(((schedule.zoneDurations?.[z.id] ?? z.baseMin) * multiplierPct) / 100, z.maxRuntimeMin || 1e9));
   if (!durs.length) return 0;
   if (mode === 'parallel') return Math.max(...durs);
   const batch = mode === 'parallel_limit' ? Math.max(1, parallelLimit) : 1;
@@ -87,7 +90,8 @@ export default function ScheduleEditor({
     : 0;
   const worstMinutes = Math.max(1, runMinutes * worstFactor);
 
-  const starts = (list: { start: string }[], set: (v: { start: string }[]) => void, dows: number[]) => (
+  type StartEntry = { start: string; anchor?: 'start' | 'finish' };
+  const starts = (list: StartEntry[], set: (v: StartEntry[]) => void, dows: number[]) => (
     <Group gap="xs">
       {list.map((s, i) => (
         <Group key={i} gap={4} wrap="nowrap">
@@ -95,11 +99,18 @@ export default function ScheduleEditor({
             value={s.start}
             onChange={(v) => {
               const next = [...list];
-              next[i] = { start: v };
+              next[i] = { ...next[i], start: v };
               set(next);
             }}
             bands={unionBands(busy, dows)}
             durationMin={worstMinutes}
+            baseDurationMin={runMinutes}
+            anchor={s.anchor ?? 'start'}
+            onAnchorChange={(a) => {
+              const next = [...list];
+              next[i] = { ...next[i], anchor: a === 'start' ? undefined : a };
+              set(next);
+            }}
           />
           <ActionIcon size="sm" variant="subtle" color="red" onClick={() => set(list.filter((_, j) => j !== i))}>
             <IconTrash size={14} />
@@ -176,6 +187,24 @@ export default function ScheduleEditor({
             </Text>
           </Group>
           <Collapse in={durOpen}>
+            <Checkbox.Group
+              mt="xs"
+              label="Zones watered by this schedule"
+              description="Untick a zone to leave it out of this start (its duration is kept for other schedules)"
+              value={schedule.zoneSelection?.length ? schedule.zoneSelection : zones.map((z) => z.id)}
+              onChange={(v) =>
+                onChange({
+                  ...schedule,
+                  zoneSelection: v.length === zones.length ? null : v,
+                })
+              }
+            >
+              <Group gap="xs" mt={4}>
+                {zones.map((z) => (
+                  <Checkbox key={z.id} value={z.id} label={z.name} size="xs" />
+                ))}
+              </Group>
+            </Checkbox.Group>
             <Stack gap={4} mt="xs">
               {zones.map((z) => (
                 <Group key={z.id} justify="space-between" wrap="nowrap">

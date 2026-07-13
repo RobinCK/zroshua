@@ -159,6 +159,12 @@ export class WeatherService {
     return boost;
   }
 
+  /** Forecast entry for a day offset (0 = today); null when out of horizon. */
+  async forecastDay(offset: number): Promise<DayWeather | null> {
+    const days = await this.getForecast().catch(() => [] as DayWeather[]);
+    return days[offset] ?? null;
+  }
+
   /** Lower bound of the temperature scaling — the earliest a scaled run can finish. */
   async minBoostPct(): Promise<number> {
     const s = await this.config.getSettings();

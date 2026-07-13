@@ -18,6 +18,22 @@ export type SoilTrigger = {
   ignoreRainSensor?: boolean;
 };
 
+/** Heat-burst trigger: when a live temperature crosses a threshold inside a
+ *  daily window, water a zone/group for a few minutes (at most once per cooldown). */
+export type TempTrigger = {
+  id: string;
+  sensor: string;
+  aboveC: number;
+  windowFrom: string; // HH:MM
+  windowTo: string; // HH:MM
+  targetKind: 'zone' | 'group';
+  targetId: string;
+  runMin: number;
+  cooldownHours: number;
+  enabled: boolean;
+  ignoreRainSensor?: boolean;
+};
+
 export type NotificationProvider =
   | { type: 'telegram'; chatIds: string[]; events: string[] }
   | { type: 'ha_notify'; service: string; events: string[] };
@@ -52,7 +68,16 @@ export interface Settings {
     combine: 'forecast_only' | 'sensor_only' | 'max' | 'avg';
   };
   soilTriggers: SoilTrigger[];
-  notifications: { providers: NotificationProvider[] };
+  tempTriggers: TempTrigger[];
+  notifications: {
+    providers: NotificationProvider[];
+    /** one message per group run instead of one per zone */
+    groupLevel: boolean;
+    /** daily summary (liters/energy/cost/skips) at a fixed time */
+    digest: { enabled: boolean; time: string };
+    /** suppress non-fault notifications inside this window (digest still covers them) */
+    quiet: { enabled: boolean; from: string; to: string };
+  };
   externalOnPolicy: 'adopt' | 'turn_off';
   /** Alert when zone/pump entities are unavailable N minutes before a scheduled start. */
   preStartCheck: { enabled: boolean; minutes: number };
@@ -86,7 +111,13 @@ export const defaultSettings: Settings = {
     combine: 'max',
   },
   soilTriggers: [],
-  notifications: { providers: [] },
+  tempTriggers: [],
+  notifications: {
+    providers: [],
+    groupLevel: true,
+    digest: { enabled: false, time: '21:00' },
+    quiet: { enabled: false, from: '22:00', to: '07:00' },
+  },
   externalOnPolicy: 'adopt',
   preStartCheck: { enabled: true, minutes: 30 },
 };
@@ -123,7 +154,16 @@ export class ConfigService {
 
   async getSettings(): Promise<Settings> {
     const stored = await this.getKV<Partial<Settings>>('settings', {});
-    return { ...defaultSettings, ...stored };
+    const merged = { ...defaultSettings, ...stored } as Settings;
+    // deep-merge nested blocks that gained keys after older configs were stored
+    merged.notifications = {
+      ...defaultSettings.notifications,
+      ...(stored.notifications ?? {}),
+      digest: { ...defaultSettings.notifications.digest, ...(stored.notifications as any)?.digest },
+      quiet: { ...defaultSettings.notifications.quiet, ...(stored.notifications as any)?.quiet },
+    };
+    merged.tempTriggers = stored.tempTriggers ?? [];
+    return merged;
   }
 
   async patchSettings(patch: Partial<Settings>): Promise<Settings> {

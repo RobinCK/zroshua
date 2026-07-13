@@ -48,6 +48,8 @@ export type Schedule = {
   perDay: Record<string, ScheduleDayStarts>; // per_day mode, keys mon..sun
   season?: { from: string; to: string } | null; // MM-DD
   zoneDurations?: Record<string, number>; // per-schedule zone duration overrides (min)
+  /** subset of the group's zones this schedule waters; null/undefined = all zones */
+  zoneSelection?: string[] | null;
   conditions?: ScheduleCondition[]; // all must pass at start time (unavailable data = pass)
   enabled: boolean;
 };
@@ -96,6 +98,17 @@ export class WaterSource {
   @Column({ type: 'varchar', nullable: true }) okSensor: string | null;
   @Column({ type: 'varchar', nullable: true }) flowSensor: string | null;
   @Column('float', { nullable: true }) idleFlowAlertLpm: number | null;
+  // groups whose zones use this source never overlap groups using the listed sources
+  @Column('simple-json', { default: '[]' }) exclusiveWithSourceIds: string[];
+  // volume tracking (barrels): capacity + refill rate estimate a live level,
+  // an optional analog level sensor (%) overrides the estimate
+  @Column('float', { nullable: true }) capacityL: number | null;
+  @Column('float', { nullable: true }) refillLpm: number | null;
+  @Column({ type: 'varchar', nullable: true }) levelEntity: string | null;
+  @Column('float', { nullable: true }) lowReservePct: number | null;
+  @Column('float', { nullable: true }) blockBelowPct: number | null;
+  // alert when the measured flow deviates from the sum of running zones by more than N %
+  @Column('float', { nullable: true }) flowDeviationPct: number | null;
 }
 
 export type StopReason =

@@ -37,4 +37,14 @@ export class JournalService {
       take: Math.min(limit, 1000),
     });
   }
+
+  /** number of entries of a kind since local midnight (for the daily digest) */
+  async countToday(kind: string): Promise<number> {
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    return this.repo
+      .createQueryBuilder('j')
+      .where('j.kind = :kind AND j.ts >= :from', { kind, from: from.getTime() })
+      .getCount();
+  }
 }

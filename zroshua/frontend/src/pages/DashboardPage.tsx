@@ -12,8 +12,10 @@ import {
   Badge,
   SimpleGrid,
   ActionIcon,
+  Tooltip,
 } from '@mantine/core';
 import {
+  IconAlertTriangle,
   IconPlayerStop,
   IconPlayerPause,
   IconPlus,
@@ -275,6 +277,27 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                 ))}
               </Group>
             ) : null}
+            {(state?.sourceLevels?.length ?? 0) > 0 && (
+              <Stack gap={6} mt="sm">
+                {state!.sourceLevels!.map((l) => (
+                  <div key={l.sourceId}>
+                    <Group justify="space-between" mb={2}>
+                      <Text size="xs" c="dimmed">
+                        {l.name}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {l.levelL !== null ? `~${l.levelL} L (${l.levelPct}%)` : '—'}
+                      </Text>
+                    </Group>
+                    <Progress
+                      value={l.levelPct ?? 0}
+                      color={(l.levelPct ?? 100) < 20 ? 'red' : (l.levelPct ?? 100) < 40 ? 'yellow' : 'blue'}
+                      size="sm"
+                    />
+                  </div>
+                ))}
+              </Stack>
+            )}
           </Card>
         </Grid.Col>
       </Grid>
@@ -291,15 +314,29 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                   <b>{u.groupName}</b> — {u.zones.map((z) => z.name).join(', ')}
                 </Text>
                 <Group gap="xs">
+                  {u.willSkip && (
+                    <Tooltip label={(u.skipReasons ?? []).join('; ')} multiline maw={320}>
+                      <Badge variant="light" color="red" leftSection={<IconAlertTriangle size={12} />}>
+                        will skip
+                      </Badge>
+                    </Tooltip>
+                  )}
+                  {!u.willSkip && (u.maybeSkip?.length ?? 0) > 0 && (
+                    <Tooltip label={(u.maybeSkip ?? []).join('; ')} multiline maw={320}>
+                      <Badge variant="light" color="yellow" leftSection={<IconAlertTriangle size={12} />}>
+                        may skip
+                      </Badge>
+                    </Tooltip>
+                  )}
                   <Text size="sm" c="dimmed">
                     {u.zones.length
                       ? `${fmtDur(u.durationMin ?? u.zones.reduce((a, z) => a + z.minutes, 0))} (max ${fmtDur(u.maxDurationMin ?? u.zones.reduce((a, z) => a + z.maxMinutes, 0))})`
                       : ''}
                   </Text>
-                  <Badge variant="light" color="grape">
+                  <Badge variant="light" color="grape" style={{ opacity: u.willSkip ? 0.55 : 1 }}>
                     {countdown(u.ts)}
                   </Badge>
-                  <Badge variant="light">{fmtTime(u.ts)}</Badge>
+                  <Badge variant="light" style={{ opacity: u.willSkip ? 0.55 : 1 }}>{fmtTime(u.ts)}</Badge>
                 </Group>
               </Group>
             ))}

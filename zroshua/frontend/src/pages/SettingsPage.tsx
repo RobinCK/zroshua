@@ -92,7 +92,7 @@ export default function SettingsPage() {
   const setProvider = (i: number, patch: Partial<NotificationProvider>) => {
     const providers = [...s.notifications.providers];
     providers[i] = { ...providers[i], ...patch } as NotificationProvider;
-    setS({ ...s, notifications: { providers } });
+    setS({ ...s, notifications: { ...s.notifications, providers } });
   };
 
   return (
@@ -263,6 +263,57 @@ export default function SettingsPage() {
           Notifications
         </Title>
         <Stack>
+          <Switch
+            label="One message per group run"
+            description="A group start/finish summary (zones, time, liters) instead of a message per zone"
+            checked={s.notifications.groupLevel ?? true}
+            onChange={(e) => setS({ ...s, notifications: { ...s.notifications, groupLevel: e.currentTarget.checked } })}
+          />
+          <Group grow>
+            <Switch
+              label="Daily digest"
+              description="Evening summary: runs, liters, energy, cost, skips"
+              checked={s.notifications.digest?.enabled ?? false}
+              onChange={(e) =>
+                setS({ ...s, notifications: { ...s.notifications, digest: { ...s.notifications.digest, enabled: e.currentTarget.checked } } })
+              }
+            />
+            <TextInput
+              type="time"
+              label="Digest time"
+              value={s.notifications.digest?.time ?? '21:00'}
+              onChange={(e) =>
+                e.target.value &&
+                setS({ ...s, notifications: { ...s.notifications, digest: { ...s.notifications.digest, time: e.target.value } } })
+              }
+            />
+          </Group>
+          <Group grow>
+            <Switch
+              label="Quiet hours"
+              description="Suppress all but fault alerts in this window"
+              checked={s.notifications.quiet?.enabled ?? false}
+              onChange={(e) =>
+                setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, enabled: e.currentTarget.checked } } })
+              }
+            />
+            <TextInput
+              type="time"
+              label="From"
+              value={s.notifications.quiet?.from ?? '22:00'}
+              onChange={(e) =>
+                e.target.value && setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, from: e.target.value } } })
+              }
+            />
+            <TextInput
+              type="time"
+              label="To"
+              value={s.notifications.quiet?.to ?? '07:00'}
+              onChange={(e) =>
+                e.target.value && setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, to: e.target.value } } })
+              }
+            />
+          </Group>
           {s.notifications.providers.map((p, i) => (
             <Card key={i} withBorder p="sm">
               <Group justify="space-between" mb="xs">
@@ -271,7 +322,7 @@ export default function SettingsPage() {
                   variant="subtle"
                   color="red"
                   onClick={() =>
-                    setS({ ...s, notifications: { providers: s.notifications.providers.filter((_, j) => j !== i) } })
+                    setS({ ...s, notifications: { ...s.notifications, providers: s.notifications.providers.filter((_, j) => j !== i) } })
                   }
                 >
                   <IconTrash size={16} />
@@ -305,7 +356,7 @@ export default function SettingsPage() {
               onClick={() =>
                 setS({
                   ...s,
-                  notifications: { providers: [...s.notifications.providers, { type: 'telegram', chatIds: [], events: [] }] },
+                  notifications: { ...s.notifications, providers: [...s.notifications.providers, { type: 'telegram', chatIds: [], events: [] }] },
                 })
               }
             >
@@ -317,6 +368,7 @@ export default function SettingsPage() {
                 setS({
                   ...s,
                   notifications: {
+                    ...s.notifications,
                     providers: [...s.notifications.providers, { type: 'ha_notify', service: 'notify.notify', events: [] }],
                   },
                 })

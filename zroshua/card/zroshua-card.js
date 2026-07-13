@@ -374,11 +374,16 @@ class ZroshuaCard extends HTMLElement {
   _view_upcoming(a) {
     const rows = (a.upcoming || [])
       .filter((u) => u.ts > Date.now())
-      .map(
-        (u) => `<div class="row"><span class="ci accent">${I.clock}</span><div class="grow"><b>${this._esc(u.groupName)}</b>
-          <div class="muted small">${this._esc((u.zones || []).join(', '))}</div></div>
-          <span class="muted small">${u.minutes}m</span>${this._chip(this._countdown(u.ts), 'accent')}<span class="muted small">${this._fmtTime(u.ts)}</span></div>`,
-      )
+      .map((u) => {
+        const skip = u.willSkip
+          ? `<div class="skiprow danger">${I.warn ? `<span class="ci">${I.warn}</span>` : ''}will skip: ${this._esc(u.skipReason || '')}</div>`
+          : u.maybeSkip
+            ? `<div class="skiprow warn">may skip: ${this._esc(u.maybeSkip)}</div>`
+            : '';
+        return `<div class="row ${u.willSkip ? 'dim' : ''}"><span class="ci accent">${I.clock}</span><div class="grow"><b>${this._esc(u.groupName)}</b>
+          <div class="muted small">${this._esc((u.zones || []).join(', '))}</div>${skip}</div>
+          <span class="muted small">${u.minutes}m</span>${this._chip(this._countdown(u.ts), 'accent')}<span class="muted small">${this._fmtTime(u.ts)}</span></div>`;
+      })
       .join('');
     return `<div class="pad">${rows || '<div class="muted">Nothing scheduled in the next 7 days.</div>'}</div>`;
   }
@@ -389,8 +394,10 @@ class ZroshuaCard extends HTMLElement {
     const from = dayStart.getTime();
     const to = from + 86400000;
     const segs = (a.timeline || []).filter((s) => s.s < to && s.e > from);
+    const envs = (a.timelineEnv || []).filter((e) => e.s < to && e.w > from);
     const byGroup = new Map();
     for (const s of segs) byGroup.set(s.g, [...(byGroup.get(s.g) || []), s]);
+    for (const e of envs) if (!byGroup.has(e.g)) byGroup.set(e.g, []);
     const pct = (ts) => Math.max(0, Math.min(100, ((ts - from) / 86400000) * 100));
     const nowPct = pct(Date.now());
     const rows = [...byGroup.entries()]
@@ -401,7 +408,16 @@ class ZroshuaCard extends HTMLElement {
               `<div class="tlbar ${s.c ? 'conflict' : s.k === 'z' ? 'zone' : ''}" title="${this._esc(s.z)} ${this._fmtTime(s.s)}–${this._fmtTime(s.e)}" style="left:${pct(s.s)}%;width:${Math.max(0.6, pct(s.e) - pct(s.s))}%"></div>`,
           )
           .join('');
-        return `<div class="tlrow"><span class="tllabel" title="${this._esc(g)}">${this._esc(g)}</span><div class="tltrack">${bars}<div class="tlnow" style="left:${nowPct}%"></div></div></div>`;
+        // finish window: hatched worst-case tail + tick at the planned end
+        const tails = envs
+          .filter((e) => e.g === g && e.w > e.e)
+          .map(
+            (e) =>
+              `<div class="tlboost" title="up to ${this._fmtTime(e.w)} with temp boost" style="left:${pct(e.e)}%;width:${Math.max(0.4, pct(e.w) - pct(e.e))}%"></div>` +
+              `<div class="tltick" style="left:${pct(e.e)}%"></div>`,
+          )
+          .join('');
+        return `<div class="tlrow"><span class="tllabel" title="${this._esc(g)}">${this._esc(g)}</span><div class="tltrack">${bars}${tails}<div class="tlnow" style="left:${nowPct}%"></div></div></div>`;
       })
       .join('');
     const scale = [0, 4, 8, 12, 16, 20, 24].map((h) => `<span>${String(h).padStart(2, '0')}</span>`).join('');
@@ -567,6 +583,14 @@ const STYLE = `
   .tlbar.zone { background: var(--z-accent); }
   .tlbar.conflict { background: var(--z-danger); }
   .tlnow { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--z-info); border-radius: 2px; }
+  .tlboost { position: absolute; top: 3px; height: 16px; border-radius: 0 4px 4px 0;
+    background: repeating-linear-gradient(135deg, var(--z-ok) 0 3px, transparent 3px 6px); opacity: .8; }
+  .tltick { position: absolute; top: 1px; height: 20px; width: 2px; background: rgba(255,255,255,.85); border-radius: 1px; }
+  .skiprow { font-size: .74rem; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+  .skiprow.danger { color: var(--z-danger); }
+  .skiprow.warn { color: var(--z-warn); }
+  .skiprow .ci svg { width: 12px; height: 12px; }
+  .row.dim > .ci, .row.dim > .grow > b, .row.dim > .muted { opacity: .6; }
   .tllegend { margin-top: 8px; }
 `;
 

@@ -6,6 +6,7 @@ import {
   Checkbox,
   Group,
   Modal,
+  MultiSelect,
   NumberInput,
   Select,
   Stack,
@@ -174,7 +175,52 @@ export default function SourcesPage() {
                 value={editing.idleFlowAlertLpm ?? ''}
                 onChange={(v) => setEditing({ ...editing, idleFlowAlertLpm: v === '' ? null : Number(v) })}
               />
+              <NumberInput
+                label="Flow deviation alert (%)"
+                description="Alert when measured flow differs from the running zones' total"
+                value={editing.flowDeviationPct ?? ''}
+                onChange={(v) => setEditing({ ...editing, flowDeviationPct: v === '' ? null : Number(v) })}
+              />
             </Group>
+            <MultiSelect
+              label="Never run at the same time as (source exclusivity)"
+              description="One rule instead of many group pairs — all groups fed by these sources never overlap; new groups inherit it"
+              data={(sources ?? []).filter((x) => x.id !== editing.id).map((x) => ({ value: x.id, label: x.name }))}
+              value={editing.exclusiveWithSourceIds ?? []}
+              onChange={(v) => setEditing({ ...editing, exclusiveWithSourceIds: v })}
+            />
+            <Group grow>
+              <NumberInput
+                label="Capacity (L) — enables barrel level tracking"
+                value={editing.capacityL ?? ''}
+                onChange={(v) => setEditing({ ...editing, capacityL: v === '' ? null : Number(v) })}
+              />
+              <NumberInput
+                label="Refill rate (l/min)"
+                value={editing.refillLpm ?? ''}
+                onChange={(v) => setEditing({ ...editing, refillLpm: v === '' ? null : Number(v) })}
+              />
+            </Group>
+            {editing.capacityL ? (
+              <Group grow>
+                <EntitySelect
+                  label="Level sensor (%) — overrides the estimate"
+                  value={editing.levelEntity ?? null}
+                  onChange={(v) => setEditing({ ...editing, levelEntity: v })}
+                  domains={['sensor']}
+                />
+                <NumberInput
+                  label="Warn below (%)"
+                  value={editing.lowReservePct ?? 20}
+                  onChange={(v) => setEditing({ ...editing, lowReservePct: v === '' ? null : Number(v) })}
+                />
+                <NumberInput
+                  label="Block scheduled runs below (%)"
+                  value={editing.blockBelowPct ?? ''}
+                  onChange={(v) => setEditing({ ...editing, blockBelowPct: v === '' ? null : Number(v) })}
+                />
+              </Group>
+            ) : null}
             <Button onClick={save}>Save</Button>
           </Stack>
         )}

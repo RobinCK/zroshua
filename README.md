@@ -68,6 +68,13 @@ weather with a 7-day forecast, countdowns to upcoming waterings and quick action
 (stop all / pause all watering for a set number of hours). Tapping a running or queued
 zone opens its action sheet (stop, water for a preset, pause).
 
+Upcoming waterings are **predicted, not just listed**: a run that would be skipped under
+the current state carries a red *will skip* badge with the reason — e.g.
+`rain dry-out until 09:17` while the sensor is already dry but the dry-out delay is still
+counting — and a yellow *may skip* badge when it depends on data known only at start time
+(forecast, live sensor conditions). Barrel-type water sources show a **live level bar**
+(estimated or from a level sensor) right in the quick-actions card.
+
 ### Timeline
 
 Each day as a 24-hour strip per group — see exactly when water is busy and when it is free.
@@ -87,12 +94,20 @@ inter-zone delay for pressure recovery, a 0–200 % duration multiplier and a pr
 
 Schedules support a whole-week template or **per-day start times**, several waterings per
 day, a seasonal window (`MM-DD`…`MM-DD`), **per-schedule zone durations** (defaults come
-from the zone) and **run conditions**.
+from the zone), a **zone selection** (tick which of the group's zones this start waters —
+so the midday refresh can hit only the two thirsty beds while the evening run does the
+whole group) and **run conditions**.
+
+Every start time is either a *start at* or a **finish by** anchor: pick *finish by* and
+Zroshua computes the start from the worst-case run length (temperature boost included), so
+"lawn done before the 07:00 school run" stays true even on +20 % days.
 
 Start times are picked on a 24-hour occupancy strip: **red bands** are schedules of groups
 bound to this one by rules (worst-case length included), gray bands are other schedules,
-teal is this run. The picker shows *free until HH:MM* and warns live when the chosen slot
-overlaps a rule-bound group; saving with a conflict shows a loud warning.
+teal is this run — drawn solid for the planned length with a **hatched worst-case tail**,
+so you see exactly how far a hot day can stretch it. The picker shows *free until HH:MM*
+and warns live when the chosen slot overlaps a rule-bound group; saving with a conflict
+shows a loud warning.
 
 ![Group editor](docs/screenshots/group-editor.png)
 ![Time slot picker](docs/screenshots/time-picker.png)
@@ -104,6 +119,10 @@ overlaps a rule-bound group; saving with a conflict shows a loud warning.
 | Never overlap | The groups may never run at the same time. |
 | Order (A before B) | B waits until A has finished (e.g. well always before barrel). |
 | May run in parallel | Explicitly allowed to overlap (drip lines). |
+
+Rules cover what hydraulics can't express — most exclusivity you don't have to write at
+all: mark two **water sources** as *never run at the same time* and every pair of groups
+drawing from them is mutually exclusive automatically (see below).
 
 What happens when a scheduled run still collides at runtime is your choice
 (**Settings → conflict policy**): *wait in queue* (default) or *skip the run* for a strict
@@ -149,6 +168,24 @@ runs (reference-counted, with start/stop delays), a **dependency** on another so
 an idle-flow leak alert, an **energy meter** and a configurable **refill tail** (count pump
 energy for N minutes after selected groups finish — e.g. while the barrel refills).
 
+**Source exclusivity**: mark sources that must *never run at the same time* (a well pump and
+a barrel pump on one power line, or a barrel refilled by the well) and the mutual exclusion
+propagates to every pair of groups using them — the scheduler, the timeline conflict check
+and the time-slot picker all treat it like a never-overlap rule, without writing one per
+group pair.
+
+**Volume tracking for barrels**: give a source a capacity (liters) and Zroshua keeps a live
+level estimate — consumption from the flow rates of running zones, refill from a constant
+refill rate — or reads an **analog level sensor (%)** directly when you have one. The level
+shows on the dashboard, is published to HA as `sensor.<source>_level`, warns below a
+**low-reserve** threshold and can optionally **block scheduled starts** below a critical
+percentage (manual runs still work).
+
+**Flow deviation alert**: with a flow sensor on the source, the measured flow is compared to
+the sum of the running zones' expected rates; a sustained deviation beyond your threshold
+raises a fault naming the direction — higher (possible burst pipe) or lower (clogged
+emitters / low pressure).
+
 ### Sensors
 
 - **Rain** — one or several `binary_sensor`s (leak sensors work great): quorum aggregation
@@ -158,6 +195,10 @@ energy for N minutes after selected groups finish — e.g. while the barrel refi
   threshold, then wait a **cooldown** (soil sensors react slowly); optionally block scheduled
   runs above a wet threshold; stale data is ignored safely. Each trigger can **ignore the rain
   sensor** — soil under a roof or in a greenhouse gets watered even while it rains outside.
+- **Temperature (heat burst)** — give a lawn a short extra shower on hot afternoons: when a
+  temperature sensor passes a threshold **inside a time window** (e.g. ≥ 30 °C between 13:00
+  and 16:00), run a zone or group for N minutes, then hold a cooldown. Respects the rain
+  sensor unless told to ignore it.
 
 ![Sensors](docs/screenshots/sensors.png)
 
@@ -215,7 +256,10 @@ policy…), temperature adjustments, faults, reconciliations.
   notification naming the exact entity.
 - **Notifications**: Telegram (several chat IDs) and/or any HA `notify.*` service, each with
   its own event filter — started, finished (duration + time to next run), skipped (with
-  reason), stopped by rain, faults, system.
+  reason), stopped by rain, faults, system. **Group-level mode** collapses a sequential run
+  of 13 beds into two messages (started / finished with totals) instead of 26; a **daily
+  digest** at a chosen time sums up runs, liters, energy, cost and skips; **quiet hours**
+  hold everything except faults during the night.
 - **External switch policy**: a zone turned on outside Zroshua is either adopted as a manual
   run (auto-off) or switched back off.
 - **Backup**: export/import the whole configuration as JSON.
@@ -257,8 +301,8 @@ title: Irrigation # optional
 | `dashboard` | Tiles (watering now / queued / water today / next), live runs with progress + stop, the queue with reasons, tap a run/queued zone for its action sheet, and stop-all / pause-all buttons. |
 | `groups` | Modern tiles per group: execution mode, "N watering · M queued" while running, countdown to the next start and a full-width **Run / Stop group** button. |
 | `zones` | Zones grouped into sections by watering group with **filter chips** (All / Active / Idle / Off); tapping a zone opens an action sheet with duration presets and Stop — built for dozens of zones. |
-| `upcoming` | The next scheduled runs with countdowns. |
-| `timeline` | Today's 24-hour occupancy strip per group (conflicts in red). |
+| `upcoming` | The next scheduled runs with countdowns — runs that will be skipped under the current state (rain dry-out, pause…) are dimmed with a red reason line, uncertain ones get a yellow *may skip*. |
+| `timeline` | Today's 24-hour occupancy strip per group (conflicts in red), with the worst-case temperature boost of each run drawn as a hatched tail. |
 
 The card reads a single `sensor.zroshua_state` entity (published over MQTT) and sends actions
 back through the `mqtt.publish` service — so it stays live and needs no per-entity wiring.
@@ -290,7 +334,8 @@ opens a floating action sheet over the list — no scrolling even with dozens of
 With the Mosquitto add-on installed, Zroshua automatically publishes a "Zroshua" device:
 per-zone watering switches (turn on = manual run with auto-off), next-watering timestamp
 sensors, a watering-active binary sensor, daily water/energy sensors **plus a daily water
-sensor per water source** (well vs. barrel) and a pause-all switch. The consumption sensors
+sensor per water source** (well vs. barrel), a **level sensor (%) per capacity-tracked
+source** and a pause-all switch. The consumption sensors
 carry `device_class`/`state_class`, so Home Assistant records long-term statistics — the
 built-in *statistics-graph* card charts liters per hour / day / week out of the box, and
 the sensors fit the Energy dashboard. Availability uses a Last-Will message, so a dead
