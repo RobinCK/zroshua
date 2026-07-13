@@ -14,6 +14,8 @@ export type SoilTrigger = {
   blockAbovePct: number | null;
   staleAfterHours: number;
   enabled: boolean;
+  /** fire and keep running even when the rain sensor is wet (e.g. greenhouse soil). */
+  ignoreRainSensor?: boolean;
 };
 
 export type NotificationProvider =

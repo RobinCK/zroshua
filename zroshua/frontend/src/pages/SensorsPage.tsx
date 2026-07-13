@@ -183,6 +183,13 @@ export default function SensorsPage() {
                     onChange={(v) => set({ staleAfterHours: Number(v) || 12 })}
                   />
                 </Group>
+                <Switch
+                  mt="xs"
+                  label="Ignore rain sensor"
+                  description="Fire and keep watering even while the rain sensor is wet — e.g. soil under a roof or in a greenhouse"
+                  checked={!!t.ignoreRainSensor}
+                  onChange={(e) => set({ ignoreRainSensor: e.currentTarget.checked })}
+                />
               </Card>
             );
           })}

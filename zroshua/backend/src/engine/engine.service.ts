@@ -27,6 +27,8 @@ interface QueuedRun {
   enqueuedAt: number;
   notBefore: number;
   waitReason?: string;
+  /** survive rain-sensor events and skip the wet check (soil triggers in a greenhouse etc.) */
+  ignoreRain?: boolean;
 }
 
 interface ActiveRun {
@@ -40,6 +42,7 @@ interface ActiveRun {
   endsAt: number;
   manual: boolean;
   triggeredBy: string;
+  ignoreRain?: boolean;
   energySnapshotKwh: number | null;
   energyIntegralWh: number;
   lastSampleTs: number;
@@ -360,9 +363,11 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     triggeredBy: 'schedule' | 'manual' | 'soil',
     overrideMinutes?: number,
     schedule?: import('../db/entities').Schedule,
+    opts?: { ignoreRain?: boolean },
   ) {
     const now = Date.now();
     const manual = triggeredBy === 'manual';
+    const ignoreRain = !!opts?.ignoreRain;
 
     if (!manual) {
       if (this.snoozeUntil > now)
@@ -402,7 +407,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         await this.skip(group.id, zone.id, 'zone_paused', `zone paused until ${new Date(Number(zone.snoozeUntil)).toLocaleString()}`);
         continue;
       }
-      if (!manual && wet && !zone.ignore?.rain_sensor) {
+      if (!manual && !ignoreRain && wet && !zone.ignore?.rain_sensor) {
         await this.skip(group.id, zone.id, 'rain_sensor', 'rain sensor is wet (or in dry-out window)');
         continue;
       }
@@ -440,6 +445,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           priority: manual ? 1000 : group.priority,
           enqueuedAt: now,
           notBefore: now + segments[segment].delayMs,
+          ignoreRain,
         });
       }
       enqueued++;
@@ -676,6 +682,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         endsAt: now + q.durationMin * 60_000,
         manual: q.manual,
         triggeredBy: q.triggeredBy,
+        ignoreRain: q.ignoreRain,
         energySnapshotKwh: snapshot,
         energyIntegralWh: 0,
         lastSampleTs: now,
@@ -891,7 +898,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         await this.journal.add('info', { code: 'rain_detected', detail: `sensor ${entityId} is wet` });
         const linked = settings.rainSensor.linkedZones;
         await this.stopAll('rain', (a) => {
-          if (a.manual) return false;
+          if (a.manual || a.ignoreRain) return false;
           const z = this.zone(a.zoneId);
           if (!z || z.ignore?.rain_sensor) return false;
           if (settings.rainSensor.onWetDuringRun === 'stop_linked' && linked && !linked.includes(a.zoneId)) return false;
@@ -899,7 +906,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         });
         // also drop queued scheduled work for affected zones
         this.queue = this.queue.filter((q) => {
-          if (q.manual) return true;
+          if (q.manual || q.ignoreRain) return true;
           const z = this.zone(q.zoneId);
           return !!z?.ignore?.rain_sensor;
         });
@@ -983,6 +990,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (v >= t.startBelowPct) continue;
       const lastFired = await this.config.getKV<number>(`soilFired:${t.id}`, 0);
       if (now - lastFired < t.cooldownHours * 3600_000) continue;
+      // rain gate: by default a wet rain sensor postpones the trigger (it will
+      // fire once dry); triggers marked ignoreRainSensor (greenhouse) fire anyway
+      if (!t.ignoreRainSensor && (await this.rainIsWet(settings))) continue;
       await this.config.setKV(`soilFired:${t.id}`, now);
       await this.journal.add('info', { code: 'soil_trigger', detail: `sensor ${t.sensor} at ${v}% < ${t.startBelowPct}%` });
       if (t.targetKind === 'zone') {
@@ -1000,11 +1010,12 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
             priority: 10,
             enqueuedAt: now,
             notBefore: 0,
+            ignoreRain: !!t.ignoreRainSensor,
           });
         }
       } else {
         const group = this.group(t.targetId);
-        if (group) await this.startGroupRun(group, 'soil', t.runMin);
+        if (group) await this.startGroupRun(group, 'soil', t.runMin, undefined, { ignoreRain: !!t.ignoreRainSensor });
       }
     }
   }
@@ -1235,8 +1246,12 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Simulated plan for the timeline view: per-zone segments with start/end
-   * (and worst-case end incl. max temperature boost), plus mutex conflicts.
+   * Simulated plan for the timeline view. Per-zone segments carry the BASE
+   * cascade (start/end without temperature scaling) so zones of one group
+   * never visually overlap; scaling is expressed per group occurrence as an
+   * envelope [minEnd..end..worstEnd] — temperature scaling shifts every
+   * following zone, so only the occurrence's finish window widens.
+   * Conflicts are still detected against the worst-case envelope.
    */
   async plan(days = 7) {
     const now = Date.now();
@@ -1244,19 +1259,34 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     from.setHours(0, 0, 0, 0);
     const to = now + days * 24 * 3600_000;
     const maxBoost = (await this.weather.maxBoostPct()) / 100;
+    const minBoost = (await this.weather.minBoostPct()) / 100;
 
     type Segment = {
       groupId: string | null;
       groupName: string;
       zoneId: string;
       zoneName: string;
+      /** occurrence key — groups the segments of one scheduled run */
+      occ: string;
       start: number;
       end: number;
       worstEnd: number;
       conflict: boolean;
       kind: 'group' | 'zone';
     };
+    /** finish window of one scheduled run: may end anywhere in [minEnd..worstEnd] */
+    type Envelope = {
+      occ: string;
+      groupId: string | null;
+      groupName: string;
+      start: number;
+      minEnd: number;
+      end: number;
+      worstEnd: number;
+      kind: 'group' | 'zone';
+    };
     const segments: Segment[] = [];
+    const envelopes: Envelope[] = [];
 
     for (const group of this.groups.filter((g) => g.enabled)) {
       const zones = group.zoneIds.map((id) => this.zone(id)).filter((z): z is Zone => !!z && z.enabled);
@@ -1267,13 +1297,16 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
             ((schedule?.zoneDurations?.[z.id] ?? z.baseDurationMin) * group.multiplierPct) / 100,
             z.maxRuntimeMin || 1e9,
           );
+        const occKey = `${group.id}:${occ.ts}`;
         let cursor = occ.ts;
         let worstCursor = occ.ts;
+        let minCursor = occ.ts;
         const batchSize = group.mode === 'parallel' ? zones.length : group.mode === 'parallel_limit' ? Math.max(1, group.parallelLimit) : 1;
         for (let i = 0; i < zones.length; i += batchSize) {
           const batch = zones.slice(i, i + batchSize);
           let batchEnd = cursor;
           let worstBatchEnd = worstCursor;
+          let minBatchEnd = minCursor;
           for (const z of batch) {
             const d = durOf(z) * 60_000;
             segments.push({
@@ -1281,6 +1314,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
               groupName: group.name,
               zoneId: z.id,
               zoneName: z.name,
+              occ: occKey,
               start: cursor,
               end: cursor + d,
               worstEnd: worstCursor + d * maxBoost,
@@ -1289,9 +1323,24 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
             });
             batchEnd = Math.max(batchEnd, cursor + d);
             worstBatchEnd = Math.max(worstBatchEnd, worstCursor + d * maxBoost);
+            minBatchEnd = Math.max(minBatchEnd, minCursor + d * minBoost);
           }
           cursor = batchEnd + group.interZoneDelayS * 1000;
           worstCursor = worstBatchEnd + group.interZoneDelayS * 1000;
+          minCursor = minBatchEnd + group.interZoneDelayS * 1000;
+        }
+        if (zones.length) {
+          const delay = group.interZoneDelayS * 1000;
+          envelopes.push({
+            occ: occKey,
+            groupId: group.id,
+            groupName: group.name,
+            start: occ.ts,
+            minEnd: minCursor - delay,
+            end: cursor - delay,
+            worstEnd: worstCursor - delay,
+            kind: 'group',
+          });
         }
       }
     }
@@ -1301,15 +1350,27 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       for (const occ of occurrences(zone, from.getTime(), to)) {
         const sch = (zone.schedules ?? []).find((sc) => sc.id === occ.scheduleId);
         const d = Math.min(sch?.zoneDurations?.[zone.id] ?? zone.baseDurationMin, zone.maxRuntimeMin || 1e9) * 60_000;
+        const occKey = `zone:${zone.id}:${occ.ts}`;
         segments.push({
           groupId: containing?.id ?? null,
           groupName: containing ? `${containing.name} (zone)` : 'Zone schedule',
           zoneId: zone.id,
           zoneName: zone.name,
+          occ: occKey,
           start: occ.ts,
           end: occ.ts + d,
           worstEnd: occ.ts + d * maxBoost,
           conflict: false,
+          kind: 'zone',
+        });
+        envelopes.push({
+          occ: occKey,
+          groupId: containing?.id ?? null,
+          groupName: containing ? `${containing.name} (zone)` : 'Zone schedule',
+          start: occ.ts,
+          minEnd: occ.ts + d * minBoost,
+          end: occ.ts + d,
+          worstEnd: occ.ts + d * maxBoost,
           kind: 'zone',
         });
       }
@@ -1340,7 +1401,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         }
       }
     }
-    return { segments: segments.sort((x, y) => x.start - y.start), conflicts };
+    return { segments: segments.sort((x, y) => x.start - y.start), envelopes: envelopes.sort((x, y) => x.start - y.start), conflicts };
   }
 
   /**

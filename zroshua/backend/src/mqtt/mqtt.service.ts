@@ -302,7 +302,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       g: s.groupName,
       z: s.zoneName,
       s: s.start,
-      e: s.worstEnd,
+      e: s.end,
       c: s.conflict ? 1 : 0,
       k: s.kind === 'zone' ? 'z' : 'g',
     }));

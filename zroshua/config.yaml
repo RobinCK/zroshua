@@ -1,5 +1,5 @@
 name: Zroshua
-version: "0.1.25"
+version: "0.1.26"
 slug: zroshua
 description: Smart irrigation controller with zones, groups, scheduler, weather, sensors and statistics
 url: https://github.com/RobinCK/zroshua

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.26
+
+- **Timeline: temperature scaling no longer draws overlapping zones inside a
+  group.** Each zone bar was stretched to its own worst-case end while the next
+  zone stayed at its base start, so scaled zones of one group visually overlapped
+  — which read as a pressure conflict that cannot actually happen (at runtime a
+  longer zone simply shifts the next one). Zones are now drawn at their base
+  cascade (back-to-back), and each run shows a **finish window** instead: a
+  medium-opacity band = may finish earlier (negative scaling steps), a faint band
+  = worst-case temperature boost. Tooltips show the window ("finishes between
+  … and …"); rule conflicts are still detected against the worst case.
+- The Lovelace card timeline uses the base plan (no more overlapping bars).
+- **Soil moisture triggers can ignore the rain sensor** (per-trigger switch) —
+  for soil under a roof or in a greenhouse. Such a trigger fires even while the
+  rain sensor is wet and its watering survives a rain event; by default a wet
+  sensor postpones the trigger until dry (previously zone-target triggers
+  ignored rain unconditionally and group-target ones were always blocked).
+
 ## 0.1.25
 
 - **Fix: the Lovelace card kept showing the old version after an add-on update**

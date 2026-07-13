@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Alert, Badge, Box, Card, Group, ScrollArea, SegmentedControl, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
-import { PlanResponse } from '../api';
+import { PlanEnvelope, PlanResponse } from '../api';
 import { useResource } from '../hooks';
 
 const HOUR_W = 100 / 24;
@@ -24,10 +24,17 @@ export default function TimelinePage() {
     const to = from + 24 * 3600_000;
 
     const daySegs = (plan?.segments ?? []).filter((s) => s.start < to && s.worstEnd > from);
-    const byGroup = new Map<string, typeof daySegs>();
+    const dayEnvs = (plan?.envelopes ?? []).filter((e) => e.start < to && e.worstEnd > from);
+    const byGroup = new Map<string, { segs: typeof daySegs; envs: PlanEnvelope[] }>();
     for (const s of daySegs) {
-      const key = s.groupName;
-      byGroup.set(key, [...(byGroup.get(key) ?? []), s]);
+      const row = byGroup.get(s.groupName) ?? { segs: [], envs: [] };
+      row.segs.push(s);
+      byGroup.set(s.groupName, row);
+    }
+    for (const e of dayEnvs) {
+      const row = byGroup.get(e.groupName) ?? { segs: [], envs: [] };
+      row.envs.push(e);
+      byGroup.set(e.groupName, row);
     }
     // busy fraction of the day (union of intervals)
     const intervals = daySegs
@@ -121,17 +128,34 @@ export default function TimelinePage() {
                 Nothing scheduled this day.
               </Text>
             )}
-            {rows.map(([groupName, segs]) => (
+            {rows.map(([groupName, row]) => (
               <Group key={groupName} gap={0} wrap="nowrap" h={32} align="center">
                 <Box pos="relative" h={26} style={{ flexGrow: 1, background: 'var(--mantine-color-default-hover)', borderRadius: 4 }}>
                   {/* hour gridlines */}
                   {Array.from({ length: 12 }, (_, i) => (
                     <Box key={i} pos="absolute" top={0} bottom={0} style={{ left: `${(i + 1) * 2 * HOUR_W}%`, width: 1, background: 'var(--mantine-color-default-border)' }} />
                   ))}
-                  {segs.map((s, i) => (
+                  {/* finish window per run: temp scaling ends the run anywhere in [minEnd..worstEnd] */}
+                  {row.envs.map((e, i) => {
+                    const color = e.kind === 'zone' ? 'var(--mantine-color-grape-5)' : 'var(--mantine-color-teal-6)';
+                    return (
+                      <Tooltip key={`e${i}`} label={`${e.groupName}: finishes between ${fmt(e.minEnd)} and ${fmt(e.worstEnd)} (base ${fmt(e.end)}) depending on temperature scaling`}>
+                        <Box pos="absolute" top={3} h={20} style={{ left: `${pct(Math.min(e.minEnd, e.end))}%`, width: `${Math.max(0, pct(e.worstEnd) - pct(Math.min(e.minEnd, e.end)))}%` }}>
+                          {e.minEnd < e.end && (
+                            <Box pos="absolute" top={0} bottom={0} style={{ left: 0, width: `${((e.end - e.minEnd) / Math.max(1, e.worstEnd - Math.min(e.minEnd, e.end))) * 100}%`, background: color, opacity: 0.45 }} />
+                          )}
+                          {e.worstEnd > e.end && (
+                            <Box pos="absolute" top={0} bottom={0} style={{ right: 0, width: `${((e.worstEnd - e.end) / Math.max(1, e.worstEnd - Math.min(e.minEnd, e.end))) * 100}%`, background: color, opacity: 0.25, borderRadius: '0 4px 4px 0' }} />
+                          )}
+                        </Box>
+                      </Tooltip>
+                    );
+                  })}
+                  {/* zone segments at their base (unscaled) positions — no overlap within a group */}
+                  {row.segs.map((s, i) => (
                     <Tooltip
                       key={i}
-                      label={`${s.zoneName}: ${fmt(s.start)}–${fmt(s.end)}${s.worstEnd > s.end ? ` (max ${fmt(s.worstEnd)})` : ''}${s.conflict ? ' — CONFLICT' : ''}`}
+                      label={`${s.zoneName}: ${fmt(s.start)}–${fmt(s.end)}${s.conflict ? ' — CONFLICT' : ''}`}
                     >
                       <Box
                         pos="absolute"
@@ -139,10 +163,11 @@ export default function TimelinePage() {
                         h={20}
                         style={{
                           left: `${pct(s.start)}%`,
-                          width: `${Math.max(0.5, pct(s.worstEnd) - pct(s.start))}%`,
+                          width: `${Math.max(0.5, pct(s.end) - pct(s.start))}%`,
                           background: s.conflict ? 'var(--mantine-color-red-6)' : s.kind === 'zone' ? 'var(--mantine-color-grape-5)' : 'var(--mantine-color-teal-6)',
                           borderRadius: 4,
-                          opacity: 0.9,
+                          opacity: 0.95,
+                          boxShadow: 'inset 1px 0 0 rgba(0,0,0,.35)',
                         }}
                       />
                     </Tooltip>
@@ -161,7 +186,9 @@ export default function TimelinePage() {
           <Badge variant="light" color="grape">zone schedule</Badge>
           <Badge variant="light" color="red">rule conflict</Badge>
           <Text size="xs" c="dimmed">
-            Bar length includes the worst-case temperature boost — gaps between bars are guaranteed free water time.
+            Solid bars = planned zones (temperature scaling shifts the following zones, they never overlap).
+            The translucent tail is the run's finish window: medium = may finish earlier, faint = worst-case
+            temperature boost. Gaps after the faint tail are guaranteed free water time.
           </Text>
         </Group>
       </Card>

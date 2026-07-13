@@ -158,4 +158,11 @@ export class WeatherService {
     const boost = s.tempScale.steps.reduce((acc, st) => acc + Math.max(0, st.pct ?? 0), 100);
     return boost;
   }
+
+  /** Lower bound of the temperature scaling — the earliest a scaled run can finish. */
+  async minBoostPct(): Promise<number> {
+    const s = await this.config.getSettings();
+    if (!s.tempScale.enabled) return 100;
+    return Math.max(0, s.tempScale.steps.reduce((acc, st) => acc + Math.min(0, st.pct ?? 0), 100));
+  }
 }

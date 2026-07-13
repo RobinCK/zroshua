@@ -71,8 +71,11 @@ zone opens its action sheet (stop, water for a preset, pause).
 ### Timeline
 
 Each day as a 24-hour strip per group — see exactly when water is busy and when it is free.
-Bar length includes the **worst-case temperature boost**, so gaps are guaranteed free time.
-Runs that violate a *never-overlap / order* rule are highlighted red with an alert.
+Zones are drawn at their planned (unscaled) times — temperature scaling shifts every following
+zone of the group, so bars never overlap. Each run then shows its **finish window** as a
+translucent tail: medium = may finish earlier (negative scaling), faint = the worst-case
+temperature boost. Gaps after the faint tail are guaranteed free time. Runs that violate a
+*never-overlap / order* rule are highlighted red with an alert (checked against the worst case).
 
 ![Timeline](docs/screenshots/timeline.png)
 
@@ -153,7 +156,8 @@ energy for N minutes after selected groups finish — e.g. while the barrel refi
   stop-during-run behaviour. Zones can ignore the rain sensor individually.
 - **Soil moisture** — per zone or group: water for N minutes when moisture drops below a
   threshold, then wait a **cooldown** (soil sensors react slowly); optionally block scheduled
-  runs above a wet threshold; stale data is ignored safely.
+  runs above a wet threshold; stale data is ignored safely. Each trigger can **ignore the rain
+  sensor** — soil under a roof or in a greenhouse gets watered even while it rains outside.
 
 ![Sensors](docs/screenshots/sensors.png)
 

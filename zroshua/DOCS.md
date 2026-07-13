@@ -92,7 +92,9 @@ the run is skipped with a journal reason).
   behaviour (all zones or linked zones only). Zones can ignore the rain sensor individually.
 - **Soil moisture** — triggers per zone or group: water for N minutes when moisture drops
   below a threshold, then wait a cooldown (soil sensors react slowly); optionally block
-  scheduled runs above a wet threshold; stale sensor data is ignored safely.
+  scheduled runs above a wet threshold; stale sensor data is ignored safely. A trigger can be
+  set to **ignore the rain sensor** (greenhouse / covered soil): it fires and keeps watering
+  even while rain is detected; by default a wet rain sensor postpones the trigger until dry.
 
 ## Fault control
 

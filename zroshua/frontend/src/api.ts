@@ -174,6 +174,7 @@ export interface SoilTrigger {
   blockAbovePct: number | null;
   staleAfterHours: number;
   enabled: boolean;
+  ignoreRainSensor?: boolean;
 }
 
 export type NotificationProvider =
@@ -205,6 +206,7 @@ export interface PlanSegment {
   groupName: string;
   zoneId: string;
   zoneName: string;
+  occ?: string;
   start: number;
   end: number;
   worstEnd: number;
@@ -212,8 +214,21 @@ export interface PlanSegment {
   kind: 'group' | 'zone';
 }
 
+/** Finish window of one scheduled run: temperature scaling can end it anywhere in [minEnd..worstEnd]. */
+export interface PlanEnvelope {
+  occ: string;
+  groupId: string | null;
+  groupName: string;
+  start: number;
+  minEnd: number;
+  end: number;
+  worstEnd: number;
+  kind: 'group' | 'zone';
+}
+
 export interface PlanResponse {
   segments: PlanSegment[];
+  envelopes?: PlanEnvelope[];
   conflicts: { aZone: string; bZone: string; at: number }[];
 }
 
