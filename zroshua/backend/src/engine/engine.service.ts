@@ -57,6 +57,8 @@ interface GroupRunState {
   // group-level notification accumulators
   startNotified?: boolean;
   startTs?: number;
+  /** zones enqueued for this run — the queue can't be counted at start time (parallel dispatch drains it first) */
+  zonesPlanned?: number;
   zonesDone?: number;
   totalMin?: number;
   liters?: number;
@@ -713,6 +715,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     }
 
     const state = this.groupRuns.get(groupRunId)!;
+    state.zonesPlanned = enqueued;
     state.remaining = this.queue.filter((q) => q.groupRunId === groupRunId).length;
     if (!state.remaining) this.groupRuns.delete(groupRunId);
     else this.broadcastState();
@@ -968,7 +971,11 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         if (!groupState.startNotified) {
           groupState.startNotified = true;
           groupState.startTs = now;
-          const planned = 1 + this.queue.filter((x) => x.groupRunId === q.groupRunId).length;
+          const planned =
+            groupState.zonesPlanned ??
+            new Set(
+              [q, ...this.pendingStarts, ...this.queue].filter((x) => x.groupRunId === q.groupRunId).map((x) => x.zoneId),
+            ).size;
           const g = this.group(q.groupId);
           await this.notify.emit('run_start', `💧 Group "${g?.name ?? q.groupId}" started: ${planned} zone(s) planned.`);
         }

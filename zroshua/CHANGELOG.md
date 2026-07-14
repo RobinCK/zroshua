@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1
+
+- Fixed the group-level "started" notification reporting **1 zone planned**
+  for parallel groups regardless of the real count (the dispatcher drains the
+  queue before the first zone's start message is built, so counting the queue
+  there always saw a single zone). The planned count is now recorded when the
+  group run is created; the "finished" message was already correct.
+
 ## 0.2.0
 
 Feature release. Everything is additive — existing configurations keep working
