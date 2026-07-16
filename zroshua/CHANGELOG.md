@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.4
+
+- **The add-on dashboard's "Upcoming waterings" is now mobile-friendly too**
+  (same fix as 0.2.3 did for the Lovelace card). Each row stacks the name and
+  zones above the meta line (duration · countdown · time · pause menu) on a
+  phone, and folds back to a single line on wider screens.
+
 ## 0.2.3
 
 - **Lovelace card `upcoming` view is now mobile-friendly.** On a narrow card

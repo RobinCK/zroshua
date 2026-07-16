@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Button,
   Card,
+  Flex,
   Grid,
   Group,
   Modal,
@@ -322,7 +323,14 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
               const paused = u.snoozeUntil != null && u.snoozeUntil > Date.now();
               const dim = u.willSkip || paused ? 0.55 : 1;
               return (
-                <Group key={i} justify="space-between" wrap="nowrap">
+                <Flex
+                  key={i}
+                  direction={{ base: 'column', sm: 'row' }}
+                  align={{ base: 'stretch', sm: 'center' }}
+                  justify="space-between"
+                  gap={{ base: 4, sm: 'sm' }}
+                  style={{ borderBottom: i < next.length - 1 ? '1px solid var(--mantine-color-default-border)' : undefined, paddingBottom: 6 }}
+                >
                   <Text style={{ opacity: dim, minWidth: 0 }} truncate>
                     <b>{u.groupName}</b>
                     {u.kind === 'zone' ? '' : u.zones.length ? ` — ${u.zones.map((z) => z.name).join(', ')}` : ''}
@@ -332,7 +340,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                       </Badge>
                     )}
                   </Text>
-                  <Group gap="xs" wrap="nowrap">
+                  <Group gap="xs" wrap="wrap" justify="flex-end" style={{ flexShrink: 0 }}>
                     {paused && (
                       <Badge variant="light" color="gray" leftSection={<IconPlayerPause size={12} />}>
                         paused
@@ -352,7 +360,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                         </Badge>
                       </Tooltip>
                     )}
-                    <Text size="sm" c="dimmed" visibleFrom="sm">
+                    <Text size="sm" c="dimmed">
                       {u.zones.length
                         ? `${fmtDur(u.durationMin ?? u.zones.reduce((a, z) => a + z.minutes, 0))} (max ${fmtDur(u.maxDurationMin ?? u.zones.reduce((a, z) => a + z.maxMinutes, 0))})`
                         : ''}
@@ -391,7 +399,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                       </Menu.Dropdown>
                     </Menu>
                   </Group>
-                </Group>
+                </Flex>
               );
             })}
           </Stack>
