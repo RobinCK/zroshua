@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3
+
+- **Lovelace card `upcoming` view is now mobile-friendly.** On a narrow card
+  the name, zones and the meta line (duration · countdown · time · pause
+  button) stacked into one cramped row and overflowed. Each run is now a
+  two-line block — name and zones on top, the meta line below — and folds back
+  to a single line on wider cards (via a container query), so it reads cleanly
+  at phone width.
+
 ## 0.2.2
 
 - **Upcoming waterings now include a zone's own schedules**, not only group runs.

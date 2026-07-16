@@ -390,9 +390,23 @@ class ZroshuaCard extends HTMLElement {
         const pauseBtn = u.paused
           ? this._btn({ cls: 'ghost icon', data: `${kindAttr}="${this._esc(target)}" data-hours="0"`, icon: I.play, title: 'Resume' })
           : this._btn({ cls: 'ghost icon', data: `${kindAttr}="${this._esc(target)}" data-hours="${skipHours}"`, icon: I.pause, title: 'Skip this run' });
-        return `<div class="row ${u.willSkip || u.paused ? 'dim' : ''}"><span class="ci accent">${I.clock}</span><div class="grow"><b>${this._esc(u.groupName)}</b>${tag}
-          <div class="muted small">${this._esc((u.zones || []).join(', '))}</div>${skip}</div>
-          <span class="muted small">${u.minutes}m</span>${this._chip(this._countdown(u.ts), 'accent')}<span class="muted small">${this._fmtTime(u.ts)}</span>${pauseBtn}</div>`;
+        const zones = (u.zones || []).join(', ');
+        return `<div class="uprow ${u.willSkip || u.paused ? 'dim' : ''}">
+          <div class="uptop">
+            <span class="ci accent">${I.clock}</span>
+            <div class="grow">
+              <div class="upname"><b>${this._esc(u.groupName)}</b>${tag}</div>
+              ${zones ? `<div class="muted small">${this._esc(zones)}</div>` : ''}
+            </div>
+            <div class="upmeta">
+              <span class="muted small nowrap">${u.minutes}m</span>
+              ${this._chip(this._countdown(u.ts), 'accent')}
+              <span class="muted small nowrap">${this._fmtTime(u.ts)}</span>
+              ${pauseBtn}
+            </div>
+          </div>
+          ${skip}
+        </div>`;
       })
       .join('');
     return `<div class="pad">${rows || '<div class="muted">Nothing scheduled in the next 7 days.</div>'}</div>`;
@@ -443,7 +457,7 @@ const STYLE = `
   :host { --z-ok:#12b886; --z-warn:#f0a105; --z-danger:#fa5252; --z-accent:#9775fa; --z-info:#4dabf7;
     -webkit-tap-highlight-color: transparent; }
   button { -webkit-tap-highlight-color: transparent; }
-  ha-card { overflow: hidden; }
+  ha-card { overflow: hidden; container-type: inline-size; }
   .pad { padding: 12px 16px 16px; }
   .hdr { padding: 14px 16px 0; font-size: 1.15rem; font-weight: 600; }
   .muted { color: var(--secondary-text-color); }
@@ -596,6 +610,21 @@ const STYLE = `
   .tlboost { position: absolute; top: 3px; height: 16px; border-radius: 0 4px 4px 0;
     background: repeating-linear-gradient(135deg, var(--z-ok) 0 3px, transparent 3px 6px); opacity: .8; }
   .tltick { position: absolute; top: 1px; height: 20px; width: 2px; background: rgba(255,255,255,.85); border-radius: 1px; }
+  /* upcoming rows: stacked on narrow cards, single-line when wide enough */
+  .uprow { padding: 10px 0; border-bottom: 1px solid var(--divider-color); }
+  .uprow:last-of-type { border-bottom: 0; }
+  .uptop { display: flex; flex-direction: column; gap: 6px; }
+  .uptop > .ci { display: none; }
+  .upname { line-height: 1.25; }
+  .upmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  .upmeta .btn.icon { margin-left: auto; }
+  .nowrap { white-space: nowrap; }
+  @container (min-width: 420px) {
+    .uptop { flex-direction: row; align-items: center; gap: 10px; }
+    .uptop > .ci { display: inline-flex; }
+    .upmeta { flex-wrap: nowrap; margin-left: auto; }
+    .upmeta .btn.icon { margin-left: 4px; }
+  }
   .ztag { display: inline-block; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
     padding: 1px 5px; border-radius: 5px; background: color-mix(in srgb, var(--z-info) 22%, transparent); color: var(--z-info); vertical-align: middle; }
   .skiprow { font-size: .74rem; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 4px; }

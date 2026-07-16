@@ -329,7 +329,7 @@ back through the `mqtt.publish` service — so it stays live and needs no per-en
 
 | `dashboard` | `upcoming` |
 |---|---|
-| <img src="docs/screenshots/card-dashboard.png" width="390" alt="Card: dashboard" /> | <img src="docs/screenshots/card-upcoming.png" width="390" alt="Card: upcoming" /> |
+| <img src="docs/screenshots/card-dashboard.png" width="390" alt="Card: dashboard" /> | <img src="docs/screenshots/card-upcoming-mobile.png" width="390" alt="Card: upcoming (mobile)" /> |
 
 ![Card: timeline](docs/screenshots/card-timeline.png)
 
