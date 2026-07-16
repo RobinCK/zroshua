@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.2
+
+- **Upcoming waterings now include a zone's own schedules**, not only group runs.
+  A zone watered on its own schedule (more often than its group) shows up tagged
+  *zone*, with the same skip prediction and duration estimate as group runs — on
+  the dashboard and in the Lovelace card's `upcoming` view.
+- **Pause / skip a run straight from Upcoming waterings.** Each row has a pause
+  menu: *skip this run* (pauses just that group or zone until the run is past),
+  pause 6/12/24 h, or resume. Paused rows are marked and dimmed. The card's
+  upcoming rows get the same skip/resume button.
+- **Soil moisture as a run condition, with several sensors.** A sensor condition
+  can now read **multiple sensors combined** (average / min / max), and a one-tap
+  **Soil moisture** preset drops in a *sensor(s) ≤ %* rule — skip the scheduled
+  run while the bed is already moist. Skipping is safe: a soil-moisture trigger
+  still waters the zone if it dries out before the next scheduled run. (Existing
+  single-sensor conditions keep working unchanged.)
+
 ## 0.2.1
 
 - Fixed the group-level "started" notification reporting **1 zone planned**

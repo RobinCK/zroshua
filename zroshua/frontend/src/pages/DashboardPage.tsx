@@ -13,11 +13,13 @@ import {
   SimpleGrid,
   ActionIcon,
   Tooltip,
+  Menu,
 } from '@mantine/core';
 import {
   IconAlertTriangle,
   IconPlayerStop,
   IconPlayerPause,
+  IconPlayerPlay,
   IconPlus,
   IconDroplet,
   IconPlant2,
@@ -104,7 +106,15 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
     }
   };
 
-  const next = (upcoming ?? []).filter((u) => u.ts > Date.now()).slice(0, 5);
+  /** pause/resume the target (group or single zone) of an upcoming row */
+  const pauseRow = (u: Upcoming, hours: number) => {
+    const kind = u.kind ?? 'group';
+    const id = u.targetId ?? u.groupId;
+    const path = kind === 'zone' ? `/zones/${id}/pause` : `/groups/${id}/pause`;
+    return act(() => api.post(path, { hours }), hours > 0 ? 'Paused' : 'Resumed');
+  };
+
+  const next = (upcoming ?? []).filter((u) => u.ts > Date.now()).slice(0, 6);
   const litersToday = today
     ? Math.round((today.totals.litersMin + today.totals.litersMax) / 2)
     : null;
@@ -308,38 +318,82 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
         </Title>
         {next.length ? (
           <Stack gap="xs">
-            {next.map((u, i) => (
-              <Group key={i} justify="space-between">
-                <Text>
-                  <b>{u.groupName}</b> — {u.zones.map((z) => z.name).join(', ')}
-                </Text>
-                <Group gap="xs">
-                  {u.willSkip && (
-                    <Tooltip label={(u.skipReasons ?? []).join('; ')} multiline maw={320}>
-                      <Badge variant="light" color="red" leftSection={<IconAlertTriangle size={12} />}>
-                        will skip
+            {next.map((u, i) => {
+              const paused = u.snoozeUntil != null && u.snoozeUntil > Date.now();
+              const dim = u.willSkip || paused ? 0.55 : 1;
+              return (
+                <Group key={i} justify="space-between" wrap="nowrap">
+                  <Text style={{ opacity: dim, minWidth: 0 }} truncate>
+                    <b>{u.groupName}</b>
+                    {u.kind === 'zone' ? '' : u.zones.length ? ` — ${u.zones.map((z) => z.name).join(', ')}` : ''}
+                    {u.kind === 'zone' && (
+                      <Badge size="xs" variant="light" color="blue" ml={6} style={{ verticalAlign: 'middle' }}>
+                        zone
                       </Badge>
-                    </Tooltip>
-                  )}
-                  {!u.willSkip && (u.maybeSkip?.length ?? 0) > 0 && (
-                    <Tooltip label={(u.maybeSkip ?? []).join('; ')} multiline maw={320}>
-                      <Badge variant="light" color="yellow" leftSection={<IconAlertTriangle size={12} />}>
-                        may skip
-                      </Badge>
-                    </Tooltip>
-                  )}
-                  <Text size="sm" c="dimmed">
-                    {u.zones.length
-                      ? `${fmtDur(u.durationMin ?? u.zones.reduce((a, z) => a + z.minutes, 0))} (max ${fmtDur(u.maxDurationMin ?? u.zones.reduce((a, z) => a + z.maxMinutes, 0))})`
-                      : ''}
+                    )}
                   </Text>
-                  <Badge variant="light" color="grape" style={{ opacity: u.willSkip ? 0.55 : 1 }}>
-                    {countdown(u.ts)}
-                  </Badge>
-                  <Badge variant="light" style={{ opacity: u.willSkip ? 0.55 : 1 }}>{fmtTime(u.ts)}</Badge>
+                  <Group gap="xs" wrap="nowrap">
+                    {paused && (
+                      <Badge variant="light" color="gray" leftSection={<IconPlayerPause size={12} />}>
+                        paused
+                      </Badge>
+                    )}
+                    {!paused && u.willSkip && (
+                      <Tooltip label={(u.skipReasons ?? []).join('; ')} multiline maw={320}>
+                        <Badge variant="light" color="red" leftSection={<IconAlertTriangle size={12} />}>
+                          will skip
+                        </Badge>
+                      </Tooltip>
+                    )}
+                    {!paused && !u.willSkip && (u.maybeSkip?.length ?? 0) > 0 && (
+                      <Tooltip label={(u.maybeSkip ?? []).join('; ')} multiline maw={320}>
+                        <Badge variant="light" color="yellow" leftSection={<IconAlertTriangle size={12} />}>
+                          may skip
+                        </Badge>
+                      </Tooltip>
+                    )}
+                    <Text size="sm" c="dimmed" visibleFrom="sm">
+                      {u.zones.length
+                        ? `${fmtDur(u.durationMin ?? u.zones.reduce((a, z) => a + z.minutes, 0))} (max ${fmtDur(u.maxDurationMin ?? u.zones.reduce((a, z) => a + z.maxMinutes, 0))})`
+                        : ''}
+                    </Text>
+                    <Badge variant="light" color="grape" style={{ opacity: dim }}>
+                      {countdown(u.ts)}
+                    </Badge>
+                    <Badge variant="light" style={{ opacity: dim }}>
+                      {fmtTime(u.ts)}
+                    </Badge>
+                    <Menu position="bottom-end" withArrow>
+                      <Menu.Target>
+                        <ActionIcon variant="subtle" color={paused ? 'teal' : 'gray'}>
+                          {paused ? <IconPlayerPlay size={16} /> : <IconPlayerPause size={16} />}
+                        </ActionIcon>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Label>{u.kind === 'zone' ? u.groupName + ' · zone' : u.groupName}</Menu.Label>
+                        {paused ? (
+                          <Menu.Item leftSection={<IconPlayerPlay size={14} />} onClick={() => pauseRow(u, 0)}>
+                            Resume
+                          </Menu.Item>
+                        ) : (
+                          <>
+                            <Menu.Item
+                              leftSection={<IconPlayerPause size={14} />}
+                              onClick={() => pauseRow(u, Math.max(0.05, (u.ts + 60_000 - Date.now()) / 3600_000))}
+                            >
+                              Skip this run
+                            </Menu.Item>
+                            <Menu.Item onClick={() => pauseRow(u, 6)}>Pause 6 h</Menu.Item>
+                            <Menu.Item onClick={() => pauseRow(u, 12)}>Pause 12 h</Menu.Item>
+                            <Menu.Item onClick={() => pauseRow(u, 24)}>Pause 24 h</Menu.Item>
+                          </>
+                        )}
+                      </Menu.Dropdown>
+                    </Menu>
+                  </Group>
                 </Group>
-              </Group>
-            ))}
+              );
+            })}
           </Stack>
         ) : (
           <Text c="dimmed">No scheduled waterings in the next 7 days.</Text>

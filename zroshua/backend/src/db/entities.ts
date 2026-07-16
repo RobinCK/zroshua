@@ -35,7 +35,9 @@ export type ScheduleDayStarts = { start: string; anchor?: 'start' | 'finish' }[]
 export type ScheduleCondition = {
   id: string;
   kind: 'forecast_max' | 'forecast_rain_prob' | 'sensor';
-  entity?: string; // for kind=sensor
+  entity?: string; // for kind=sensor (single sensor; kept for back-compat)
+  entities?: string[]; // for kind=sensor: several sensors aggregated (e.g. soil moisture probes)
+  agg?: 'avg' | 'min' | 'max'; // how to combine `entities` (default avg)
   op: 'gte' | 'lte';
   value: number;
 };

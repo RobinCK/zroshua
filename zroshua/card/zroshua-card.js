@@ -375,14 +375,24 @@ class ZroshuaCard extends HTMLElement {
     const rows = (a.upcoming || [])
       .filter((u) => u.ts > Date.now())
       .map((u) => {
-        const skip = u.willSkip
-          ? `<div class="skiprow danger">${I.warn ? `<span class="ci">${I.warn}</span>` : ''}will skip: ${this._esc(u.skipReason || '')}</div>`
-          : u.maybeSkip
-            ? `<div class="skiprow warn">may skip: ${this._esc(u.maybeSkip)}</div>`
-            : '';
-        return `<div class="row ${u.willSkip ? 'dim' : ''}"><span class="ci accent">${I.clock}</span><div class="grow"><b>${this._esc(u.groupName)}</b>
+        const skip = u.paused
+          ? `<div class="skiprow warn"><span class="ci">${I.pause}</span>paused</div>`
+          : u.willSkip
+            ? `<div class="skiprow danger">${I.warn ? `<span class="ci">${I.warn}</span>` : ''}will skip: ${this._esc(u.skipReason || '')}</div>`
+            : u.maybeSkip
+              ? `<div class="skiprow warn">may skip: ${this._esc(u.maybeSkip)}</div>`
+              : '';
+        const tag = u.kind === 'zone' ? ' <span class="ztag">zone</span>' : '';
+        const target = u.kind === 'zone' ? u.targetId : u.groupId;
+        const kindAttr = u.kind === 'zone' ? 'data-pause-zone' : 'data-pause-group';
+        // skip just this run: pause the target until a minute past its start
+        const skipHours = Math.max(0.05, (u.ts + 60000 - Date.now()) / 3600000);
+        const pauseBtn = u.paused
+          ? this._btn({ cls: 'ghost icon', data: `${kindAttr}="${this._esc(target)}" data-hours="0"`, icon: I.play, title: 'Resume' })
+          : this._btn({ cls: 'ghost icon', data: `${kindAttr}="${this._esc(target)}" data-hours="${skipHours}"`, icon: I.pause, title: 'Skip this run' });
+        return `<div class="row ${u.willSkip || u.paused ? 'dim' : ''}"><span class="ci accent">${I.clock}</span><div class="grow"><b>${this._esc(u.groupName)}</b>${tag}
           <div class="muted small">${this._esc((u.zones || []).join(', '))}</div>${skip}</div>
-          <span class="muted small">${u.minutes}m</span>${this._chip(this._countdown(u.ts), 'accent')}<span class="muted small">${this._fmtTime(u.ts)}</span></div>`;
+          <span class="muted small">${u.minutes}m</span>${this._chip(this._countdown(u.ts), 'accent')}<span class="muted small">${this._fmtTime(u.ts)}</span>${pauseBtn}</div>`;
       })
       .join('');
     return `<div class="pad">${rows || '<div class="muted">Nothing scheduled in the next 7 days.</div>'}</div>`;
@@ -586,6 +596,8 @@ const STYLE = `
   .tlboost { position: absolute; top: 3px; height: 16px; border-radius: 0 4px 4px 0;
     background: repeating-linear-gradient(135deg, var(--z-ok) 0 3px, transparent 3px 6px); opacity: .8; }
   .tltick { position: absolute; top: 1px; height: 20px; width: 2px; background: rgba(255,255,255,.85); border-radius: 1px; }
+  .ztag { display: inline-block; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+    padding: 1px 5px; border-radius: 5px; background: color-mix(in srgb, var(--z-info) 22%, transparent); color: var(--z-info); vertical-align: middle; }
   .skiprow { font-size: .74rem; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
   .skiprow.danger { color: var(--z-danger); }
   .skiprow.warn { color: var(--z-warn); }

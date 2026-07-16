@@ -587,10 +587,12 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           actual = today?.precipitationProbability ?? null;
           label = 'forecast rain probability';
           break;
-        case 'sensor':
-          actual = c.entity ? this.ha.numeric(c.entity) : null;
-          label = `sensor ${c.entity ?? '?'}`;
+        case 'sensor': {
+          const s = this.sensorCondValue(c);
+          actual = s.value;
+          label = s.label;
           break;
+        }
       }
       if (actual === null) {
         await this.journal.add('info', {
@@ -609,6 +611,22 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return { pass: true };
+  }
+
+  /**
+   * Reads a sensor condition's live value: a single `entity`, or several
+   * `entities` (e.g. soil-moisture probes covering one zone) combined by
+   * `agg` (avg default). Unavailable sensors are dropped; if none report a
+   * number the value is null (which callers treat as "ignore the condition").
+   */
+  private sensorCondValue(c: import('../db/entities').ScheduleCondition): { value: number | null; label: string } {
+    const ids = c.entities?.length ? c.entities : c.entity ? [c.entity] : [];
+    const vals = ids.map((e) => this.ha.numeric(e)).filter((v): v is number => v !== null && v !== undefined);
+    const label = ids.length > 1 ? `${c.agg ?? 'avg'} of ${ids.length} sensors` : `sensor ${ids[0] ?? '?'}`;
+    if (!vals.length) return { value: null, label };
+    const agg = c.agg ?? 'avg';
+    const value = agg === 'min' ? Math.min(...vals) : agg === 'max' ? Math.max(...vals) : vals.reduce((a, b) => a + b, 0) / vals.length;
+    return { value, label };
   }
 
   async startGroupRun(
@@ -1600,19 +1618,26 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     }
     // live-sensor conditions can change by start time — mark as "maybe"
     for (const c of schedule?.conditions ?? []) {
-      if (c.kind !== 'sensor' || !c.entity) continue;
-      const v = this.ha.numeric(c.entity);
+      if (c.kind !== 'sensor') continue;
+      const { value: v, label } = this.sensorCondValue(c);
       if (v != null && !(c.op === 'gte' ? v >= c.value : v <= c.value))
-        maybe.push(`condition: sensor now ${v} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);
+        maybe.push(`${label} now ${v.toFixed(1)} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);
     }
     return { willSkip: reasons.length > 0, reasons, maybe };
   }
 
   async upcoming(days = 7) {
     const now = Date.now();
+    const until = now + days * 24 * 3600_000;
     const out: {
+      /** the group this run belongs to (containing group for a zone's own schedule) */
       groupId: string;
       groupName: string;
+      /** what to pause to skip this run: a group, or a single zone (own schedule) */
+      kind: 'group' | 'zone';
+      targetId: string;
+      /** current pause end of that target, ms epoch, or null */
+      snoozeUntil: number | null;
       ts: number;
       durationMin: number;
       maxDurationMin: number;
@@ -1623,8 +1648,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     }[] = [];
     const settings = await this.config.getSettings();
     const maxBoost = await this.weather.maxBoostPct();
+
     for (const group of this.groups) {
-      for (const occ of occurrences(group, now, now + days * 24 * 3600_000, this.shiftFor('group', group, maxBoost / 100))) {
+      for (const occ of occurrences(group, now, until, this.shiftFor('group', group, maxBoost / 100))) {
         const schedule = (group.schedules ?? []).find((s) => s.id === occ.scheduleId);
         const schedZones = this.schedZones(group, schedule);
         const zones = schedZones.map((z) => {
@@ -1643,6 +1669,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         out.push({
           groupId: group.id,
           groupName: group.name,
+          kind: 'group',
+          targetId: group.id,
+          snoozeUntil: group.snoozeUntil ? Number(group.snoozeUntil) : null,
           ts: occ.ts,
           durationMin: this.groupRunMinutes(group, zones.map((z) => z.minutes)),
           maxDurationMin: this.groupRunMinutes(group, zones.map((z) => z.maxMinutes)),
@@ -1650,6 +1679,31 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           skipReasons: skip.reasons,
           maybeSkip: skip.maybe,
           zones,
+        });
+      }
+    }
+
+    // zone-level schedules: a zone watered on its own, more often than its group
+    for (const zone of this.zones.filter((z) => z.enabled && z.schedules?.length)) {
+      const containing = this.groups.find((g) => g.zoneIds.includes(zone.id));
+      for (const occ of occurrences(zone, now, until, this.shiftFor('zone', zone, maxBoost / 100))) {
+        const schedule = (zone.schedules ?? []).find((s) => s.id === occ.scheduleId);
+        const minutes = Math.min(schedule?.zoneDurations?.[zone.id] ?? zone.baseDurationMin, zone.maxRuntimeMin || 1e9);
+        const maxMinutes = Math.min((minutes * maxBoost) / 100, zone.maxRuntimeMin || 1e9);
+        const skip = await this.predictSkip(containing ?? null, schedule, occ.ts, [zone], settings);
+        out.push({
+          groupId: containing?.id ?? zone.id,
+          groupName: containing?.name ?? zone.name,
+          kind: 'zone',
+          targetId: zone.id,
+          snoozeUntil: zone.snoozeUntil ? Number(zone.snoozeUntil) : null,
+          ts: occ.ts,
+          durationMin: minutes,
+          maxDurationMin: maxMinutes,
+          willSkip: skip.willSkip,
+          skipReasons: skip.reasons,
+          maybeSkip: skip.maybe,
+          zones: [{ zoneId: zone.id, name: zone.name, minutes, maxMinutes }],
         });
       }
     }

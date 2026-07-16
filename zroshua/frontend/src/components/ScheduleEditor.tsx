@@ -3,7 +3,7 @@ import { IconChevronDown, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
 import { Schedule, ScheduleCondition } from '../api';
 import TimeSlotPicker, { BusyBand, unionBands } from './TimeSlotPicker';
-import { EntitySelect } from './common';
+import { EntityMultiSelect } from './common';
 
 const CONDITION_KINDS = [
   { value: 'forecast_max', label: 'Forecast max temp today (°C)' },
@@ -247,21 +247,39 @@ export default function ScheduleEditor({
               </Badge>
             )}
           </Group>
-          <Button
-            size="compact-xs"
-            variant="light"
-            onClick={() =>
-              onChange({
-                ...schedule,
-                conditions: [
-                  ...(schedule.conditions ?? []),
-                  { id: `c${Date.now()}`, kind: 'forecast_max', op: 'gte', value: 30 } as ScheduleCondition,
-                ],
-              })
-            }
-          >
-            Add condition
-          </Button>
+          <Group gap={6}>
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="teal"
+              onClick={() =>
+                onChange({
+                  ...schedule,
+                  conditions: [
+                    ...(schedule.conditions ?? []),
+                    { id: `c${Date.now()}`, kind: 'sensor', entities: [], agg: 'avg', op: 'lte', value: 55 } as ScheduleCondition,
+                  ],
+                })
+              }
+            >
+              + Soil moisture
+            </Button>
+            <Button
+              size="compact-xs"
+              variant="light"
+              onClick={() =>
+                onChange({
+                  ...schedule,
+                  conditions: [
+                    ...(schedule.conditions ?? []),
+                    { id: `c${Date.now()}`, kind: 'forecast_max', op: 'gte', value: 30 } as ScheduleCondition,
+                  ],
+                })
+              }
+            >
+              Add condition
+            </Button>
+          </Group>
         </Group>
         {(schedule.conditions ?? []).map((c, ci) => {
           const setC = (patch: Partial<ScheduleCondition>) => {
@@ -269,8 +287,9 @@ export default function ScheduleEditor({
             next[ci] = { ...c, ...patch };
             onChange({ ...schedule, conditions: next });
           };
+          const sensorList = c.entities?.length ? c.entities : c.entity ? [c.entity] : [];
           return (
-            <Group key={c.id} gap="xs" wrap="wrap">
+            <Group key={c.id} gap="xs" wrap="wrap" align="flex-start">
               <Select
                 size="xs"
                 w={230}
@@ -279,9 +298,29 @@ export default function ScheduleEditor({
                 onChange={(v) => setC({ kind: (v as ScheduleCondition['kind']) ?? 'forecast_max' })}
               />
               {c.kind === 'sensor' && (
-                <div style={{ minWidth: 220, flexGrow: 1 }}>
-                  <EntitySelect label="" value={c.entity ?? null} onChange={(v) => setC({ entity: v ?? undefined })} domains={['sensor']} />
-                </div>
+                <>
+                  <div style={{ minWidth: 260, flexGrow: 1 }}>
+                    <EntityMultiSelect
+                      label=""
+                      value={sensorList}
+                      onChange={(v) => setC({ entities: v, entity: undefined })}
+                      domains={['sensor']}
+                    />
+                  </div>
+                  {sensorList.length > 1 && (
+                    <Select
+                      size="xs"
+                      w={90}
+                      data={[
+                        { value: 'avg', label: 'average' },
+                        { value: 'min', label: 'min' },
+                        { value: 'max', label: 'max' },
+                      ]}
+                      value={c.agg ?? 'avg'}
+                      onChange={(v) => setC({ agg: (v as 'avg' | 'min' | 'max') ?? 'avg' })}
+                    />
+                  )}
+                </>
               )}
               <Select
                 size="xs"
@@ -298,6 +337,7 @@ export default function ScheduleEditor({
                 size="sm"
                 variant="subtle"
                 color="red"
+                mt={2}
                 onClick={() => onChange({ ...schedule, conditions: (schedule.conditions ?? []).filter((_, j) => j !== ci) })}
               >
                 <IconTrash size={14} />
@@ -308,7 +348,9 @@ export default function ScheduleEditor({
         {(schedule.conditions?.length ?? 0) > 0 && (
           <Text size="xs" c="dimmed">
             All conditions are checked at start time; if one fails, the run is skipped with a journal reason.
-            Unavailable data never blocks watering.
+            Unavailable data never blocks watering. For "skip if the soil is already wet", pick your moisture
+            sensor(s) and set <b>≤</b> your target % — several sensors are combined (average by default). A soil
+            trigger can still water the zone if it dries out before the next scheduled run.
           </Text>
         )}
       </Stack>

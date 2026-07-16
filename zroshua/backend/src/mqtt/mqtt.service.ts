@@ -312,6 +312,9 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     const upcoming = (await this.engine.upcoming(7)).slice(0, 12).map((u: any) => ({
       groupId: u.groupId,
       groupName: u.groupName,
+      kind: u.kind ?? 'group',
+      targetId: u.targetId ?? u.groupId,
+      paused: u.snoozeUntil != null && u.snoozeUntil > Date.now(),
       ts: u.ts,
       minutes: Math.round(u.durationMin ?? u.zones.reduce((a: number, z: any) => a + z.minutes, 0)),
       zones: u.zones.map((z: any) => z.name),

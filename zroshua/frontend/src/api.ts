@@ -60,6 +60,9 @@ export interface ScheduleCondition {
   id: string;
   kind: 'forecast_max' | 'forecast_rain_prob' | 'sensor';
   entity?: string;
+  /** several sensors aggregated (e.g. soil-moisture probes); overrides `entity` when set */
+  entities?: string[];
+  agg?: 'avg' | 'min' | 'max';
   op: 'gte' | 'lte';
   value: number;
 }
@@ -226,6 +229,11 @@ export interface JournalEntry {
 export interface Upcoming {
   groupId: string;
   groupName: string;
+  /** what to pause to skip this run: a whole group, or one zone's own schedule */
+  kind?: 'group' | 'zone';
+  targetId?: string;
+  /** current pause end of that target (ms epoch), or null */
+  snoozeUntil?: number | null;
   ts: number;
   /** Wall-clock run length honoring the group's execution mode (parallel = longest zone). */
   durationMin?: number;

@@ -72,8 +72,13 @@ Upcoming waterings are **predicted, not just listed**: a run that would be skipp
 the current state carries a red *will skip* badge with the reason — e.g.
 `rain dry-out until 09:17` while the sensor is already dry but the dry-out delay is still
 counting — and a yellow *may skip* badge when it depends on data known only at start time
-(forecast, live sensor conditions). Barrel-type water sources show a **live level bar**
-(estimated or from a level sensor) right in the quick-actions card.
+(forecast, live sensor conditions). The list includes **a zone's own schedules** (tagged
+*zone*), not only group runs. Each row has a **pause menu**: *skip this run* (pauses just
+that group or zone until the run is past), pause 6/12/24 h, or resume — so you can drop one
+upcoming watering straight from the dashboard. Barrel-type water sources show a **live level
+bar** (estimated or from a level sensor) right in the quick-actions card.
+
+![Skip or pause an upcoming run from the dashboard](docs/screenshots/upcoming-pause.png)
 
 ### Timeline
 
@@ -134,10 +139,15 @@ Every schedule (group or zone) can carry criteria checked at start time — all 
 
 - **Forecast max temperature today** ≥ / ≤ X °C (e.g. run the midday cooling cycle only in heat),
 - **Forecast rain probability** ≥ / ≤ X %,
-- **Any sensor value** at start time (e.g. your outdoor thermometer ≥ 30 °C).
+- **Sensor value(s)** at start time — one sensor, or **several combined** (average / min /
+  max). The one-tap **Soil moisture** preset drops in a *sensor(s) ≤ %* condition: skip the
+  scheduled run while the bed is already moist. It's safe to skip — a **soil-moisture
+  trigger** still waters the zone if it dries out before the next scheduled run.
 
 Failures are journaled and notified; **unavailable data never blocks watering** — a dead
 sensor won't leave the garden dry.
+
+![Run conditions with a multi-sensor soil-moisture skip](docs/screenshots/schedule-conditions.png)
 
 ### Zones
 

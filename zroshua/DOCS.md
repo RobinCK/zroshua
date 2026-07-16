@@ -81,8 +81,15 @@ and applies instantly without restarts.
   (defaults come from the zone); the editor previews the end time of every start,
   including the worst-case temperature boost.
 - **Run conditions**: a schedule (group or zone) can require e.g. forecast max
-  ≥ 30 °C, rain probability ≤ 40 %, or a live sensor value at start time.
-  All conditions must pass; failures are journaled, missing data is ignored.
+  ≥ 30 °C, rain probability ≤ 40 %, or a live sensor value at start time. A sensor
+  condition can read **several sensors combined** (average / min / max) — the one-tap
+  **Soil moisture** preset adds a *sensor(s) ≤ %* rule that skips the run while the bed is
+  already moist. Skipping is safe: a **soil-moisture trigger** still waters the zone if it
+  dries out before the next scheduled run. All conditions must pass; failures are journaled,
+  missing data is ignored.
+- **Upcoming waterings** (dashboard and card) list group runs **and** a zone's own
+  schedules, each with a skip prediction. Every row has a pause menu — *skip this run*
+  (pauses the group or zone only until that run is past), pause 6/12/24 h, or resume.
 
 ## Timeline
 
