@@ -238,6 +238,9 @@ class ZroshuaCard extends HTMLElement {
         const paused = g.pausedUntil && g.pausedUntil > Date.now();
         const state = g.running ? 'run' : paused ? 'paused' : g.enabled ? 'idle' : 'off';
         const modeIcon = g.mode === 'sequential' ? I.seq : I.par;
+        const modeLabel =
+          g.mode === 'sequential' ? 'Sequential' : g.mode === 'parallel_limit' ? `Parallel &times;${g.parallelLimit || 2}` : 'Parallel';
+        const modeChip = `<span class="gchip" title="Execution mode: ${modeLabel}"><span class="ci">${modeIcon}</span>${modeLabel}</span>`;
         const pauseBtn = paused
           ? this._btn({ cls: 'ghost icon', data: `data-pause-group="${this._esc(g.id)}" data-hours="0"`, icon: I.play, title: 'Resume group' })
           : this._btn({ cls: 'ghost icon', data: `data-pause-group="${this._esc(g.id)}" data-hours="12"`, icon: I.pause, title: 'Pause group 12h' });
@@ -255,9 +258,9 @@ class ZroshuaCard extends HTMLElement {
         return `<div class="gtile ${state}">
           <div class="ghead">
             <span class="gname" title="${this._esc(g.name)}">${this._esc(g.name)}</span>
-            <span class="ghead-actions">${pauseBtn}<span class="gmode" title="${g.mode}">${modeIcon}</span></span>
+            <span class="ghead-actions">${pauseBtn}</span>
           </div>
-          <div class="gmeta muted small">${g.zoneCount} zones &middot; ${g.schedules} schedule${g.schedules === 1 ? '' : 's'}${g.enabled ? '' : ' &middot; disabled'}</div>
+          <div class="gmeta muted small">${modeChip}<span>${g.zoneCount} zones &middot; ${g.schedules} schedule${g.schedules === 1 ? '' : 's'}${g.enabled ? '' : ' &middot; disabled'}</span></div>
           ${nextRow}
           ${btn}
         </div>`;
@@ -533,8 +536,11 @@ const STYLE = `
   .ghead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .ghead-actions { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
   .gname { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gmode { color: var(--secondary-text-color); }
-  .gmode svg { width: 16px; height: 16px; }
+  .gmeta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+  .gchip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+    background: color-mix(in srgb, var(--secondary-background-color) 80%, transparent);
+    border: 1px solid var(--divider-color); color: var(--secondary-text-color); font-weight: 600; }
+  .gchip .ci svg { width: 13px; height: 13px; }
   .gnext { font-size: .82rem; color: var(--secondary-text-color); display: flex; align-items: center; }
   .gnext.ok { color: var(--z-ok); font-weight: 600; }
   .gnext.warn { color: var(--z-warn); font-weight: 600; }

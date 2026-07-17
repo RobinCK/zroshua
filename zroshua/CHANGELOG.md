@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.5
+
+- **Cleaner group tiles in the Lovelace card.** The tile header showed the
+  pause button next to a bare execution-mode glyph — the parallel-mode icon
+  (two bars) looked like a second pause and the sequential arrow read as
+  random. The corner now holds only the pause/resume button; the execution
+  mode moved into the meta line as a labelled chip (Sequential / Parallel /
+  Parallel ×N). The card attributes gained `parallelLimit` for the ×N label.
+
 ## 0.2.4
 
 - **The add-on dashboard's "Upcoming waterings" is now mobile-friendly too**

@@ -377,6 +377,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
           id: g.id,
           name: g.name,
           mode: g.mode,
+          parallelLimit: g.parallelLimit,
           enabled: g.enabled,
           running: runningGroupIds.has(g.id),
           activeZones: snapshot.active.filter((a: any) => a.groupId === g.id).length,
