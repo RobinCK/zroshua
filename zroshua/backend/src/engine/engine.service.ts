@@ -546,6 +546,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (decision.skip) return this.skip(groupId, zone.id, 'weather', decision.skipReason ?? 'weather');
       duration = (duration * decision.multiplierPct) / 100;
     }
+    duration *= cond.scale; // soil/sensor "water less" conditions (only reduce)
     duration = Math.min(duration, zone.maxRuntimeMin || duration);
     this.queue.push({
       key: `zsched:${zone.id}:${now}`,
@@ -571,10 +572,11 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   private async evaluateConditions(
     schedule: import('../db/entities').Schedule | undefined,
     groupId: string | null,
-  ): Promise<{ pass: boolean; reason?: string }> {
-    if (!schedule?.conditions?.length) return { pass: true };
+  ): Promise<{ pass: boolean; reason?: string; scale: number }> {
+    if (!schedule?.conditions?.length) return { pass: true, scale: 1 };
     const forecast = await this.weather.getForecast().catch(() => []);
     const today = forecast[0];
+    let scale = 1;
     for (const c of schedule.conditions) {
       let actual: number | null = null;
       let label = '';
@@ -604,13 +606,26 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       }
       const ok = c.op === 'gte' ? actual >= c.value : actual <= c.value;
       if (!ok) {
+        // action=scale: water for a shorter time instead of skipping (only
+        // reduces, so the run always fits inside the reserved worst-case slot)
+        if (c.action === 'scale') {
+          const pct = Math.max(0, Math.min(100, c.scalePct ?? 50));
+          scale *= pct / 100;
+          await this.journal.add('adjust', {
+            groupId: groupId ?? undefined,
+            code: 'condition_scale',
+            detail: `${label} ${actual.toFixed(1)} ${c.op === 'gte' ? '<' : '>'} ${c.value} → run at ${pct}%`,
+          });
+          continue;
+        }
         return {
           pass: false,
           reason: `${label} ${actual.toFixed(1)} ${c.op === 'gte' ? '<' : '>'} ${c.value} (condition ${c.op === 'gte' ? '≥' : '≤'} ${c.value})`,
+          scale,
         };
       }
     }
-    return { pass: true };
+    return { pass: true, scale };
   }
 
   /**
@@ -647,9 +662,11 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         return this.skip(group.id, null, 'group_paused', `group paused until ${new Date(Number(group.snoozeUntil)).toLocaleString()}`);
     }
 
+    let condScale = 1;
     if (!manual) {
       const cond = await this.evaluateConditions(schedule, group.id);
       if (!cond.pass) return this.skip(group.id, null, 'condition', cond.reason ?? 'run condition not met');
+      condScale = cond.scale;
     }
 
     let weatherMult = 100;
@@ -701,6 +718,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (!manual) {
         duration = (duration * group.multiplierPct) / 100;
         if (!zone.ignore?.weather) duration = (duration * weatherMult) / 100;
+        duration *= condScale; // soil/sensor "water less" conditions (only reduce)
         const rollover = await this.config.getKV<number>(`rollover:${zone.id}`, 0);
         duration += rollover;
         if (duration < (zone.minDurationMin ?? 0)) {
@@ -1169,6 +1187,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
   // ------------------------------------------------------------------- pump
 
+  /** pump on/off state observed just before Zroshua first turned it on (for 'restore') */
+  private pumpPrevOn = new Map<string, boolean>();
+
   private async acquirePump(src: WaterSource) {
     const refs = (this.pumpRefs.get(src.id) ?? 0) + 1;
     this.pumpRefs.set(src.id, refs);
@@ -1177,24 +1198,36 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       clearTimeout(stopTimer);
       this.pumpStopTimers.delete(src.id);
     }
-    if (refs === 1 && src.pumpEntity && !this.ha.isOn(src.pumpEntity)) {
-      await this.ha.turn(src.pumpEntity, true);
-      if (src.pumpStartDelayS > 0) await new Promise((r) => setTimeout(r, src.pumpStartDelayS * 1000));
+    if (refs === 1 && src.pumpEntity) {
+      // treat the pump like a controller: warn if it is unavailable at start
+      if (!this.ha.available(src.pumpEntity)) {
+        await this.journal.add('fault', { code: 'pump_unavailable', detail: `${src.pumpEntity} (${src.name}) is unavailable at start` });
+        await this.notify.emit('fault', `⚠️ Pump "${src.pumpEntity}" for source "${src.name}" is UNAVAILABLE — starting anyway; check the controller.`);
+      }
+      this.pumpPrevOn.set(src.id, this.ha.isOn(src.pumpEntity));
+      if (!this.ha.isOn(src.pumpEntity)) {
+        await this.ha.turn(src.pumpEntity, true);
+        if (src.pumpStartDelayS > 0) await new Promise((r) => setTimeout(r, src.pumpStartDelayS * 1000));
+      }
     }
   }
 
   private async releasePump(src: WaterSource) {
     const refs = Math.max(0, (this.pumpRefs.get(src.id) ?? 1) - 1);
     this.pumpRefs.set(src.id, refs);
-    if (refs === 0 && src.pumpEntity) {
-      const timer = setTimeout(async () => {
-        this.pumpStopTimers.delete(src.id);
-        if ((this.pumpRefs.get(src.id) ?? 0) === 0) {
-          try { await this.ha.turn(src.pumpEntity!, false); } catch { /* retried next run */ }
-        }
-      }, Math.max(0, src.pumpStopDelayS) * 1000);
-      this.pumpStopTimers.set(src.id, timer);
-    }
+    if (refs !== 0 || !src.pumpEntity) return;
+    const mode = src.pumpAfterRun ?? 'off';
+    // 'keep_on' leaves the pump running; 'restore' only turns it off if it was
+    // off before we started (leaves it on if the house was already using it)
+    if (mode === 'keep_on') return;
+    if (mode === 'restore' && this.pumpPrevOn.get(src.id) === true) return;
+    const timer = setTimeout(async () => {
+      this.pumpStopTimers.delete(src.id);
+      if ((this.pumpRefs.get(src.id) ?? 0) === 0) {
+        try { await this.ha.turn(src.pumpEntity!, false); } catch { /* retried next run */ }
+      }
+    }, Math.max(0, src.pumpStopDelayS) * 1000);
+    this.pumpStopTimers.set(src.id, timer);
   }
 
   // ---------------------------------------------------------------- sensors
@@ -1611,6 +1644,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         }
       }
       for (const c of schedule?.conditions ?? []) {
+        if (c.action === 'scale') continue; // scales the duration, never skips
         const actual = c.kind === 'forecast_max' ? fc.tempMaxC : c.kind === 'forecast_rain_prob' ? fc.precipitationProbability : null;
         if (actual != null && !(c.op === 'gte' ? actual >= c.value : actual <= c.value))
           reasons.push(`condition: forecast ${c.kind === 'forecast_max' ? `${actual}°` : `${actual}%`} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);
@@ -1618,7 +1652,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     }
     // live-sensor conditions can change by start time — mark as "maybe"
     for (const c of schedule?.conditions ?? []) {
-      if (c.kind !== 'sensor') continue;
+      if (c.kind !== 'sensor' || c.action === 'scale') continue;
       const { value: v, label } = this.sensorCondValue(c);
       if (v != null && !(c.op === 'gte' ? v >= c.value : v <= c.value))
         maybe.push(`${label} now ${v.toFixed(1)} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);

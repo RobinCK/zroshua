@@ -40,6 +40,10 @@ export type ScheduleCondition = {
   agg?: 'avg' | 'min' | 'max'; // how to combine `entities` (default avg)
   op: 'gte' | 'lte';
   value: number;
+  /** what to do when the condition is NOT met: skip the run (default) or water for a shorter time */
+  action?: 'skip' | 'scale';
+  /** for action=scale: percentage of the normal duration to run instead of skipping (0–100) */
+  scalePct?: number;
 };
 export type Schedule = {
   id: string;
@@ -93,6 +97,10 @@ export class WaterSource {
   @Column({ type: 'varchar', nullable: true }) pumpEntity: string | null;
   @Column('float', { default: 0 }) pumpStartDelayS: number;
   @Column('float', { default: 0 }) pumpStopDelayS: number;
+  // what to do with the pump when the last zone of this source finishes:
+  // 'off' (default) turn it off, 'keep_on' leave it running, 'restore' put it
+  // back to the state it had before Zroshua turned it on
+  @Column({ type: 'varchar', nullable: true }) pumpAfterRun: 'off' | 'keep_on' | 'restore' | null;
   @Column('float', { nullable: true }) maxFlowLpm: number | null;
   @Column({ type: 'varchar', nullable: true }) energyEntity: string | null;
   @Column('simple-json', { nullable: true }) energyTail: EnergyTail;

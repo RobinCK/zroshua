@@ -140,9 +140,14 @@ Every schedule (group or zone) can carry criteria checked at start time — all 
 - **Forecast max temperature today** ≥ / ≤ X °C (e.g. run the midday cooling cycle only in heat),
 - **Forecast rain probability** ≥ / ≤ X %,
 - **Sensor value(s)** at start time — one sensor, or **several combined** (average / min /
-  max). The one-tap **Soil moisture** preset drops in a *sensor(s) ≤ %* condition: skip the
-  scheduled run while the bed is already moist. It's safe to skip — a **soil-moisture
-  trigger** still waters the zone if it dries out before the next scheduled run.
+  max). The one-tap **Soil moisture** preset drops in a *sensor(s) ≤ %* condition.
+
+For each condition you choose what happens when it is **not** met: **skip the run**, or
+**water less** — run at a chosen % of the normal time instead of skipping. "Water less" only
+*shortens* the run, so it always fits inside the reserved worst-case slot and never clashes
+with another group. So the Soil-moisture preset can either skip when the bed is already moist,
+or just trim the run. Either way it's safe — a **soil-moisture trigger** still waters the zone
+if it dries out before the next scheduled run.
 
 Failures are journaled and notified; **unavailable data never blocks watering** — a dead
 sensor won't leave the garden dry.
@@ -177,6 +182,15 @@ runs (reference-counted, with start/stop delays), a **dependency** on another so
 ("blocked while that source runs"), a *water available* sensor, an optional flow sensor with
 an idle-flow leak alert, an **energy meter** and a configurable **refill tail** (count pump
 energy for N minutes after selected groups finish — e.g. while the barrel refills).
+
+**Pump after a run**: choose what happens when the last zone finishes — *turn the pump off*
+(default), *leave it on*, or *restore the state it had before* (only switch off if it was
+off before Zroshua started it). Use *leave on* / *restore* when the pump also feeds the house
+or water outlets and must not be cut. The pump doubles as a **controller availability check**:
+if it is `unavailable` at start (or within the pre-start window), you get a fault
+notification and the run continues best-effort.
+
+![Water source: pump behaviour after a run](docs/screenshots/sources-pump.png)
 
 **Source exclusivity**: mark sources that must *never run at the same time* (a well pump and
 a barrel pump on one power line, or a barrel refilled by the well) and the mutual exclusion

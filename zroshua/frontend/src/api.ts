@@ -65,6 +65,10 @@ export interface ScheduleCondition {
   agg?: 'avg' | 'min' | 'max';
   op: 'gte' | 'lte';
   value: number;
+  /** when the condition is not met: skip the run (default) or water for a shorter time */
+  action?: 'skip' | 'scale';
+  /** for action=scale: % of the normal duration to run instead of skipping (0–100) */
+  scalePct?: number;
 }
 
 export interface Schedule {
@@ -111,6 +115,7 @@ export interface WaterSource {
   pumpEntity: string | null;
   pumpStartDelayS: number;
   pumpStopDelayS: number;
+  pumpAfterRun: 'off' | 'keep_on' | 'restore' | null;
   maxFlowLpm: number | null;
   energyEntity: string | null;
   energyTail: { minutes: number; afterGroups: Record<string, boolean> } | null;

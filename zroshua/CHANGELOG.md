@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.6
+
+- **Pump: choose what happens after a run.** A source's pump entity no longer
+  always switches off when watering ends. Per source, pick *turn off* (default),
+  *leave on*, or *restore the state it had before Zroshua turned it on* — for
+  pumps that also feed the house or water outlets and must not be cut.
+- **Pump availability check.** If the pump entity is `unavailable` at start, the
+  run raises a fault notification and continues best-effort (in addition to the
+  existing pre-start availability check that flags it before a scheduled start).
+- **Conditions: skip *or* water less.** Every run condition now has an explicit
+  action for when it is not met — *skip the run* (as before) or *water less*: run
+  at a chosen % of the normal time. "Water less" only shortens a run, so it stays
+  inside the reserved worst-case slot and never clashes with another group. The
+  soil-moisture condition reads more clearly as a result ("sensors ≤ X% → else
+  skip / water less").
+
 ## 0.2.5
 
 - **Cleaner group tiles in the Lovelace card.** The tile header showed the

@@ -333,6 +333,30 @@ export default function ScheduleEditor({
                 onChange={(v) => setC({ op: (v as 'gte' | 'lte') ?? 'gte' })}
               />
               <NumberInput size="xs" w={90} value={c.value} onChange={(v) => setC({ value: Number(v) || 0 })} />
+              <Text size="xs" c="dimmed" mt={6}>
+                else
+              </Text>
+              <Select
+                size="xs"
+                w={130}
+                data={[
+                  { value: 'skip', label: 'skip the run' },
+                  { value: 'scale', label: 'water less' },
+                ]}
+                value={c.action ?? 'skip'}
+                onChange={(v) => setC({ action: (v as 'skip' | 'scale') ?? 'skip', scalePct: v === 'scale' ? (c.scalePct ?? 50) : undefined })}
+              />
+              {c.action === 'scale' && (
+                <NumberInput
+                  size="xs"
+                  w={90}
+                  min={0}
+                  max={100}
+                  suffix=" %"
+                  value={c.scalePct ?? 50}
+                  onChange={(v) => setC({ scalePct: Math.max(0, Math.min(100, Number(v) || 0)) })}
+                />
+              )}
               <ActionIcon
                 size="sm"
                 variant="subtle"
@@ -347,10 +371,12 @@ export default function ScheduleEditor({
         })}
         {(schedule.conditions?.length ?? 0) > 0 && (
           <Text size="xs" c="dimmed">
-            All conditions are checked at start time; if one fails, the run is skipped with a journal reason.
-            Unavailable data never blocks watering. For "skip if the soil is already wet", pick your moisture
-            sensor(s) and set <b>≤</b> your target % — several sensors are combined (average by default). A soil
-            trigger can still water the zone if it dries out before the next scheduled run.
+            Each condition is checked at start time. When it is <b>not</b> met you choose what happens: skip the
+            run, or <b>water less</b> (run at the chosen % of the normal time — it only shortens, so it never
+            clashes with other groups). Unavailable data never blocks watering. For soil: pick your moisture
+            sensor(s), set <b>≤</b> your target % (several sensors are combined, average by default), then choose
+            <b> skip</b> above that, or <b>water less</b> to just cut the run short. A soil trigger can still water
+            the zone if it dries out before the next scheduled run.
           </Text>
         )}
       </Stack>

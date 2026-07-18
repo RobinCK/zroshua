@@ -44,6 +44,12 @@ and applies instantly without restarts.
     fault that names the direction (higher → possible burst pipe, lower → clogged emitters
     or low pressure), at most once an hour. Zones without a known flow rate disable the
     check while they run.
+  - **Pump after a run**: when the last zone of the source finishes, the pump can be turned
+    off (default), left on, or restored to the state it had before Zroshua turned it on
+    (only switched off if it was off to begin with). Use *leave on* / *restore* when the pump
+    also feeds the house or water outlets. The pump is also treated as a controller: if it is
+    `unavailable` at start it raises a fault notification and the run continues best-effort
+    (the pre-start availability check already flags it ahead of a scheduled start).
 - **Group** — an ordered set of zones with schedules. Execution mode: sequential,
   parallel, or parallel with a limit; inter-zone delay; a 0–200 % duration multiplier;
   priority for queue conflicts.
@@ -83,10 +89,12 @@ and applies instantly without restarts.
 - **Run conditions**: a schedule (group or zone) can require e.g. forecast max
   ≥ 30 °C, rain probability ≤ 40 %, or a live sensor value at start time. A sensor
   condition can read **several sensors combined** (average / min / max) — the one-tap
-  **Soil moisture** preset adds a *sensor(s) ≤ %* rule that skips the run while the bed is
-  already moist. Skipping is safe: a **soil-moisture trigger** still waters the zone if it
-  dries out before the next scheduled run. All conditions must pass; failures are journaled,
-  missing data is ignored.
+  **Soil moisture** preset adds a *sensor(s) ≤ %* rule. For each condition you pick what
+  happens when it is **not** met: **skip the run**, or **water less** — run at a chosen % of
+  the normal time. "Water less" only shortens the run, so it stays inside the reserved
+  worst-case slot and never clashes with other groups. Skipping (or trimming) is safe: a
+  **soil-moisture trigger** still waters the zone if it dries out before the next scheduled
+  run. Failures are journaled; missing data is ignored (never blocks watering).
 - **Upcoming waterings** (dashboard and card) list group runs **and** a zone's own
   schedules, each with a skip prediction. Every row has a pause menu — *skip this run*
   (pauses the group or zone only until that run is past), pause 6/12/24 h, or resume.

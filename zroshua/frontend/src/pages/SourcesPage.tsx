@@ -118,6 +118,19 @@ export default function SourcesPage() {
                 onChange={(v) => setEditing({ ...editing, pumpStopDelayS: Number(v) || 0 })}
               />
             </Group>
+            {editing.pumpEntity && (
+              <Select
+                label="When the run finishes"
+                description="Use “Keep on” or “Restore” if the pump also feeds the house / water outlets and must not be switched off."
+                data={[
+                  { value: 'off', label: 'Turn the pump off' },
+                  { value: 'keep_on', label: 'Leave the pump on' },
+                  { value: 'restore', label: 'Restore the state it had before (off only if it was off)' },
+                ]}
+                value={editing.pumpAfterRun ?? 'off'}
+                onChange={(v) => setEditing({ ...editing, pumpAfterRun: (v as 'off' | 'keep_on' | 'restore') ?? 'off' })}
+              />
+            )}
             <EntitySelect
               label="Energy meter (W or kWh sensor, counted only during watering)"
               value={editing.energyEntity ?? null}
