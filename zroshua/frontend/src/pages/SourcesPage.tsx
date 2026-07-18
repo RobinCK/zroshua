@@ -100,36 +100,40 @@ export default function SourcesPage() {
                 clearable
               />
             </Group>
-            <EntitySelect
-              label="Pump entity (kept on while any zone of this source runs)"
-              value={editing.pumpEntity ?? null}
-              onChange={(v) => setEditing({ ...editing, pumpEntity: v })}
-              domains={['switch', 'input_boolean']}
-            />
-            <Group grow>
-              <NumberInput
-                label="Pump start delay (s before valve opens)"
-                value={editing.pumpStartDelayS ?? 0}
-                onChange={(v) => setEditing({ ...editing, pumpStartDelayS: Number(v) || 0 })}
+            <Group grow align="flex-start" wrap="wrap">
+              <EntitySelect
+                label="Pump entity (kept on while any zone of this source runs)"
+                value={editing.pumpEntity ?? null}
+                onChange={(v) => setEditing({ ...editing, pumpEntity: v })}
+                domains={['switch', 'input_boolean']}
               />
-              <NumberInput
-                label="Pump stop delay (s after last valve closes)"
-                value={editing.pumpStopDelayS ?? 0}
-                onChange={(v) => setEditing({ ...editing, pumpStopDelayS: Number(v) || 0 })}
-              />
+              {editing.pumpEntity && (
+                <Select
+                  label="When the run finishes"
+                  description="Use “Keep on” or “Restore” if the pump also feeds the house / water outlets and must not be switched off."
+                  data={[
+                    { value: 'off', label: 'Turn the pump off' },
+                    { value: 'keep_on', label: 'Leave the pump on' },
+                    { value: 'restore', label: 'Restore the state it had before (off only if it was off)' },
+                  ]}
+                  value={editing.pumpAfterRun ?? 'off'}
+                  onChange={(v) => setEditing({ ...editing, pumpAfterRun: (v as 'off' | 'keep_on' | 'restore') ?? 'off' })}
+                />
+              )}
             </Group>
             {editing.pumpEntity && (
-              <Select
-                label="When the run finishes"
-                description="Use “Keep on” or “Restore” if the pump also feeds the house / water outlets and must not be switched off."
-                data={[
-                  { value: 'off', label: 'Turn the pump off' },
-                  { value: 'keep_on', label: 'Leave the pump on' },
-                  { value: 'restore', label: 'Restore the state it had before (off only if it was off)' },
-                ]}
-                value={editing.pumpAfterRun ?? 'off'}
-                onChange={(v) => setEditing({ ...editing, pumpAfterRun: (v as 'off' | 'keep_on' | 'restore') ?? 'off' })}
-              />
+              <Group grow>
+                <NumberInput
+                  label="Pump start delay (s before valve opens)"
+                  value={editing.pumpStartDelayS ?? 0}
+                  onChange={(v) => setEditing({ ...editing, pumpStartDelayS: Number(v) || 0 })}
+                />
+                <NumberInput
+                  label="Pump stop delay (s after last valve closes)"
+                  value={editing.pumpStopDelayS ?? 0}
+                  onChange={(v) => setEditing({ ...editing, pumpStopDelayS: Number(v) || 0 })}
+                />
+              </Group>
             )}
             <EntitySelect
               label="Energy meter (W or kWh sensor, counted only during watering)"

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.7
+
+- Water source editor: put **Pump entity** and **When the run finishes** side by
+  side in one row (they belong together); the pump start/stop delays now sit
+  below them and only show once a pump entity is set.
+
 ## 0.2.6
 
 - **Pump: choose what happens after a run.** A source's pump entity no longer
