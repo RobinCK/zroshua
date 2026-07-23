@@ -9,7 +9,7 @@ stuck-valve protection, water & energy statistics, a live site map and Telegram 
 ![Arch](https://img.shields.io/badge/arch-aarch64%20%7C%20amd64-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Zroshua in action: start a run and watch the zones come alive on the site map](docs/screenshots/demo.gif)
 
 ## Why an add-on (not an integration)?
 
@@ -21,6 +21,12 @@ stuck-valve protection, water & energy statistics, a live site map and Telegram 
   `switch` or `valve`.
 
 ## Installation
+
+One click — add this repository to your Home Assistant add-on store:
+
+[![Open your Home Assistant instance and show the add add-on repository dialog with this repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FRobinCK%2Fzroshua)
+
+Then find **Zroshua** in the store and click **Install**. Or add it manually:
 
 1. In Home Assistant open **Settings → Add-ons → Add-on Store**.
 2. Menu (⋮) → **Repositories** → add:
@@ -60,6 +66,8 @@ telegram_bot_token: ""   # optional, from @BotFather
 ## Tour
 
 ### Dashboard
+
+![Dashboard](docs/screenshots/dashboard.png)
 
 Live overview: what is watering right now (with progress, `+5 min` and stop buttons), the
 **queue with the exact reason** each run is waiting (`sequential group busy`, `mutex with
