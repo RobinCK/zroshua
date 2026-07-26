@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.4
+
+- **The journal page is translated again.** It was still showing English
+  headers and filters in every language after the 0.3.3 change.
+- The per-zone duration field in the schedule editor showed its unit as
+  "min" instead of the translated one.
+
 ## 0.3.3
 
 - **Correct plural forms.** "2 дні тому" and "8 днів тому" are now both right;
