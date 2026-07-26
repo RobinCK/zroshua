@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.8
+
+- **Group and zone cards show when each was last actually watered.** A skipped
+  run is not counted (skips never create a run record), so "last watered"
+  reflects real watering, not the schedule.
+- **Journal is easier to read and filter.** Filter by event type and by zone
+  or group (one grouped picker, each row tagged zone/group with the friendly
+  name). Event names are spelled out, and on a phone the log renders as stacked
+  cards instead of a cramped table.
+- **Fixed fractional-hour pause text in the journal** (e.g. "paused for
+  0.8125…h" now reads "paused for 49 min (until 8:44 AM)").
+
 ## 0.2.7
 
 - Water source editor: put **Pump entity** and **When the run finishes** side by

@@ -18,7 +18,7 @@ import {
 import { IconDroplet, IconEdit, IconPlayerStop, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Settings, WaterSource, Zone } from '../api';
-import { useResource, fmtDur } from '../hooks';
+import { useResource, fmtDur, fmtAgo } from '../hooks';
 import { EntityMultiSelect, SliderInput, PauseControl } from '../components/common';
 import ScheduleEditor, { emptySchedule } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
@@ -44,6 +44,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
   const { data: zones, reload } = useResource<Zone[]>('/zones');
   const { data: sources } = useResource<WaterSource[]>('/sources');
   const { data: settings } = useResource<Settings>('/settings');
+  const { data: lastRuns } = useResource<{ zones: Record<string, number>; groups: Record<string, number> }>('/last-runs');
   const [editing, setEditing] = useState<Partial<Zone> | null>(null);
   const [runZone, setRunZone] = useState<Zone | null>(null);
   const [runMinutes, setRunMinutes] = useState(15);
@@ -169,8 +170,11 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                 ` · ${typeof z.flowLpm === 'number' ? z.flowLpm : `${z.flowLpm.min}–${z.flowLpm.max}`} l/min`}
               {z.sourceId && ` · ${sources?.find((s) => s.id === z.sourceId)?.name ?? z.sourceId}`}
             </Text>
-            <Text size="xs" c="dimmed" mb="sm" lineClamp={1} style={{ wordBreak: 'break-all' }}>
+            <Text size="xs" c="dimmed" lineClamp={1} style={{ wordBreak: 'break-all' }}>
               {z.entities.join(', ') || 'no entities'}
+            </Text>
+            <Text size="xs" c="dimmed" mb="sm">
+              Last watered: {fmtAgo(lastRuns?.zones[z.id])}
             </Text>
             {running.has(z.id) ? (
               <Button

@@ -268,7 +268,12 @@ charts and CSV export.
 
 Every decision is explainable: run started/finished (duration), **every skip with its
 reason** (rain sensor wet, forecast, condition failed, below-minimum rollover, conflict
-policy…), temperature adjustments, faults, reconciliations.
+policy…), temperature adjustments, faults, reconciliations. Filter by **event type** and by
+**zone or group** (the picker groups the two and each row is tagged so you always know which
+is which). On a phone the log renders as stacked cards instead of a wide table.
+
+Group and zone cards also show **when each was last actually watered** — a skipped run is not
+counted, so "last watered" reflects real watering, not the schedule.
 
 ![Journal](docs/screenshots/journal.png)
 

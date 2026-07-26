@@ -79,3 +79,16 @@ export const fmtTime = (ts: number) =>
   new Date(ts).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
 
 export const fmtDur = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${Math.round(min % 60)}m` : `${Math.round(min)} min`);
+
+/** Compact relative past time, e.g. "just now", "12 min ago", "3h ago", "2 days ago". */
+export const fmtAgo = (ts: number | null | undefined): string => {
+  if (!ts) return 'never';
+  const s = Math.max(0, (Date.now() - Number(ts)) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? 'yesterday' : `${d} days ago`;
+};

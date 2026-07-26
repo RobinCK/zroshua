@@ -19,8 +19,10 @@ import {
 import { IconEdit, IconPlayerPlay, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, Group as ZGroup, GroupRule, Settings, Zone } from '../api';
-import { useResource } from '../hooks';
+import { useResource, fmtAgo } from '../hooks';
 import { SliderInput, PauseControl } from '../components/common';
+
+type LastRuns = { zones: Record<string, number>; groups: Record<string, number> };
 import ScheduleEditor, { emptySchedule, estimateRunMinutes, ZoneInfo } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
 
@@ -29,6 +31,7 @@ export default function GroupsPage() {
   const { data: zones } = useResource<Zone[]>('/zones');
   const { data: rules, reload: reloadRules } = useResource<GroupRule[]>('/rules');
   const { data: settings } = useResource<Settings>('/settings');
+  const { data: lastRuns } = useResource<LastRuns>('/last-runs');
   const [editing, setEditing] = useState<Partial<ZGroup> | null>(null);
   const [busy, setBusy] = useState<BusyBand[]>([]);
   const [ruleType, setRuleType] = useState<'mutex' | 'order' | 'parallel_ok'>('mutex');
@@ -160,7 +163,8 @@ export default function GroupsPage() {
             {g.zoneIds.map((id) => zones?.find((z) => z.id === id)?.name ?? id).join(' → ') || 'no zones'}
           </Text>
           <Text size="xs" c="dimmed">
-            {g.schedules.filter((s) => s.enabled).length} active schedule(s)
+            {g.schedules.filter((s) => s.enabled).length} active schedule(s) · last watered:{' '}
+            {fmtAgo(lastRuns?.groups[g.id])}
           </Text>
         </Card>
       ))}

@@ -1493,6 +1493,31 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  /**
+   * Timestamp of the last time each zone / group actually watered. Skipped
+   * runs never create a run row (they only land in the journal), so the runs
+   * table already excludes them — a skip is not counted as "last watered".
+   * A group's value is the most recent run of any of its zones.
+   */
+  async lastRuns(): Promise<{ zones: Record<string, number>; groups: Record<string, number> }> {
+    const rows = await this.runsRepo
+      .createQueryBuilder('r')
+      .select('r.zoneId', 'zoneId')
+      .addSelect('MAX(r.endTs)', 'ts')
+      .where('r.endTs IS NOT NULL AND r.zoneId IS NOT NULL')
+      .groupBy('r.zoneId')
+      .getRawMany<{ zoneId: string; ts: string | number }>();
+    const zones: Record<string, number> = {};
+    for (const r of rows) if (r.zoneId && r.ts != null) zones[r.zoneId] = Number(r.ts);
+    const groups: Record<string, number> = {};
+    for (const g of this.groups) {
+      let m = 0;
+      for (const zid of g.zoneIds) if (zones[zid] && zones[zid] > m) m = zones[zid];
+      if (m) groups[g.id] = m;
+    }
+    return { zones, groups };
+  }
+
   private async resumeAndReconcile() {
     const persisted = await this.config.getKV<ActiveRun[]>('activeRuns', []);
     const now = Date.now();
@@ -2042,11 +2067,20 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     return { bands, worstFactor: maxBoost };
   }
 
+  /** Human pause phrasing, e.g. "49 min (until 8:44 PM)" or "12h (until Tue 8:00 AM)". */
+  private pausePhrase(hours: number): string {
+    const until = Date.now() + hours * 3600_000;
+    const mins = Math.round(hours * 60);
+    const dur = mins < 60 ? `${mins} min` : mins % 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${Math.floor(mins / 60)}h`;
+    const t = new Date(until).toLocaleString(undefined, { weekday: mins >= 1440 ? 'short' : undefined, hour: '2-digit', minute: '2-digit' });
+    return `${dur} (until ${t})`;
+  }
+
   /** Pause all automatic watering for `hours` (0 = resume now). Manual runs are unaffected. */
   async setGlobalPause(hours: number) {
     this.snoozeUntil = hours > 0 ? Date.now() + hours * 3600_000 : 0;
     await this.config.setKV('snoozeUntil', this.snoozeUntil);
-    await this.journal.add('info', { code: 'pause', detail: hours > 0 ? `all watering paused for ${hours}h` : 'pause cleared' });
+    await this.journal.add('info', { code: 'pause', detail: hours > 0 ? `all watering paused for ${this.pausePhrase(hours)}` : 'pause cleared' });
     this.broadcastState();
   }
 
@@ -2056,7 +2090,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     await this.groupsRepo.update({ id: groupId }, { snoozeUntil: until });
     const g = this.groups.find((x) => x.id === groupId);
     if (g) g.snoozeUntil = until;
-    await this.journal.add('info', { groupId, code: 'group_pause', detail: hours > 0 ? `group paused for ${hours}h` : 'group pause cleared' });
+    await this.journal.add('info', { groupId, code: 'group_pause', detail: hours > 0 ? `group paused for ${this.pausePhrase(hours)}` : 'group pause cleared' });
     this.broadcastState();
   }
 
@@ -2066,7 +2100,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     await this.zonesRepo.update({ id: zoneId }, { snoozeUntil: until });
     const z = this.zone(zoneId);
     if (z) z.snoozeUntil = until;
-    await this.journal.add('info', { zoneId, code: 'zone_pause', detail: hours > 0 ? `zone paused for ${hours}h` : 'zone pause cleared' });
+    await this.journal.add('info', { zoneId, code: 'zone_pause', detail: hours > 0 ? `zone paused for ${this.pausePhrase(hours)}` : 'zone pause cleared' });
     this.broadcastState();
   }
 

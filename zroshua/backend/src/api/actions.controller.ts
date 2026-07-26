@@ -55,6 +55,11 @@ export class ActionsController {
     return this.journal.list(300);
   }
 
+  @Get('last-runs')
+  lastRuns() {
+    return this.engine.lastRuns();
+  }
+
   @Get('zones/:id/next')
   async nextRun(@Param('id') id: string) {
     return { ts: await this.engine.nextRunTs(id) };
