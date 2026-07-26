@@ -13,8 +13,25 @@ KEY_CALL = re.compile(r"\b[tT]\(\s*'((?:[^'\\]|\\.)*)'")
 DICT_KEY = re.compile(
     r"^\s{2}(?:'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\"|([A-Za-z][A-Za-z0-9 ]*)):", re.M
 )
-# keys built at runtime from data, not literals in the source
-DYNAMIC = {'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'}
+# Keys the UI builds at runtime from data instead of writing as literals, so the
+# regex above cannot see them. Each group names its call site.
+DYNAMIC = set()
+DYNAMIC |= {'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'}  # ScheduleEditor t(d)
+DYNAMIC |= {'sprinkler', 'drip', 'beds', 'lawn', 'shrubs'}  # zone type: ZonesPage, MapPage
+DYNAMIC |= {'watering', 'queued', 'fault', 'disabled', 'idle'}  # map state: MapPage
+DYNAMIC |= {'manual', 'schedule', 'soil', 'external', 'tail'}  # DashboardPage t(a.triggeredBy)
+DYNAMIC |= {'zone', 'group'}  # JournalPage target tag
+DYNAMIC |= {'min', 'h', '%', 'mm'}  # SliderInput t(unit)
+DYNAMIC |= {  # navigation, defined as data in App.tsx and rendered via t(s.label)
+    'Overview', 'Dashboard', 'Timeline', 'Site map', 'Watering', 'Zones',
+    'Groups & schedules', 'Water sources', 'Sensors', 'Insights', 'Statistics',
+    'Journal', 'System', 'Settings',
+}
+DYNAMIC |= {  # Home Assistant weather states: DashboardPage t(weather.condition)
+    'sunny', 'clear-night', 'cloudy', 'partlycloudy', 'rainy', 'pouring', 'snowy',
+    'snowy-rainy', 'fog', 'hail', 'lightning', 'lightning-rainy', 'windy',
+    'windy-variant', 'exceptional',
+}
 
 
 def used_keys() -> set:

@@ -452,4 +452,13 @@ export const cs: Record<string, string> = {
   'windy': 'větrno',
   'windy-variant': 'větrno',
   'exceptional': 'extrémní počasí',
+  // runtime-built keys (units, trigger source)
+  '%': '%',
+  'external': 'zvenčí',
+  'h': 'h',
+  'manual': 'ručně',
+  'mm': 'mm',
+  'schedule': 'plán',
+  'soil': 'vlhkost půdy',
+  'tail': 'doplňování',
 };

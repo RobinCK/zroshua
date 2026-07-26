@@ -484,4 +484,9 @@ export const pl: Record<string, string> = {
   'windy': 'wietrznie',
   'windy-variant': 'wietrznie',
   'exceptional': 'ekstremalna pogoda',
+  // runtime-built keys (units, trigger source)
+  '%': '%',
+  'external': 'z zewnątrz',
+  'mm': 'mm',
+  'tail': 'napełnianie',
 };

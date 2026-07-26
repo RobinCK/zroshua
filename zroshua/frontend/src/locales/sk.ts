@@ -426,4 +426,13 @@ export const sk: Record<string, string> = {
   'windy': 'veterno',
   'windy-variant': 'veterno',
   'exceptional': 'extrémne počasie',
+  // runtime-built keys (units, trigger source)
+  '%': '%',
+  'external': 'zvonku',
+  'h': 'h',
+  'manual': 'ručne',
+  'mm': 'mm',
+  'schedule': 'plán',
+  'soil': 'vlhkosť pôdy',
+  'tail': 'dopĺňanie',
 };

@@ -487,4 +487,13 @@ export const ro: Record<string, string> = {
   'windy': 'vânt',
   'windy-variant': 'vânt',
   'exceptional': 'vreme extremă',
+  // runtime-built keys (units, trigger source)
+  '%': '%',
+  'external': 'din exterior',
+  'h': 'h',
+  'manual': 'manual',
+  'mm': 'mm',
+  'schedule': 'program',
+  'soil': 'umiditatea solului',
+  'tail': 'reumplere',
 };

@@ -442,4 +442,13 @@ export const es: Record<string, string> = {
   'windy': 'viento',
   'windy-variant': 'viento',
   'exceptional': 'tiempo extremo',
+  // runtime-built keys (units, trigger source)
+  '%': '%',
+  'external': 'externo',
+  'h': 'h',
+  'manual': 'manual',
+  'mm': 'mm',
+  'schedule': 'programación',
+  'soil': 'humedad del suelo',
+  'tail': 'llenado',
 };

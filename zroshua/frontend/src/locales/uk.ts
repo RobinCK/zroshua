@@ -359,7 +359,6 @@ export const uk: Record<string, string> = {
   '{conflicts} — see the Timeline page.': '{conflicts} — див. сторінку «Розклад дня».',
   // site map
   'Upload SVG plan': 'Завантажити SVG-план',
-  'Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths, polygons, circles…). Shapes don’t need ids; Zroshua adds them automatically. Then use “Assign zones” to link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is colored by live state.': 'Завантажте SVG-план вашої ділянки (Inkscape, Figma, Illustrator — будь-які фігури: прямокутники, контури, полігони, кола…). Фігурам не потрібні id — Zroshua додасть їх автоматично. Потім скористайтеся «Призначити зони», щоб прив\'язати фігури до зон торканням — одна зона може складатися з кількох фігур — і план розфарбується за поточним станом.',
   'Map uploaded': 'Мапу завантажено',
   'Assign zones': 'Призначити зони',
   'Assign shapes to zone': 'Прив\'язати фігури до зони',
@@ -416,7 +415,7 @@ export const uk: Record<string, string> = {
   sat: 'сб',
   sun: 'нд',
   'Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths, polygons, circles…). Shapes don\'t need ids; Zroshua adds them automatically. Then use “Assign zones” to link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is colored by live state.':
-    'Завантажте SVG-план вашої ділянки (Inkscape, Figma, Illustrator — будь-які фігури: прямокутники, контури, полігони, кола…). Фігурам не потрібні id — Zroshua додасть їх автоматично. Далі скористайтеся «Призначити зони», щоб пов\'язати фігури із зонами, торкаючись їх — одна зона може складатися з кількох фігур — і план розфарбовується за поточним станом.',
+    'Завантажте SVG-план вашої ділянки (Inkscape, Figma, Illustrator — будь-які фігури: прямокутники, контури, полігони, кола…). Фігурам не потрібні id — Zroshua додасть їх автоматично. Потім скористайтеся «Призначити зони», щоб прив\'язати фігури до зон торканням — одна зона може складатися з кількох фігур — і план розфарбується за поточним станом.',
   // weather conditions
   'Stopped by rain': 'Зупинено через дощ',
   'sunny': 'сонячно',
@@ -434,4 +433,9 @@ export const uk: Record<string, string> = {
   'windy': 'вітряно',
   'windy-variant': 'вітряно',
   'exceptional': 'екстремальна погода',
+  // runtime-built keys (units, trigger source)
+  '%': '%',
+  'external': 'ззовні',
+  'mm': 'мм',
+  'tail': 'наповнення',
 };

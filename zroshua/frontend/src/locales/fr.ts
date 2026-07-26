@@ -433,4 +433,13 @@ export const fr: Record<string, string> = {
   'windy': 'venteux',
   'windy-variant': 'venteux',
   'exceptional': 'météo extrême',
+  // runtime-built keys (units, trigger source)
+  '%': '%',
+  'external': 'externe',
+  'h': 'h',
+  'manual': 'manuel',
+  'mm': 'mm',
+  'schedule': 'programmation',
+  'soil': 'humidité du sol',
+  'tail': 'remplissage',
 };
