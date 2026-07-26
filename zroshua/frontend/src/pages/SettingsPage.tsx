@@ -20,6 +20,7 @@ import { notifications } from '@mantine/notifications';
 import { api, Group as ZGroup, NotificationProvider, Settings } from '../api';
 import { useResource } from '../hooks';
 import { EntitySelect, SliderInput } from '../components/common';
+import { t, LANG_OPTIONS, storedLang, setLang } from '../i18n';
 
 const EVENTS = ['run_start', 'run_end', 'skip', 'stop_rain', 'fault', 'system'];
 
@@ -97,13 +98,25 @@ export default function SettingsPage() {
 
   return (
     <Stack>
-      <Title order={3}>Settings</Title>
+      <Title order={3}>{t('Settings')}</Title>
 
       <MqttStatusBanner />
 
       <Card withBorder>
+        <Select
+          label={t('Language')}
+          description={t('Home Assistant does not share your account language with add-ons, so this follows your device by default — override it here.')}
+          data={LANG_OPTIONS}
+          value={storedLang()}
+          onChange={(v) => v && setLang(v)}
+          w={280}
+          comboboxProps={{ withinPortal: true }}
+        />
+      </Card>
+
+      <Card withBorder>
         <Title order={4} mb="sm">
-          Weather triggers
+          {t('Weather triggers')}
         </Title>
         <Stack>
           <EntitySelect
@@ -146,7 +159,7 @@ export default function SettingsPage() {
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          Temperature scaling (%)
+          {t('Temperature scaling (%)')}
         </Title>
         <Stack>
           <Switch
@@ -260,19 +273,19 @@ export default function SettingsPage() {
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          Notifications
+          {t('Notifications')}
         </Title>
         <Stack>
           <Switch
-            label="One message per group run"
-            description="A group start/finish summary (zones, time, liters) instead of a message per zone"
+            label={t('One message per group run')}
+            description={t('A group start/finish summary (zones, time, liters) instead of a message per zone')}
             checked={s.notifications.groupLevel ?? true}
             onChange={(e) => setS({ ...s, notifications: { ...s.notifications, groupLevel: e.currentTarget.checked } })}
           />
           <Group grow>
             <Switch
-              label="Daily digest"
-              description="Evening summary: runs, liters, energy, cost, skips"
+              label={t('Daily digest')}
+              description={t('Evening summary: runs, liters, energy, cost, skips')}
               checked={s.notifications.digest?.enabled ?? false}
               onChange={(e) =>
                 setS({ ...s, notifications: { ...s.notifications, digest: { ...s.notifications.digest, enabled: e.currentTarget.checked } } })
@@ -280,7 +293,7 @@ export default function SettingsPage() {
             />
             <TextInput
               type="time"
-              label="Digest time"
+              label={t('Digest time')}
               value={s.notifications.digest?.time ?? '21:00'}
               onChange={(e) =>
                 e.target.value &&
@@ -290,8 +303,8 @@ export default function SettingsPage() {
           </Group>
           <Group grow>
             <Switch
-              label="Quiet hours"
-              description="Suppress all but fault alerts in this window"
+              label={t('Quiet hours')}
+              description={t('Suppress all but fault alerts in this window')}
               checked={s.notifications.quiet?.enabled ?? false}
               onChange={(e) =>
                 setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, enabled: e.currentTarget.checked } } })
@@ -342,7 +355,7 @@ export default function SettingsPage() {
                 />
               )}
               <MultiSelect
-                label="Events (empty = all)"
+                label={t('Events (empty = all)')}
                 data={EVENTS}
                 value={p.events}
                 onChange={(v) => setProvider(i, { events: v } as any)}
@@ -360,7 +373,7 @@ export default function SettingsPage() {
                 })
               }
             >
-              Add Telegram
+              {t('Add Telegram')}
             </Button>
             <Button
               variant="light"
@@ -374,7 +387,7 @@ export default function SettingsPage() {
                 })
               }
             >
-              Add HA notify
+              {t('Add HA notify')}
             </Button>
           </Group>
         </Stack>

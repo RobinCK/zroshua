@@ -19,6 +19,7 @@ import { notifications } from '@mantine/notifications';
 import { api, Group as ZGroup, WaterSource } from '../api';
 import { useResource } from '../hooks';
 import { EntitySelect } from '../components/common';
+import { t } from '../i18n';
 
 export default function SourcesPage() {
   const { data: sources, reload } = useResource<WaterSource[]>('/sources');
@@ -41,12 +42,11 @@ export default function SourcesPage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>Water sources</Title>
-        <Button onClick={() => setEditing({ name: '', type: 'well', pumpStartDelayS: 0, pumpStopDelayS: 0 })}>Add source</Button>
+        <Title order={3}>{t('Water sources')}</Title>
+        <Button onClick={() => setEditing({ name: '', type: 'well', pumpStartDelayS: 0, pumpStopDelayS: 0 })}>{t('Add source')}</Button>
       </Group>
       <Text size="sm" c="dimmed">
-        Sources make hydraulics declarative: flow budgets, pump control with lead/lag delays, dependencies
-        (e.g. a barrel refilled from the well) and pump energy metering counted only while watering.
+        {t('Sources make hydraulics declarative: flow budgets, pump control with lead/lag delays, dependencies (e.g. a barrel refilled from the well) and pump energy metering counted only while watering.')}
       </Text>
 
       {(sources ?? []).map((s) => (
@@ -74,7 +74,7 @@ export default function SourcesPage() {
         </Card>
       ))}
 
-      <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? 'Edit source' : 'New source'} size="lg">
+      <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? t('Edit source') : t('New source')} size="lg">
         {editing && (
           <Stack>
             <Group grow>
@@ -238,7 +238,7 @@ export default function SourcesPage() {
                 />
               </Group>
             ) : null}
-            <Button onClick={save}>Save</Button>
+            <Button onClick={save}>{t('Save')}</Button>
           </Stack>
         )}
       </Modal>

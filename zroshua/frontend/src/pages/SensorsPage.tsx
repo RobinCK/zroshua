@@ -17,6 +17,7 @@ import { notifications } from '@mantine/notifications';
 import { api, Group as ZGroup, Settings, SoilTrigger, TempTrigger, Zone } from '../api';
 import { useResource } from '../hooks';
 import { EntityMultiSelect, EntitySelect, SliderInput } from '../components/common';
+import { t as T } from '../i18n';
 
 export default function SensorsPage() {
   const { data: settings, reload } = useResource<Settings>('/settings');
@@ -47,35 +48,35 @@ export default function SensorsPage() {
 
   return (
     <Stack>
-      <Title order={3}>Sensors</Title>
+      <Title order={3}>{T('Sensors')}</Title>
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
-          <Title order={4}>Rain sensor (from leak / moisture sensors)</Title>
+          <Title order={4}>{T('Rain sensor (from leak / moisture sensors)')}</Title>
           <Switch
-            label="Enabled"
+            label={T('Enabled')}
             checked={s.rainSensor.enabled}
             onChange={(e) => setS({ ...s, rainSensor: { ...s.rainSensor, enabled: e.currentTarget.checked } })}
           />
         </Group>
         <Stack>
           <EntityMultiSelect
-            label="Sensors (any binary_sensor; several supported)"
+            label={T('Sensors (any binary_sensor; several supported)')}
             value={s.rainSensor.entities}
             onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, entities: v } })}
             domains={['binary_sensor']}
           />
           <Group grow>
             <NumberInput
-              label="Quorum (how many must be wet)"
+              label={T('Quorum (how many must be wet)')}
               min={1}
               value={s.rainSensor.quorum}
               onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, quorum: Number(v) || 1 } })}
             />
             <Select
-              label="When rain starts during watering"
+              label={T('When rain starts during watering')}
               data={[
-                { value: 'stop_all', label: 'Stop all zones' },
+                { value: 'stop_all', label: T('Stop all zones') },
                 { value: 'stop_linked', label: 'Stop linked zones only' },
               ]}
               value={s.rainSensor.onWetDuringRun}
@@ -83,7 +84,7 @@ export default function SensorsPage() {
             />
           </Group>
           <SliderInput
-            label="Dry-out delay (watering stays blocked after rain)"
+            label={T('Dry-out delay (watering stays blocked after rain)')}
             value={s.rainSensor.dryOutHours}
             onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, dryOutHours: v } })}
             min={0}
@@ -99,7 +100,7 @@ export default function SensorsPage() {
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
-          <Title order={4}>Soil moisture triggers</Title>
+          <Title order={4}>{T('Soil moisture triggers')}</Title>
           <Button
             size="xs"
             variant="light"
@@ -124,7 +125,7 @@ export default function SensorsPage() {
               })
             }
           >
-            Add trigger
+            {T('Add trigger')}
           </Button>
         </Group>
         <Stack>
@@ -199,7 +200,7 @@ export default function SensorsPage() {
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
-          <Title order={4}>Temperature triggers (heat burst)</Title>
+          <Title order={4}>{T('Temperature triggers (heat burst)')}</Title>
           <Button
             size="xs"
             variant="light"
@@ -224,7 +225,7 @@ export default function SensorsPage() {
               })
             }
           >
-            Add trigger
+            {T('Add trigger')}
           </Button>
         </Group>
         <Text size="xs" c="dimmed" mb="sm">
@@ -289,7 +290,7 @@ export default function SensorsPage() {
         </Stack>
       </Card>
 
-      <Button onClick={save}>Save sensors</Button>
+      <Button onClick={save}>{T('Save sensors')}</Button>
     </Stack>
   );
 }

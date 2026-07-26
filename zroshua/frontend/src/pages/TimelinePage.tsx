@@ -3,13 +3,14 @@ import { Alert, Badge, Box, Card, Group, ScrollArea, SegmentedControl, Stack, Te
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { PlanEnvelope, PlanResponse } from '../api';
 import { useResource } from '../hooks';
+import { t } from '../i18n';
 
 const HOUR_W = 100 / 24;
 
 function dayLabel(offset: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offset);
-  return offset === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+  return offset === 0 ? t('Today') : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
 }
 
 export default function TimelinePage() {
@@ -73,9 +74,9 @@ export default function TimelinePage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>Timeline</Title>
+        <Title order={3}>{t('Timeline')}</Title>
         <Badge variant="light" color={busyPct > 50 ? 'orange' : 'teal'}>
-          water busy {busyPct}% of the day
+          {t('water busy {p}% of the day', { p: busyPct })}
         </Badge>
       </Group>
       <SegmentedControl
@@ -201,14 +202,11 @@ export default function TimelinePage() {
           </ScrollArea>
         </Group>
         <Group gap="md" mt="xs">
-          <Badge variant="light" color="teal">group schedule</Badge>
-          <Badge variant="light" color="grape">zone schedule</Badge>
-          <Badge variant="light" color="red">rule conflict</Badge>
+          <Badge variant="light" color="teal">{t('group schedule')}</Badge>
+          <Badge variant="light" color="grape">{t('zone schedule')}</Badge>
+          <Badge variant="light" color="red">{t('rule conflict')}</Badge>
           <Text size="xs" c="dimmed">
-            Solid bars = planned zones (temperature scaling shifts the following zones, they never overlap).
-            The white tick is the planned end; dark hatching inside the bar = may finish earlier (negative
-            scaling), hatched tail after the tick = worst-case temperature boost. Gaps after the hatched
-            tail are guaranteed free water time.
+            {t('Solid bars = planned zones (temperature scaling shifts the following zones, they never overlap). The white tick is the planned end; dark hatching inside the bar = may finish earlier (negative scaling), hatched tail after the tick = worst-case temperature boost. Gaps after the hatched tail are guaranteed free water time.')}
           </Text>
         </Group>
       </Card>

@@ -4,6 +4,7 @@ import { IconPlus, IconMinus, IconZoomReset } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Zone } from '../api';
 import { fmtDur, fmtTime, useResource } from '../hooks';
+import { t } from '../i18n';
 import { SliderInput } from '../components/common';
 
 const STATE_COLORS: Record<string, string> = {
@@ -403,7 +404,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         .zr-map-vp::-webkit-scrollbar { display: none; }
       `}</style>
       <Group justify="space-between">
-        <Title order={3}>Site map</Title>
+        <Title order={3}>{t('Site map')}</Title>
         <Group>
           {assignMode ? (
             <Button variant="filled" onClick={() => setAssignMode(false)} disabled={!map?.svg}>
@@ -411,11 +412,11 @@ export default function MapPage({ state }: { state: EngineState | null }) {
             </Button>
           ) : (
             <Button variant="light" onClick={startAssign} disabled={!map?.svg || !(zones ?? []).length}>
-              Assign zones
+              {t('Assign zones')}
             </Button>
           )}
           <FileButton onChange={upload} accept="image/svg+xml">
-            {(props) => <Button {...props}>Upload SVG plan</Button>}
+            {(props) => <Button {...props}>{t('Upload SVG plan')}</Button>}
           </FileButton>
         </Group>
       </Group>

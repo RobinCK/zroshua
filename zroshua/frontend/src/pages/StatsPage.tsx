@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BarChart } from '@mantine/charts';
 import { Button, Card, Group, SegmentedControl, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useResource } from '../hooks';
+import { t } from '../i18n';
 
 interface Daily {
   days: { day: string; minutes: number; litersMin: number; litersMax: number; energyKwh: number; tailKwh: number }[];
@@ -40,7 +41,7 @@ export default function StatsPage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>Statistics</Title>
+        <Title order={3}>{t('Statistics')}</Title>
         <Group>
           <SegmentedControl
             data={[
@@ -52,7 +53,7 @@ export default function StatsPage() {
             onChange={setDays}
           />
           <Button component="a" href={`./api/stats/export.csv?days=${days}`} variant="light">
-            Export CSV
+            {t('Export CSV')}
           </Button>
         </Group>
       </Group>

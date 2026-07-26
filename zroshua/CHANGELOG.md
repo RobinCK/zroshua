@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1
+
+- **Language picker in Settings.** Home Assistant does not pass the account
+  language to an ingress add-on, so the UI followed the *device* language, which
+  can differ from your HA account. Settings now has a **Language** selector:
+  *System (device language)* by default, plus an explicit override to any of the
+  ten languages. The choice is remembered per browser.
+- **Wider translation coverage** — Settings (incl. notifications), Sensors,
+  Water sources, Timeline, Statistics and the site map now translate their
+  titles, section headers, buttons and key labels. Deep form fields still fall
+  back to English and will be filled in next.
+
 ## 0.3.0
 
 - **Multi-language UI.** The interface now follows the browser / Home Assistant

@@ -17,7 +17,26 @@ export type Dict = Record<string, string>;
 const DICTS: Record<string, Dict> = { uk, pl, de, sk, ro, it, es, cs, fr };
 export const SUPPORTED = ['en', 'uk', 'pl', 'de', 'sk', 'ro', 'it', 'es', 'cs', 'fr'] as const;
 
-function detectLocale(): string {
+/** Language menu: 'system' follows the device, the rest force a locale. Names are self-labelled. */
+export const LANG_OPTIONS: { value: string; label: string }[] = [
+  { value: 'system', label: 'System (device language)' },
+  { value: 'en', label: 'English' },
+  { value: 'uk', label: 'Українська' },
+  { value: 'pl', label: 'Polski' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'sk', label: 'Slovenčina' },
+  { value: 'ro', label: 'Română' },
+  { value: 'it', label: 'Italiano' },
+  { value: 'es', label: 'Español' },
+  { value: 'cs', label: 'Čeština' },
+  { value: 'fr', label: 'Français' },
+];
+
+const LANG_KEY = 'zroshua.lang';
+
+/** Home Assistant does not pass the account language to an ingress add-on, so
+ *  the device language is the automatic default and can be overridden below. */
+function detectDeviceLocale(): string {
   try {
     const prefs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]) || [];
     for (const l of prefs) {
@@ -30,7 +49,32 @@ function detectLocale(): string {
   return 'en';
 }
 
-export const locale = detectLocale();
+/** Stored preference ('system' or a locale), else null. */
+export function storedLang(): string {
+  try {
+    return localStorage.getItem(LANG_KEY) || 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+function resolveLocale(): string {
+  const s = storedLang();
+  if (s && s !== 'system' && (SUPPORTED as readonly string[]).includes(s)) return s;
+  return detectDeviceLocale();
+}
+
+/** Persist the language choice and reload so every string re-renders. */
+export function setLang(value: string) {
+  try {
+    localStorage.setItem(LANG_KEY, value);
+  } catch {
+    /* private mode */
+  }
+  location.reload();
+}
+
+export const locale = resolveLocale();
 const active: Dict = DICTS[locale] ?? {};
 
 try {
