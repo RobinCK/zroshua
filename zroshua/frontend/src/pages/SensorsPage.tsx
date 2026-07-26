@@ -17,7 +17,7 @@ import { notifications } from '@mantine/notifications';
 import { api, Group as ZGroup, Settings, SoilTrigger, TempTrigger, Zone } from '../api';
 import { useResource } from '../hooks';
 import { EntityMultiSelect, EntitySelect, SliderInput } from '../components/common';
-import { t as T } from '../i18n';
+import { t } from '../i18n';
 
 export default function SensorsPage() {
   const { data: settings, reload } = useResource<Settings>('/settings');
@@ -34,7 +34,7 @@ export default function SensorsPage() {
   const save = async () => {
     try {
       await api.put('/settings', s);
-      notifications.show({ message: T('Saved'), color: 'teal' });
+      notifications.show({ message: t('Saved'), color: 'teal' });
       reload();
     } catch (e: any) {
       notifications.show({ message: e.message, color: 'red' });
@@ -42,49 +42,49 @@ export default function SensorsPage() {
   };
 
   const targetOpts = [
-    ...(zones ?? []).map((z) => ({ value: `zone:${z.id}`, label: T('Zone: {name}', { name: z.name }) })),
-    ...(groups ?? []).map((g) => ({ value: `group:${g.id}`, label: T('Group: {name}', { name: g.name }) })),
+    ...(zones ?? []).map((z) => ({ value: `zone:${z.id}`, label: t('Zone: {name}', { name: z.name }) })),
+    ...(groups ?? []).map((g) => ({ value: `group:${g.id}`, label: t('Group: {name}', { name: g.name }) })),
   ];
 
   return (
     <Stack>
-      <Title order={3}>{T('Sensors')}</Title>
+      <Title order={3}>{t('Sensors')}</Title>
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
-          <Title order={4}>{T('Rain sensor (from leak / moisture sensors)')}</Title>
+          <Title order={4}>{t('Rain sensor (from leak / moisture sensors)')}</Title>
           <Switch
-            label={T('Enabled')}
+            label={t('Enabled')}
             checked={s.rainSensor.enabled}
             onChange={(e) => setS({ ...s, rainSensor: { ...s.rainSensor, enabled: e.currentTarget.checked } })}
           />
         </Group>
         <Stack>
           <EntityMultiSelect
-            label={T('Sensors (any binary_sensor; several supported)')}
+            label={t('Sensors (any binary_sensor; several supported)')}
             value={s.rainSensor.entities}
             onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, entities: v } })}
             domains={['binary_sensor']}
           />
           <Group grow>
             <NumberInput
-              label={T('Quorum (how many must be wet)')}
+              label={t('Quorum (how many must be wet)')}
               min={1}
               value={s.rainSensor.quorum}
               onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, quorum: Number(v) || 1 } })}
             />
             <Select
-              label={T('When rain starts during watering')}
+              label={t('When rain starts during watering')}
               data={[
-                { value: 'stop_all', label: T('Stop all zones') },
-                { value: 'stop_linked', label: T('Stop linked zones only') },
+                { value: 'stop_all', label: t('Stop all zones') },
+                { value: 'stop_linked', label: t('Stop linked zones only') },
               ]}
               value={s.rainSensor.onWetDuringRun}
               onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, onWetDuringRun: (v as any) ?? 'stop_all' } })}
             />
           </Group>
           <SliderInput
-            label={T('Dry-out delay (watering stays blocked after rain)')}
+            label={t('Dry-out delay (watering stays blocked after rain)')}
             value={s.rainSensor.dryOutHours}
             onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, dryOutHours: v } })}
             min={0}
@@ -92,14 +92,14 @@ export default function SensorsPage() {
             unit="h"
           />
           <Text size="xs" c="dimmed">
-            {T('Wet at start time → the run is skipped with a journal reason. Rain during a run → affected zones stop. Zones with the "ignore rain sensor" flag keep running. Manual runs always ignore the rain sensor.')}
+            {t('Wet at start time → the run is skipped with a journal reason. Rain during a run → affected zones stop. Zones with the "ignore rain sensor" flag keep running. Manual runs always ignore the rain sensor.')}
           </Text>
         </Stack>
       </Card>
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
-          <Title order={4}>{T('Soil moisture triggers')}</Title>
+          <Title order={4}>{t('Soil moisture triggers')}</Title>
           <Button
             size="xs"
             variant="light"
@@ -124,20 +124,20 @@ export default function SensorsPage() {
               })
             }
           >
-            {T('Add trigger')}
+            {t('Add trigger')}
           </Button>
         </Group>
         <Stack>
-          {s.soilTriggers.map((t, i) => {
+          {s.soilTriggers.map((trigger, i) => {
             const set = (patch: Partial<SoilTrigger>) => {
               const next = [...s.soilTriggers];
-              next[i] = { ...t, ...patch };
+              next[i] = { ...trigger, ...patch };
               setS({ ...s, soilTriggers: next });
             };
             return (
-              <Card key={t.id} withBorder p="sm">
+              <Card key={trigger.id} withBorder p="sm">
                 <Group justify="space-between" mb="xs">
-                  <Switch label={T('Enabled')} checked={t.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} />
+                  <Switch label={t('Enabled')} checked={trigger.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} />
                   <ActionIcon
                     variant="subtle"
                     color="red"
@@ -147,11 +147,11 @@ export default function SensorsPage() {
                   </ActionIcon>
                 </Group>
                 <Group grow>
-                  <EntitySelect label={T('Moisture sensor (%)')} value={t.sensor || null} onChange={(v) => set({ sensor: v ?? '' })} domains={['sensor']} />
+                  <EntitySelect label={t('Moisture sensor (%)')} value={trigger.sensor || null} onChange={(v) => set({ sensor: v ?? '' })} domains={['sensor']} />
                   <Select
-                    label={T('Waters')}
+                    label={t('Waters')}
                     data={targetOpts}
-                    value={`${t.targetKind}:${t.targetId}`}
+                    value={`${trigger.targetKind}:${trigger.targetId}`}
                     onChange={(v) => {
                       const [kind, id] = (v ?? 'zone:').split(':');
                       set({ targetKind: kind as 'zone' | 'group', targetId: id });
@@ -160,35 +160,35 @@ export default function SensorsPage() {
                 </Group>
                 <Group grow mt="xs">
                   <NumberInput
-                    label={T('Start below (%)')}
-                    value={t.startBelowPct ?? ''}
+                    label={t('Start below (%)')}
+                    value={trigger.startBelowPct ?? ''}
                     onChange={(v) => set({ startBelowPct: v === '' ? null : Number(v) })}
                   />
-                  <NumberInput label={T('Run (min)')} value={t.runMin} onChange={(v) => set({ runMin: Number(v) || 15 })} />
+                  <NumberInput label={t('Run (min)')} value={trigger.runMin} onChange={(v) => set({ runMin: Number(v) || 15 })} />
                   <NumberInput
-                    label={T('Cooldown (h)')}
-                    description={T('Sensor is slow — wait before re-checking')}
-                    value={t.cooldownHours}
+                    label={t('Cooldown (h)')}
+                    description={t('Sensor is slow — wait before re-checking')}
+                    value={trigger.cooldownHours}
                     onChange={(v) => set({ cooldownHours: Number(v) || 6 })}
                   />
                 </Group>
                 <Group grow mt="xs">
                   <NumberInput
-                    label={T('Block scheduled watering above (%)')}
-                    value={t.blockAbovePct ?? ''}
+                    label={t('Block scheduled watering above (%)')}
+                    value={trigger.blockAbovePct ?? ''}
                     onChange={(v) => set({ blockAbovePct: v === '' ? null : Number(v) })}
                   />
                   <NumberInput
-                    label={T('Ignore if data older than (h)')}
-                    value={t.staleAfterHours}
+                    label={t('Ignore if data older than (h)')}
+                    value={trigger.staleAfterHours}
                     onChange={(v) => set({ staleAfterHours: Number(v) || 12 })}
                   />
                 </Group>
                 <Switch
                   mt="xs"
-                  label={T('Ignore rain sensor')}
-                  description={T('Fire and keep watering even while the rain sensor is wet — e.g. soil under a roof or in a greenhouse')}
-                  checked={!!t.ignoreRainSensor}
+                  label={t('Ignore rain sensor')}
+                  description={t('Fire and keep watering even while the rain sensor is wet — e.g. soil under a roof or in a greenhouse')}
+                  checked={!!trigger.ignoreRainSensor}
                   onChange={(e) => set({ ignoreRainSensor: e.currentTarget.checked })}
                 />
               </Card>
@@ -199,7 +199,7 @@ export default function SensorsPage() {
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
-          <Title order={4}>{T('Temperature triggers (heat burst)')}</Title>
+          <Title order={4}>{t('Temperature triggers (heat burst)')}</Title>
           <Button
             size="xs"
             variant="light"
@@ -224,23 +224,23 @@ export default function SensorsPage() {
               })
             }
           >
-            {T('Add trigger')}
+            {t('Add trigger')}
           </Button>
         </Group>
         <Text size="xs" c="dimmed" mb="sm">
-          {T('Cooling runs on hot days: when the live temperature crosses the threshold inside the daily window, water the target for a few minutes — at most once per cooldown. More flexible than a fixed midday schedule: it fires at 12:10 in a heat wave and stays quiet on a cloudy day.')}
+          {t('Cooling runs on hot days: when the live temperature crosses the threshold inside the daily window, water the target for a few minutes — at most once per cooldown. More flexible than a fixed midday schedule: it fires at 12:10 in a heat wave and stays quiet on a cloudy day.')}
         </Text>
         <Stack>
-          {(s.tempTriggers ?? []).map((t, i) => {
+          {(s.tempTriggers ?? []).map((trigger, i) => {
             const set = (patch: Partial<TempTrigger>) => {
               const next = [...(s.tempTriggers ?? [])];
-              next[i] = { ...t, ...patch };
+              next[i] = { ...trigger, ...patch };
               setS({ ...s, tempTriggers: next });
             };
             return (
-              <Card key={t.id} withBorder p="sm">
+              <Card key={trigger.id} withBorder p="sm">
                 <Group justify="space-between" mb="xs">
-                  <Switch label={T('Enabled')} checked={t.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} />
+                  <Switch label={t('Enabled')} checked={trigger.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} />
                   <ActionIcon
                     variant="subtle"
                     color="red"
@@ -250,11 +250,11 @@ export default function SensorsPage() {
                   </ActionIcon>
                 </Group>
                 <Group grow>
-                  <EntitySelect label={T('Temperature sensor')} value={t.sensor || null} onChange={(v) => set({ sensor: v ?? '' })} domains={['sensor']} />
+                  <EntitySelect label={t('Temperature sensor')} value={trigger.sensor || null} onChange={(v) => set({ sensor: v ?? '' })} domains={['sensor']} />
                   <Select
-                    label={T('Waters')}
+                    label={t('Waters')}
                     data={targetOpts}
-                    value={`${t.targetKind}:${t.targetId}`}
+                    value={`${trigger.targetKind}:${trigger.targetId}`}
                     onChange={(v) => {
                       const [kind, id] = (v ?? 'zone:').split(':');
                       set({ targetKind: kind as 'zone' | 'group', targetId: id });
@@ -262,23 +262,23 @@ export default function SensorsPage() {
                   />
                 </Group>
                 <Group grow mt="xs">
-                  <NumberInput label={T('Above (°C)')} value={t.aboveC} onChange={(v) => set({ aboveC: Number(v) || 30 })} />
-                  <TextInput type="time" label={T('Window from')} value={t.windowFrom} onChange={(e) => e.target.value && set({ windowFrom: e.target.value })} />
-                  <TextInput type="time" label={T('Window to')} value={t.windowTo} onChange={(e) => e.target.value && set({ windowTo: e.target.value })} />
+                  <NumberInput label={t('Above (°C)')} value={trigger.aboveC} onChange={(v) => set({ aboveC: Number(v) || 30 })} />
+                  <TextInput type="time" label={t('Window from')} value={trigger.windowFrom} onChange={(e) => e.target.value && set({ windowFrom: e.target.value })} />
+                  <TextInput type="time" label={t('Window to')} value={trigger.windowTo} onChange={(e) => e.target.value && set({ windowTo: e.target.value })} />
                 </Group>
                 <Group grow mt="xs">
-                  <NumberInput label={T('Run (min)')} value={t.runMin} onChange={(v) => set({ runMin: Number(v) || 10 })} />
+                  <NumberInput label={t('Run (min)')} value={trigger.runMin} onChange={(v) => set({ runMin: Number(v) || 10 })} />
                   <NumberInput
-                    label={T('Cooldown (h)')}
-                    description={T('24 = at most once a day')}
-                    value={t.cooldownHours}
+                    label={t('Cooldown (h)')}
+                    description={t('24 = at most once a day')}
+                    value={trigger.cooldownHours}
                     onChange={(v) => set({ cooldownHours: Number(v) || 24 })}
                   />
                 </Group>
                 <Switch
                   mt="xs"
-                  label={T('Ignore rain sensor')}
-                  checked={!!t.ignoreRainSensor}
+                  label={t('Ignore rain sensor')}
+                  checked={!!trigger.ignoreRainSensor}
                   onChange={(e) => set({ ignoreRainSensor: e.currentTarget.checked })}
                 />
               </Card>
@@ -287,7 +287,7 @@ export default function SensorsPage() {
         </Stack>
       </Card>
 
-      <Button onClick={save}>{T('Save sensors')}</Button>
+      <Button onClick={save}>{t('Save sensors')}</Button>
     </Stack>
   );
 }

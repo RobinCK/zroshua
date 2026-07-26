@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ActionIcon, Badge, Box, Button, Group, Popover, SegmentedControl, Slider, Stack, Text, TextInput, Tooltip, UnstyledButton } from '@mantine/core';
 import { IconAlertTriangle, IconClock, IconMinus, IconPlus } from '@tabler/icons-react';
-import { t as T } from '../i18n';
+import { t } from '../i18n';
 
 export interface BusyBand {
   dow: number;
@@ -18,8 +18,8 @@ export const toMin = (hhmm: string): number => {
   return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
 };
 export const toHHMM = (min: number): string => {
-  const t = ((Math.round(min) % 1440) + 1440) % 1440;
-  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+  const mins = ((Math.round(min) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
 /**
@@ -126,7 +126,7 @@ export default function TimeSlotPicker({
               leftSection={conflict ? <IconAlertTriangle size={13} /> : <IconClock size={13} />}
               style={{ cursor: 'pointer', textTransform: 'none' }}
             >
-              {anchor === 'finish' ? T('{from} → {to} (by)', { from: toHHMM(startMin), to: value }) : `${value} → ${toHHMM(startMin + durationMin)}`}
+              {anchor === 'finish' ? t('{from} → {to} (by)', { from: toHHMM(startMin), to: value }) : `${value} → ${toHHMM(startMin + durationMin)}`}
             </Badge>
           </Group>
         </UnstyledButton>
@@ -151,10 +151,10 @@ export default function TimeSlotPicker({
             </Group>
             <Text size="xs" c={conflict ? 'red' : 'dimmed'} ta="right">
               {conflict
-                ? T('overlaps "{label}" ({from}–{to})', { label: conflict.label, from: toHHMM(conflict.startMin), to: toHHMM(conflict.worstEndMin) })
+                ? t('overlaps "{label}" ({from}–{to})', { label: conflict.label, from: toHHMM(conflict.startMin), to: toHHMM(conflict.worstEndMin) })
                 : until !== null
-                  ? T('free until {time}', { time: toHHMM(until) })
-                  : T('no rule-bound schedules this day')}
+                  ? t('free until {time}', { time: toHHMM(until) })
+                  : t('no rule-bound schedules this day')}
             </Text>
           </Group>
 
@@ -165,8 +165,8 @@ export default function TimeSlotPicker({
               value={anchor}
               onChange={(v) => onAnchorChange(v as 'start' | 'finish')}
               data={[
-                { label: T('Start at this time'), value: 'start' },
-                { label: T('Finish by this time'), value: 'finish' },
+                { label: t('Start at this time'), value: 'start' },
+                { label: t('Finish by this time'), value: 'finish' },
               ]}
             />
           )}
@@ -262,11 +262,11 @@ export default function TimeSlotPicker({
               </Button>
             ))}
             <Button size="compact-xs" variant="subtle" ml="auto" onClick={() => setOpened(false)}>
-              {T('Done')}
+              {t('Done')}
             </Button>
           </Group>
           <Text size="xs" c="dimmed">
-            {T('Red = groups bound to this one by rules (never-overlap / order), incl. worst-case boost. Gray = other schedules. Teal = this run.')}
+            {t('Red = groups bound to this one by rules (never-overlap / order), incl. worst-case boost. Gray = other schedules. Teal = this run.')}
           </Text>
         </Stack>
       </Popover.Dropdown>

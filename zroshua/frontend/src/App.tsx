@@ -109,7 +109,7 @@ export default function App() {
             )}
             {state && state.active.length > 0 && (
               <Badge color="teal" variant="light" size="lg" leftSection="●">
-                {t('{n} watering', { n: state.active.length })}
+                {t('{count} watering', { count: state.active.length })}
               </Badge>
             )}
             {state?.snoozeUntil && (

@@ -394,8 +394,32 @@ cd zroshua/backend && npm install && npm run build && node dist/main.js
 cd zroshua/frontend && npm install && npm run dev
 ```
 
+### Translations
+
+The UI uses [i18next](https://www.i18next.com/); dictionaries are plain JSON in
+`zroshua/frontend/src/locales/`. The key **is** the English source text, so a
+missing translation falls back to readable English rather than a blank or a key
+name, and `en.json` is the list of source strings.
+
+```bash
+cd zroshua/frontend
+npm run i18n         # sync the dictionaries with the t() calls in the code
+npm run i18n:check   # fail if they are out of date (used in CI)
+```
+
+`npm run i18n` adds strings that are new and removes strings that are gone, in
+every language at once. To add a language: put its code in `locales` in
+`i18next-parser.config.js` and in `SUPPORTED` / `LANG_OPTIONS` in `src/i18n.ts`,
+run `npm run i18n`, then fill in the new `<lang>.json`. Untranslated entries are
+left as empty strings, so they are easy to find.
+
+Some keys are built at runtime (`t(zone.type)`, `t(weather.condition)`) and
+cannot be found by scanning the code — those are declared in
+`src/i18n-dynamic.ts`. Plural forms are generated per language from the CLDR
+rules, so pass `count`: `t('{count} days ago', { count: 3 })`.
+
 Roadmap: ET/bucket-based suggested durations, volume-based watering, Telegram inline
-actions, uk localization.
+actions.
 
 ## License
 

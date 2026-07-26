@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, EngineState, JournalEntry } from './api';
-import { t as T, locale } from './i18n';
+import { locale, t } from './i18n';
 
 /** Live engine state over the app WebSocket (relative path — ingress-safe). */
 export function useEngineState() {
@@ -19,7 +19,7 @@ export function useEngineState() {
       ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
         if (msg.type === 'engine') setState(msg.payload);
-        if (msg.type === 'journal') setJournalTick((t) => t + 1);
+        if (msg.type === 'journal') setJournalTick((n) => n + 1);
       };
       ws.onclose = () => {
         if (!closed) retry = setTimeout(connect, 3000);
@@ -80,17 +80,17 @@ export const fmtTime = (ts: number) =>
   new Date(ts).toLocaleString(locale, { weekday: 'short', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
 
 export const fmtDur = (min: number) =>
-  min >= 60 ? T('{h}h {m}m', { h: Math.floor(min / 60), m: Math.round(min % 60) }) : T('{n} min', { n: Math.round(min) });
+  min >= 60 ? t('{h}h {m}m', { h: Math.floor(min / 60), m: Math.round(min % 60) }) : t('{n} min', { n: Math.round(min) });
 
 /** Compact relative past time, e.g. "just now", "12 min ago", "3h ago", "2 days ago". */
 export const fmtAgo = (ts: number | null | undefined): string => {
-  if (!ts) return T('never');
+  if (!ts) return t('never');
   const s = Math.max(0, (Date.now() - Number(ts)) / 1000);
-  if (s < 60) return T('just now');
+  if (s < 60) return t('just now');
   const m = Math.round(s / 60);
-  if (m < 60) return T('{n} min ago', { n: m });
+  if (m < 60) return t('{n} min ago', { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return T('{n}h ago', { n: h });
+  if (h < 24) return t('{n}h ago', { n: h });
   const d = Math.floor(h / 24);
-  return d === 1 ? T('yesterday') : T('{n} days ago', { n: d });
+  return d === 1 ? t('yesterday') : t('{count} days ago', { count: d });
 };

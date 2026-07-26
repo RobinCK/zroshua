@@ -4,7 +4,7 @@ import { IconPlus, IconMinus, IconZoomReset } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Zone } from '../api';
 import { fmtDur, fmtTime, useResource } from '../hooks';
-import { t as T } from '../i18n';
+import { t } from '../i18n';
 import { SliderInput } from '../components/common';
 
 const STATE_COLORS: Record<string, string> = {
@@ -25,7 +25,7 @@ const TYPE_COLORS: Record<string, string> = {
   lawn: '#82c91e', // lime green
   shrubs: '#e64980', // rose
 };
-const typeColor = (t: string) => TYPE_COLORS[t] ?? TYPE_COLORS.sprinkler;
+const typeColor = (type: string) => TYPE_COLORS[type] ?? TYPE_COLORS.sprinkler;
 const FAULT_COLOR = '#fa5252';
 const ASSIGN_SELECTED = '#12b886'; // shape belongs to the zone being edited
 const ASSIGN_OTHER = '#7048e8'; // shape belongs to a different zone
@@ -42,7 +42,7 @@ const TYPE_ICON: Record<string, string> = {
   shrubs:
     '<g fill="#fff"><circle cx="8.5" cy="13" r="3.8"/><circle cx="14.5" cy="11" r="4.4"/></g><path d="M12 20v-6" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>',
 };
-const typeGlyph = (t: string) => TYPE_ICON[t] ?? TYPE_ICON.sprinkler;
+const typeGlyph = (type: string) => TYPE_ICON[type] ?? TYPE_ICON.sprinkler;
 
 /** Elements that make up a zone: new array field, falling back to the legacy single id. */
 function elementsOf(z: Zone): string[] {
@@ -91,7 +91,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
   // toggle one shape in/out of the zone currently being edited
   const toggleElement = async (elId: string) => {
     if (!assignZone) {
-      notifications.show({ message: T('Pick a zone to assign first'), color: 'yellow' });
+      notifications.show({ message: t('Pick a zone to assign first'), color: 'yellow' });
       return;
     }
     try {
@@ -219,17 +219,17 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           .map((id) => host.querySelector<SVGGraphicsElement>(`#${CSS.escape(id)}`))
           .filter((n): n is SVGGraphicsElement => !!n);
         if (!nodes.length) continue;
-        let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const n of nodes) {
           const rc = n.getBoundingClientRect();
-          l = Math.min(l, rc.left); t = Math.min(t, rc.top);
-          r = Math.max(r, rc.right); b = Math.max(b, rc.bottom);
+          minX = Math.min(minX, rc.left); minY = Math.min(minY, rc.top);
+          maxX = Math.max(maxX, rc.right); maxY = Math.max(maxY, rc.bottom);
         }
         const mins = Math.max(0, Math.round((run.endsAt - now) / 60000));
         const lab = document.createElement('div');
-        lab.textContent = T('{mins}m', { mins });
+        lab.textContent = t('{mins}m', { mins });
         lab.style.cssText =
-          `position:absolute;left:${(l + r) / 2 - hostRect.left}px;top:${(t + b) / 2 - hostRect.top}px;` +
+          `position:absolute;left:${(minX + maxX) / 2 - hostRect.left}px;top:${(minY + maxY) / 2 - hostRect.top}px;` +
           `transform:translate(-50%,-50%);font:800 13px/1 system-ui,sans-serif;color:#fff;` +
           `text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.85);white-space:nowrap`;
         ov.appendChild(lab);
@@ -377,7 +377,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
     const svg = await file.text();
     try {
       await api.post('/map', { svg });
-      notifications.show({ message: T('Map uploaded'), color: 'teal' });
+      notifications.show({ message: t('Map uploaded'), color: 'teal' });
       reload();
     } catch (e: any) {
       notifications.show({ message: e.message, color: 'red' });
@@ -404,19 +404,19 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         .zr-map-vp::-webkit-scrollbar { display: none; }
       `}</style>
       <Group justify="space-between">
-        <Title order={3}>{T('Site map')}</Title>
+        <Title order={3}>{t('Site map')}</Title>
         <Group>
           {assignMode ? (
             <Button variant="filled" onClick={() => setAssignMode(false)} disabled={!map?.svg}>
-              {T('Done assigning')}
+              {t('Done assigning')}
             </Button>
           ) : (
             <Button variant="light" onClick={startAssign} disabled={!map?.svg || !(zones ?? []).length}>
-              {T('Assign zones')}
+              {t('Assign zones')}
             </Button>
           )}
           <FileButton onChange={upload} accept="image/svg+xml">
-            {(props) => <Button {...props}>{T('Upload SVG plan')}</Button>}
+            {(props) => <Button {...props}>{t('Upload SVG plan')}</Button>}
           </FileButton>
         </Group>
       </Group>
@@ -426,8 +426,8 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           {assignMode && (
             <Stack gap="xs" mb="sm">
               <Select
-                label={T('Assign shapes to zone')}
-                description={T('Tap shapes on the plan to add or remove them. A zone can be made of several shapes.')}
+                label={t('Assign shapes to zone')}
+                description={t('Tap shapes on the plan to add or remove them. A zone can be made of several shapes.')}
                 data={zoneOpts}
                 value={assignZoneId}
                 onChange={setAssignZoneId}
@@ -436,13 +436,13 @@ export default function MapPage({ state }: { state: EngineState | null }) {
               />
               <Group gap="xs">
                 <Badge variant="light" style={{ backgroundColor: `${ASSIGN_SELECTED}33`, color: ASSIGN_SELECTED }}>
-                  {T('this zone')}
+                  {t('this zone')}
                 </Badge>
                 <Badge variant="light" style={{ backgroundColor: `${ASSIGN_OTHER}33`, color: ASSIGN_OTHER }}>
-                  {T('other zone')}
+                  {t('other zone')}
                 </Badge>
                 <Badge variant="light" style={{ backgroundColor: `${ASSIGN_FREE}33`, color: ASSIGN_FREE }}>
-                  {T('unassigned')}
+                  {t('unassigned')}
                 </Badge>
                 {assignZone && (
                   <Button
@@ -452,7 +452,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
                     disabled={!elementsOf(assignZone).length}
                     onClick={() => saveElements(assignZone, []).then(reloadZones)}
                   >
-                    {T('Clear this zone')}
+                    {t('Clear this zone')}
                   </Button>
                 )}
               </Group>
@@ -479,7 +479,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
               </div>
             </div>
             <Stack gap={6} style={{ position: 'absolute', top: 8, right: 8 }}>
-              <ActionIcon variant="default" size="lg" onClick={() => zoomButton(1.5)} title={T('Zoom in')}>
+              <ActionIcon variant="default" size="lg" onClick={() => zoomButton(1.5)} title={t('Zoom in')}>
                 <IconPlus size={18} />
               </ActionIcon>
               <ActionIcon
@@ -487,11 +487,11 @@ export default function MapPage({ state }: { state: EngineState | null }) {
                 size="lg"
                 onClick={() => zoomButton(1 / 1.5)}
                 disabled={scale <= 1}
-                title={T('Zoom out')}
+                title={t('Zoom out')}
               >
                 <IconMinus size={18} />
               </ActionIcon>
-              <ActionIcon variant="default" size="lg" onClick={resetZoom} disabled={scale <= 1} title={T('Reset zoom')}>
+              <ActionIcon variant="default" size="lg" onClick={resetZoom} disabled={scale <= 1} title={t('Reset zoom')}>
                 <IconZoomReset size={18} />
               </ActionIcon>
             </Stack>
@@ -500,39 +500,39 @@ export default function MapPage({ state }: { state: EngineState | null }) {
             <Stack gap={8} mt="sm">
               <Group gap="sm">
                 <Text size="xs" c="dimmed" w={40}>
-                  {T('type')}
+                  {t('type')}
                 </Text>
-                {['sprinkler', 'drip', 'beds', 'lawn', 'shrubs'].map((t) => (
-                  <Group key={t} gap={6} wrap="nowrap">
+                {['sprinkler', 'drip', 'beds', 'lawn', 'shrubs'].map((type) => (
+                  <Group key={type} gap={6} wrap="nowrap">
                     <span
                       style={{
                         width: 20,
                         height: 20,
                         borderRadius: 6,
-                        background: typeColor(t),
+                        background: typeColor(type),
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         color: '#fff',
                       }}
-                      dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 24 24" width="13" height="13">${typeGlyph(t)}</svg>` }}
+                      dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 24 24" width="13" height="13">${typeGlyph(type)}</svg>` }}
                     />
                     <Text size="xs" c="dimmed">
-                      {T(t)}
+                      {t(type)}
                     </Text>
                   </Group>
                 ))}
               </Group>
               <Group gap="sm">
                 <Text size="xs" c="dimmed" w={40}>
-                  {T('state')}
+                  {t('state')}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  <b style={{ color: 'var(--mantine-color-text)' }}>{T('watering')}</b> {T('pulses')} ·{' '}
-                  <b style={{ color: 'var(--mantine-color-text)' }}>{T('idle')}</b> {T('steady')} ·{' '}
-                  <b style={{ color: STATE_COLORS.queued }}>{T('queued')}</b> {T('dashed outline')} ·{' '}
-                  <b style={{ color: STATE_COLORS.fault }}>{T('fault')}</b> {T('red')} ·{' '}
-                  <b>{T('disabled')}</b> {T('faded')}
+                  <b style={{ color: 'var(--mantine-color-text)' }}>{t('watering')}</b> {t('pulses')} ·{' '}
+                  <b style={{ color: 'var(--mantine-color-text)' }}>{t('idle')}</b> {t('steady')} ·{' '}
+                  <b style={{ color: STATE_COLORS.queued }}>{t('queued')}</b> {t('dashed outline')} ·{' '}
+                  <b style={{ color: STATE_COLORS.fault }}>{t('fault')}</b> {t('red')} ·{' '}
+                  <b>{t('disabled')}</b> {t('faded')}
                 </Text>
               </Group>
             </Stack>
@@ -541,7 +541,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       ) : (
         <Card withBorder>
           <Text c="dimmed">
-            {T('Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths, polygons, circles…). Shapes don\'t need ids; Zroshua adds them automatically. Then use “Assign zones” to link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is colored by live state.')}
+            {t('Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths, polygons, circles…). Shapes don\'t need ids; Zroshua adds them automatically. Then use “Assign zones” to link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is colored by live state.')}
           </Text>
         </Card>
       )}
@@ -550,20 +550,20 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         {popupZone && (
           <Stack>
             <Group gap="xs">
-              <Badge style={{ backgroundColor: STATE_COLORS[popupState] }}>{T(popupState)}</Badge>
+              <Badge style={{ backgroundColor: STATE_COLORS[popupState] }}>{t(popupState)}</Badge>
               {nextRun && (
                 <Text size="sm" c="dimmed">
-                  {T('next: {time}', { time: nextRun })}
+                  {t('next: {time}', { time: nextRun })}
                 </Text>
               )}
             </Group>
             {popupState === 'watering' ? (
               <Button color="red" onClick={() => api.post(`/zones/${popupZone.id}/stop`).then(() => setPopupZone(null))}>
-                {T('Stop watering')}
+                {t('Stop watering')}
               </Button>
             ) : (
               <>
-                <SliderInput label={T('Duration')} value={runMinutes} onChange={setRunMinutes} min={1} max={popupZone.maxRuntimeMin || 120} />
+                <SliderInput label={t('Duration')} value={runMinutes} onChange={setRunMinutes} min={1} max={popupZone.maxRuntimeMin || 120} />
                 <Button
                   onClick={() =>
                     api
@@ -572,7 +572,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
                       .catch((e) => notifications.show({ message: e.message, color: 'red' }))
                   }
                 >
-                  {T('Water now ({duration})', { duration: fmtDur(runMinutes) })}
+                  {t('Water now ({duration})', { duration: fmtDur(runMinutes) })}
                 </Button>
               </>
             )}

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.3
+
+- **Correct plural forms.** "2 дні тому" and "8 днів тому" are now both right;
+  previously every count used one form. Plural rules come from the language
+  itself, so Ukrainian, Polish, Czech and Slovak get their four forms and
+  Romanian its three.
+- **Translations moved to i18next** with dictionaries as plain JSON in
+  `frontend/src/locales/`. Keys are still the English source text, so nothing
+  changes on screen — but contributors now get a standard, documented setup and
+  `npm run i18n`, which adds new strings and removes dead ones across all
+  languages at once. See the Translations section in the README.
+
 ## 0.3.2
 
 - **Full translation coverage.** Every remaining screen is now translated in all

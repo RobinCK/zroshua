@@ -1,20 +1,19 @@
-// Lightweight i18n. The KEY is the English source text — so English needs no
+// i18next setup. The KEY is the English source text, so English needs no
 // dictionary (a missing translation falls back to the key) and the UI never
-// breaks. The active language is taken from the browser/Home Assistant locale
-// once at load; there is no in-app language switch.
-import { uk } from './locales/uk';
-import { pl } from './locales/pl';
-import { de } from './locales/de';
-import { sk } from './locales/sk';
-import { ro } from './locales/ro';
-import { it } from './locales/it';
-import { es } from './locales/es';
-import { cs } from './locales/cs';
-import { fr } from './locales/fr';
+// breaks. Dictionaries live in src/locales/<lang>.json and are kept in sync
+// with the code by `npm run i18n` (see i18next-parser.config.js).
+import i18next from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import cs from './locales/cs.json';
+import de from './locales/de.json';
+import es from './locales/es.json';
+import fr from './locales/fr.json';
+import it from './locales/it.json';
+import pl from './locales/pl.json';
+import ro from './locales/ro.json';
+import sk from './locales/sk.json';
+import uk from './locales/uk.json';
 
-export type Dict = Record<string, string>;
-
-const DICTS: Record<string, Dict> = { uk, pl, de, sk, ro, it, es, cs, fr };
 export const SUPPORTED = ['en', 'uk', 'pl', 'de', 'sk', 'ro', 'it', 'es', 'cs', 'fr'] as const;
 
 /** Language menu: 'system' follows the device, the rest force a locale. Names are self-labelled. */
@@ -38,7 +37,7 @@ const LANG_KEY = 'zroshua.lang';
  *  the device language is the automatic default and can be overridden below. */
 function detectDeviceLocale(): string {
   try {
-    const prefs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]) || [];
+    const prefs = (navigator.languages?.length ? navigator.languages : [navigator.language]) || [];
     for (const l of prefs) {
       const base = String(l).toLowerCase().split('-')[0];
       if ((SUPPORTED as readonly string[]).includes(base)) return base;
@@ -49,7 +48,7 @@ function detectDeviceLocale(): string {
   return 'en';
 }
 
-/** Stored preference ('system' or a locale), else null. */
+/** Stored preference ('system' or a locale), else 'system'. */
 export function storedLang(): string {
   try {
     return localStorage.getItem(LANG_KEY) || 'system';
@@ -60,11 +59,11 @@ export function storedLang(): string {
 
 function resolveLocale(): string {
   const s = storedLang();
-  if (s && s !== 'system' && (SUPPORTED as readonly string[]).includes(s)) return s;
+  if (s !== 'system' && (SUPPORTED as readonly string[]).includes(s)) return s;
   return detectDeviceLocale();
 }
 
-/** Persist the language choice and reload so every string re-renders. */
+/** Persist the language choice and reload, so module-level label tables re-render too. */
 export function setLang(value: string) {
   try {
     localStorage.setItem(LANG_KEY, value);
@@ -75,7 +74,27 @@ export function setLang(value: string) {
 }
 
 export const locale = resolveLocale();
-const active: Dict = DICTS[locale] ?? {};
+
+void i18next.use(initReactI18next).init({
+  lng: locale,
+  fallbackLng: 'en',
+  resources: {
+    cs: { translation: cs },
+    de: { translation: de },
+    es: { translation: es },
+    fr: { translation: fr },
+    it: { translation: it },
+    pl: { translation: pl },
+    ro: { translation: ro },
+    sk: { translation: sk },
+    uk: { translation: uk },
+  },
+  // keys are English sentences, so ':' and '.' inside them must stay literal
+  keySeparator: false,
+  nsSeparator: false,
+  // placeholders are written {name}, not the i18next default {{name}}
+  interpolation: { escapeValue: false, prefix: '{', suffix: '}' },
+});
 
 try {
   document.documentElement.lang = locale;
@@ -86,10 +105,9 @@ try {
 /**
  * Translate an English source string. Unknown keys return the English text, so
  * partially translated locales degrade to English rather than showing blanks.
- * Supports `{name}` placeholders: t('Paused {n}h', { n: 6 }).
+ * Supports `{name}` placeholders: t('Pause {n} h', { n: 6 }); pass `count` for
+ * plural keys: t('{count} days ago', { count: 3 }).
  */
 export function t(en: string, vars?: Record<string, string | number>): string {
-  let s = active[en] ?? en;
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
-  return s;
+  return i18next.t(en, { ...vars, defaultValue: en });
 }

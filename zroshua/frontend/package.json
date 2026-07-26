@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build"
+    "build": "tsc -b && vite build",
+    "i18n": "i18next",
+    "i18n:check": "i18next --fail-on-update"
   },
   "dependencies": {
     "@mantine/charts": "^7.16.1",
@@ -13,14 +15,17 @@
     "@mantine/hooks": "^7.16.1",
     "@mantine/notifications": "^7.16.1",
     "@tabler/icons-react": "^3.28.1",
+    "i18next": "^26.3.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.11",
     "recharts": "^2.15.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
+    "i18next-parser": "^9.4.0",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
   }
