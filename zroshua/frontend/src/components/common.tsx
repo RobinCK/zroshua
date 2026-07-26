@@ -3,7 +3,7 @@ import { IconPlayerPause, IconPlayerPauseFilled } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useResource } from '../hooks';
 import { api, HaEntity } from '../api';
-import { t } from '../i18n';
+import { t, locale } from '../i18n';
 
 /** Pause/resume automatic runs for a group or zone. `path` is e.g. `/groups/beds` or `/zones/bed1`. */
 export function PauseControl({
@@ -16,7 +16,7 @@ export function PauseControl({
   onChange?: () => void;
 }) {
   const paused = !!pausedUntil && pausedUntil > Date.now();
-  const until = paused ? new Date(pausedUntil!).toLocaleString() : '';
+  const until = paused ? new Date(pausedUntil!).toLocaleString(locale) : '';
   const set = (hours: number) =>
     api
       .post(`${path}/pause`, { hours })
@@ -121,10 +121,10 @@ export function SliderInput({
           step={step}
           w={90}
           size="xs"
-          suffix={` ${unit}`}
+          suffix={` ${t(unit)}`}
         />
       </Group>
-      <Slider value={value} onChange={onChange} min={min} max={max} step={step} label={(v) => `${v} ${unit}`} />
+      <Slider value={value} onChange={onChange} min={min} max={max} step={step} label={(v) => `${v} ${t(unit)}`} />
     </div>
   );
 }

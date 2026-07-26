@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.2
+
+- **Full translation coverage.** Every remaining screen is now translated in all
+  ten languages: the zone, group and water-source forms, the sensors page
+  (including the soil-moisture and temperature trigger forms and their help
+  text), statistics (tiles and the week/month/season switch), the map legend
+  (zone type and status), the schedule editor, and the whole Settings page
+  (weather triggers, temperature scaling, Telegram, limits & misc, backup).
+- **Dates and times follow the UI language.** The timeline day headers, journal
+  timestamps, date badges and "last watered" phrases now format with the
+  selected locale instead of the browser default.
+- Ukrainian wording polish (e.g. «можливий пропуск» instead of the awkward
+  «можливо пропуск»).
+
 ## 0.3.1
 
 - **Language picker in Settings.** Home Assistant does not pass the account

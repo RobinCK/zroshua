@@ -20,9 +20,16 @@ import { notifications } from '@mantine/notifications';
 import { api, Group as ZGroup, NotificationProvider, Settings } from '../api';
 import { useResource } from '../hooks';
 import { EntitySelect, SliderInput } from '../components/common';
-import { t, LANG_OPTIONS, storedLang, setLang } from '../i18n';
+import { t as T, LANG_OPTIONS, storedLang, setLang } from '../i18n';
 
-const EVENTS = ['run_start', 'run_end', 'skip', 'stop_rain', 'fault', 'system'];
+const EVENTS = [
+  { value: 'run_start', label: T('Run started') },
+  { value: 'run_end', label: T('Run ended') },
+  { value: 'skip', label: T('Skipped') },
+  { value: 'stop_rain', label: T('Stopped by rain') },
+  { value: 'fault', label: T('Fault') },
+  { value: 'system', label: T('System') },
+];
 
 interface MqttStatus {
   configured: boolean;
@@ -38,12 +45,12 @@ function MqttStatusBanner() {
   if (!data) return null;
   const color = data.connected ? 'teal' : data.configured ? 'yellow' : 'gray';
   const label = data.connected
-    ? `MQTT connected (${data.broker}, via ${data.source}) — Lovelace cards & entities are live`
+    ? T('MQTT connected ({broker}, via {source}) — Lovelace cards & entities are live', { broker: data.broker ?? '', source: data.source })
     : data.configured
-      ? `MQTT configured (${data.broker}) but not connected: ${data.detail}`
-      : `MQTT off — Lovelace cards and HA entities are unavailable. ${data.detail}`;
+      ? T('MQTT configured ({broker}) but not connected: {detail}', { broker: data.broker ?? '', detail: data.detail })
+      : T('MQTT off — Lovelace cards and HA entities are unavailable. {detail}', { detail: data.detail });
   return (
-    <Alert color={color} title="Home Assistant integration (MQTT)">
+    <Alert color={color} title={T('Home Assistant integration (MQTT)')}>
       {label}
     </Alert>
   );
@@ -63,7 +70,7 @@ export default function SettingsPage() {
   const save = async () => {
     try {
       await api.put('/settings', s);
-      notifications.show({ message: 'Settings saved', color: 'teal' });
+      notifications.show({ message: T('Settings saved'), color: 'teal' });
       reload();
     } catch (e: any) {
       notifications.show({ message: e.message, color: 'red' });
@@ -83,7 +90,7 @@ export default function SettingsPage() {
     if (!file) return;
     try {
       await api.post('/import', JSON.parse(await file.text()));
-      notifications.show({ message: 'Configuration imported', color: 'teal' });
+      notifications.show({ message: T('Configuration imported'), color: 'teal' });
       reload();
     } catch (e: any) {
       notifications.show({ message: e.message, color: 'red' });
@@ -98,14 +105,14 @@ export default function SettingsPage() {
 
   return (
     <Stack>
-      <Title order={3}>{t('Settings')}</Title>
+      <Title order={3}>{T('Settings')}</Title>
 
       <MqttStatusBanner />
 
       <Card withBorder>
         <Select
-          label={t('Language')}
-          description={t('Home Assistant does not share your account language with add-ons, so this follows your device by default — override it here.')}
+          label={T('Language')}
+          description={T('Home Assistant does not share your account language with add-ons, so this follows your device by default — override it here.')}
           data={LANG_OPTIONS}
           value={storedLang()}
           onChange={(v) => v && setLang(v)}
@@ -116,23 +123,23 @@ export default function SettingsPage() {
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          {t('Weather triggers')}
+          {T('Weather triggers')}
         </Title>
         <Stack>
           <EntitySelect
-            label="Weather entity (default: first weather.* in HA)"
+            label={T('Weather entity (default: first weather.* in HA)')}
             value={s.weatherEntity}
             onChange={(v) => setS({ ...s, weatherEntity: v })}
             domains={['weather']}
           />
           <Switch
-            label="Skip watering based on rain forecast"
+            label={T('Skip watering based on rain forecast')}
             checked={s.weatherTriggers.enabled}
             onChange={(e) => setS({ ...s, weatherTriggers: { ...s.weatherTriggers, enabled: e.currentTarget.checked } })}
           />
           <Group grow>
             <SliderInput
-              label="Rain probability threshold"
+              label={T('Rain probability threshold')}
               value={s.weatherTriggers.rainProbPct}
               onChange={(v) => setS({ ...s, weatherTriggers: { ...s.weatherTriggers, rainProbPct: v } })}
               min={10}
@@ -140,7 +147,7 @@ export default function SettingsPage() {
               unit="%"
             />
             <SliderInput
-              label="Forecast rain amount threshold"
+              label={T('Forecast rain amount threshold')}
               value={s.weatherTriggers.rainAmountMm}
               onChange={(v) => setS({ ...s, weatherTriggers: { ...s.weatherTriggers, rainAmountMm: v } })}
               min={0}
@@ -150,7 +157,7 @@ export default function SettingsPage() {
             />
           </Group>
           <NumberInput
-            label="Freeze protect below (°C, empty = off)"
+            label={T('Freeze protect below (°C, empty = off)')}
             value={s.weatherTriggers.freezeC ?? ''}
             onChange={(v) => setS({ ...s, weatherTriggers: { ...s.weatherTriggers, freezeC: v === '' ? null : Number(v) } })}
           />
@@ -159,49 +166,49 @@ export default function SettingsPage() {
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          {t('Temperature scaling (%)')}
+          {T('Temperature scaling (%)')}
         </Title>
         <Stack>
           <Switch
-            label="Enabled"
+            label={T('Enabled')}
             checked={s.tempScale.enabled}
             onChange={(e) => setS({ ...s, tempScale: { ...s.tempScale, enabled: e.currentTarget.checked } })}
           />
           <MultiSelect
-            label="Applies to groups (empty = all)"
+            label={T('Applies to groups (empty = all)')}
             data={(groups ?? []).map((g) => ({ value: g.id, label: g.name }))}
             value={s.tempScale.groups}
             onChange={(v) => setS({ ...s, tempScale: { ...s.tempScale, groups: v } })}
           />
           <Group grow>
             <Select
-              label="Temperature input"
+              label={T('Temperature input')}
               data={[
-                { value: 'forecast_only', label: "Today's forecast max" },
-                { value: 'sensor_only', label: "Yesterday's sensor max" },
-                { value: 'max', label: 'Max of both (safe in heat)' },
-                { value: 'avg', label: 'Average of both' },
+                { value: 'forecast_only', label: T('Today\'s forecast max') },
+                { value: 'sensor_only', label: T('Yesterday\'s sensor max') },
+                { value: 'max', label: T('Max of both (safe in heat)') },
+                { value: 'avg', label: T('Average of both') },
               ]}
               value={s.tempScale.combine}
               onChange={(v) => setS({ ...s, tempScale: { ...s.tempScale, combine: (v as any) ?? 'max' } })}
             />
             <EntitySelect
-              label="Local temperature sensor (yesterday's max)"
+              label={T('Local temperature sensor (yesterday\'s max)')}
               value={s.tempScale.yesterdaySensor}
               onChange={(v) => setS({ ...s, tempScale: { ...s.tempScale, yesterdaySensor: v } })}
               domains={['sensor']}
             />
           </Group>
           <Stack gap={4}>
-            <Text size="sm">Steps</Text>
+            <Text size="sm">{T('Steps')}</Text>
             {s.tempScale.steps.map((st, i) => (
               <Group key={i} gap="xs">
                 <Select
                   w={110}
                   size="xs"
                   data={[
-                    { value: 'below', label: 'Below' },
-                    { value: 'above', label: 'Above' },
+                    { value: 'below', label: T('Below') },
+                    { value: 'above', label: T('Above') },
                   ]}
                   value={st.belowC !== undefined ? 'below' : 'above'}
                   onChange={(v) => {
@@ -226,8 +233,8 @@ export default function SettingsPage() {
                   w={110}
                   size="xs"
                   data={[
-                    { value: 'pct', label: 'Adjust %' },
-                    { value: 'skip', label: 'Skip day' },
+                    { value: 'pct', label: T('Adjust %') },
+                    { value: 'skip', label: T('Skip day') },
                   ]}
                   value={st.action === 'skip' ? 'skip' : 'pct'}
                   onChange={(v) => {
@@ -265,7 +272,7 @@ export default function SettingsPage() {
               w={140}
               onClick={() => setS({ ...s, tempScale: { ...s.tempScale, steps: [...s.tempScale.steps, { aboveC: 30, pct: 30 }] } })}
             >
-              Add step
+              {T('Add step')}
             </Button>
           </Stack>
         </Stack>
@@ -273,19 +280,19 @@ export default function SettingsPage() {
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          {t('Notifications')}
+          {T('Notifications')}
         </Title>
         <Stack>
           <Switch
-            label={t('One message per group run')}
-            description={t('A group start/finish summary (zones, time, liters) instead of a message per zone')}
+            label={T('One message per group run')}
+            description={T('A group start/finish summary (zones, time, liters) instead of a message per zone')}
             checked={s.notifications.groupLevel ?? true}
             onChange={(e) => setS({ ...s, notifications: { ...s.notifications, groupLevel: e.currentTarget.checked } })}
           />
           <Group grow>
             <Switch
-              label={t('Daily digest')}
-              description={t('Evening summary: runs, liters, energy, cost, skips')}
+              label={T('Daily digest')}
+              description={T('Evening summary: runs, liters, energy, cost, skips')}
               checked={s.notifications.digest?.enabled ?? false}
               onChange={(e) =>
                 setS({ ...s, notifications: { ...s.notifications, digest: { ...s.notifications.digest, enabled: e.currentTarget.checked } } })
@@ -293,7 +300,7 @@ export default function SettingsPage() {
             />
             <TextInput
               type="time"
-              label={t('Digest time')}
+              label={T('Digest time')}
               value={s.notifications.digest?.time ?? '21:00'}
               onChange={(e) =>
                 e.target.value &&
@@ -303,8 +310,8 @@ export default function SettingsPage() {
           </Group>
           <Group grow>
             <Switch
-              label={t('Quiet hours')}
-              description={t('Suppress all but fault alerts in this window')}
+              label={T('Quiet hours')}
+              description={T('Suppress all but fault alerts in this window')}
               checked={s.notifications.quiet?.enabled ?? false}
               onChange={(e) =>
                 setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, enabled: e.currentTarget.checked } } })
@@ -312,7 +319,7 @@ export default function SettingsPage() {
             />
             <TextInput
               type="time"
-              label="From"
+              label={T('From')}
               value={s.notifications.quiet?.from ?? '22:00'}
               onChange={(e) =>
                 e.target.value && setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, from: e.target.value } } })
@@ -320,7 +327,7 @@ export default function SettingsPage() {
             />
             <TextInput
               type="time"
-              label="To"
+              label={T('To')}
               value={s.notifications.quiet?.to ?? '07:00'}
               onChange={(e) =>
                 e.target.value && setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, to: e.target.value } } })
@@ -330,7 +337,7 @@ export default function SettingsPage() {
           {s.notifications.providers.map((p, i) => (
             <Card key={i} withBorder p="sm">
               <Group justify="space-between" mb="xs">
-                <Text fw={600}>{p.type === 'telegram' ? 'Telegram' : 'Home Assistant notify'}</Text>
+                <Text fw={600}>{p.type === 'telegram' ? 'Telegram' : T('Home Assistant notify')}</Text>
                 <ActionIcon
                   variant="subtle"
                   color="red"
@@ -343,19 +350,19 @@ export default function SettingsPage() {
               </Group>
               {p.type === 'telegram' ? (
                 <TextInput
-                  label="Chat IDs (comma separated; bot token is set in add-on options)"
+                  label={T('Chat IDs (comma separated; bot token is set in add-on options)')}
                   value={p.chatIds.join(',')}
                   onChange={(e) => setProvider(i, { chatIds: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) } as any)}
                 />
               ) : (
                 <TextInput
-                  label="Notify service (e.g. notify.mobile_app_phone)"
+                  label={T('Notify service (e.g. notify.mobile_app_phone)')}
                   value={p.service}
                   onChange={(e) => setProvider(i, { service: e.target.value } as any)}
                 />
               )}
               <MultiSelect
-                label={t('Events (empty = all)')}
+                label={T('Events (empty = all)')}
                 data={EVENTS}
                 value={p.events}
                 onChange={(v) => setProvider(i, { events: v } as any)}
@@ -373,7 +380,7 @@ export default function SettingsPage() {
                 })
               }
             >
-              {t('Add Telegram')}
+              {T('Add Telegram')}
             </Button>
             <Button
               variant="light"
@@ -387,7 +394,7 @@ export default function SettingsPage() {
                 })
               }
             >
-              {t('Add HA notify')}
+              {T('Add HA notify')}
             </Button>
           </Group>
         </Stack>
@@ -395,45 +402,45 @@ export default function SettingsPage() {
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          Limits & misc
+          {T('Limits & misc')}
         </Title>
         <Stack>
           <Group grow>
             <NumberInput
-              label="Global max total flow (l/min, empty = off)"
+              label={T('Global max total flow (l/min, empty = off)')}
               value={s.maxTotalFlowLpm ?? ''}
               onChange={(v) => setS({ ...s, maxTotalFlowLpm: v === '' ? null : Number(v) })}
             />
             <NumberInput
-              label="Energy tariff per kWh (for cost stats)"
+              label={T('Energy tariff per kWh (for cost stats)')}
               value={s.energyTariffPerKwh ?? ''}
               onChange={(v) => setS({ ...s, energyTariffPerKwh: v === '' ? null : Number(v) })}
             />
             <TextInput
-              label="Currency (shown in statistics)"
+              label={T('Currency (shown in statistics)')}
               placeholder="₴ / € / $"
               value={s.energyCurrency ?? ''}
               onChange={(e) => setS({ ...s, energyCurrency: e.target.value || null })}
             />
           </Group>
           <Select
-            label="When a scheduled run conflicts with group rules (never-overlap / order)"
-            description="Wait = start as soon as the other group finishes (default). Skip = if it cannot start on time, skip it and log the reason."
+            label={T('When a scheduled run conflicts with group rules (never-overlap / order)')}
+            description={T('Wait = start as soon as the other group finishes (default). Skip = if it cannot start on time, skip it and log the reason.')}
             data={[
-              { value: 'wait', label: 'Wait in queue (run later)' },
-              { value: 'skip', label: 'Skip the run (strict timetable)' },
+              { value: 'wait', label: T('Wait in queue (run later)') },
+              { value: 'skip', label: T('Skip the run (strict timetable)') },
             ]}
             value={s.conflictPolicy}
             onChange={(v) => setS({ ...s, conflictPolicy: (v as any) ?? 'wait' })}
           />
           <Group align="end">
             <Switch
-              label="Check entity availability before scheduled starts"
+              label={T('Check entity availability before scheduled starts')}
               checked={s.preStartCheck?.enabled ?? true}
               onChange={(e) => setS({ ...s, preStartCheck: { minutes: s.preStartCheck?.minutes ?? 30, enabled: e.currentTarget.checked } })}
             />
             <NumberInput
-              label="Lead time (min)"
+              label={T('Lead time (min)')}
               w={130}
               min={1}
               max={720}
@@ -443,14 +450,13 @@ export default function SettingsPage() {
             />
           </Group>
           <Text size="xs" c="dimmed">
-            If a zone's switch/valve entity (or its source pump) is unavailable within the lead window before a
-            scheduled start, you get a fault notification with the exact entity — time to fix the controller.
+            {T('If a zone\'s switch/valve entity (or its source pump) is unavailable within the lead window before a scheduled start, you get a fault notification with the exact entity — time to fix the controller.')}
           </Text>
           <Select
-            label="If a zone is switched on outside Zroshua"
+            label={T('If a zone is switched on outside Zroshua')}
             data={[
-              { value: 'adopt', label: 'Adopt as a manual run (auto-off by timer)' },
-              { value: 'turn_off', label: 'Turn it off and warn' },
+              { value: 'adopt', label: T('Adopt as a manual run (auto-off by timer)') },
+              { value: 'turn_off', label: T('Turn it off and warn') },
             ]}
             value={s.externalOnPolicy}
             onChange={(v) => setS({ ...s, externalOnPolicy: (v as any) ?? 'adopt' })}
@@ -460,27 +466,27 @@ export default function SettingsPage() {
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          Backup
+          {T('Backup')}
         </Title>
         <Group>
           <Button variant="light" onClick={exportConfig}>
-            Export configuration (JSON)
+            {T('Export configuration (JSON)')}
           </Button>
           <FileButton onChange={importConfig} accept="application/json">
             {(props) => (
               <Button {...props} variant="light" color="orange">
-                Import configuration
+                {T('Import configuration')}
               </Button>
             )}
           </FileButton>
         </Group>
         <Text size="xs" c="dimmed" mt="xs">
-          With the default SQLite database everything lives in /data, which is included in Home Assistant backups.
+          {T('With the default SQLite database everything lives in /data, which is included in Home Assistant backups.')}
         </Text>
       </Card>
 
       <Button onClick={save} size="md">
-        Save settings
+        {T('Save settings')}
       </Button>
     </Stack>
   );

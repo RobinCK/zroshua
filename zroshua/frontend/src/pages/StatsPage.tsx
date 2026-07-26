@@ -29,7 +29,9 @@ export default function StatsPage() {
   const { data } = useResource<Daily>(`/stats/daily?days=${days}`, [days]);
 
   const liters = (min: number, max: number) =>
-    min === max ? `${Math.round(min)} L` : `${Math.round(min)}–${Math.round(max)} L`;
+    min === max
+      ? t('{n} L', { n: Math.round(min) })
+      : t('{min}–{max} L', { min: Math.round(min), max: Math.round(max) });
 
   const chartData = (data?.days ?? []).map((d) => ({
     day: d.day.slice(5),
@@ -45,9 +47,9 @@ export default function StatsPage() {
         <Group>
           <SegmentedControl
             data={[
-              { value: '7', label: 'Week' },
-              { value: '30', label: 'Month' },
-              { value: '90', label: 'Season' },
+              { value: '7', label: t('Week') },
+              { value: '30', label: t('Month') },
+              { value: '90', label: t('Season') },
             ]}
             value={days}
             onChange={setDays}
@@ -59,19 +61,22 @@ export default function StatsPage() {
       </Group>
 
       <SimpleGrid cols={{ base: 2, sm: 4 }}>
-        <StatTile label="Water (calculated)" value={data ? liters(data.totals.litersMin, data.totals.litersMax) : '—'} />
-        <StatTile label="Watering time" value={data ? `${Math.round(data.totals.minutes)} min` : '—'} />
         <StatTile
-          label="Pump energy"
-          value={data ? `${(data.totals.energyKwh + data.totals.tailKwh).toFixed(1)} kWh` : '—'}
+          label={t('Water (calculated)')}
+          value={data ? liters(data.totals.litersMin, data.totals.litersMax) : '—'}
+        />
+        <StatTile label={t('Watering time')} value={data ? t('{n} min', { n: Math.round(data.totals.minutes) }) : '—'} />
+        <StatTile
+          label={t('Pump energy')}
+          value={data ? t('{n} kWh', { n: (data.totals.energyKwh + data.totals.tailKwh).toFixed(1) }) : '—'}
         />
         <StatTile
-          label={data?.tariff ? 'Cost' : 'Refill tail energy'}
+          label={data?.tariff ? t('Cost') : t('Refill tail energy')}
           value={
             data
               ? data.tariff
                 ? `${((data.totals.energyKwh + data.totals.tailKwh) * data.tariff).toFixed(0)} ${data.currency ?? ''}`.trim()
-                : `${data.totals.tailKwh.toFixed(1)} kWh`
+                : t('{n} kWh', { n: data.totals.tailKwh.toFixed(1) })
               : '—'
           }
         />
@@ -79,21 +84,36 @@ export default function StatsPage() {
 
       <Card withBorder>
         <Title order={5} mb="sm">
-          Liters per day (average of range)
+          {t('Liters per day (average of range)')}
         </Title>
-        <BarChart h={220} data={chartData} dataKey="day" series={[{ name: 'liters', color: 'blue.6' }]} />
+        <BarChart
+          h={220}
+          data={chartData}
+          dataKey="day"
+          series={[{ name: 'liters', label: t('liters'), color: 'blue.6' }]}
+        />
       </Card>
       <Card withBorder>
         <Title order={5} mb="sm">
-          Minutes per day
+          {t('Minutes per day')}
         </Title>
-        <BarChart h={220} data={chartData} dataKey="day" series={[{ name: 'minutes', color: 'teal.6' }]} />
+        <BarChart
+          h={220}
+          data={chartData}
+          dataKey="day"
+          series={[{ name: 'minutes', label: t('minutes'), color: 'teal.6' }]}
+        />
       </Card>
       <Card withBorder>
         <Title order={5} mb="sm">
-          Pump energy per day (incl. refill tail)
+          {t('Pump energy per day (incl. refill tail)')}
         </Title>
-        <BarChart h={220} data={chartData} dataKey="day" series={[{ name: 'kWh', color: 'grape.6' }]} />
+        <BarChart
+          h={220}
+          data={chartData}
+          dataKey="day"
+          series={[{ name: 'kWh', label: t('kWh'), color: 'grape.6' }]}
+        />
       </Card>
     </Stack>
   );

@@ -118,4 +118,373 @@ export const ro: Record<string, string> = {
   'Add trigger': 'Adaugă declanșator',
   'Temperature triggers (heat burst)': 'Declanșatoare de temperatură (val de căldură)',
   'Save sensors': 'Salvează senzorii',
+
+  // common actions / generic labels
+  'Add schedule': 'Adaugă program',
+  'Add rule': 'Adaugă regulă',
+  'Add condition': 'Adaugă condiție',
+  'Add step': 'Adaugă pas',
+  Done: 'Gata',
+  Saved: 'Salvat',
+  'Saved with rule conflicts': 'Salvat cu conflicte de reguli',
+  Name: 'Nume',
+  Type: 'Tip',
+  type: 'tip',
+  Duration: 'Durată',
+  Start: 'Start',
+  From: 'De la',
+  To: 'Până la',
+  Today: 'Azi',
+  Week: 'Săptămână',
+  Month: 'Lună',
+  Days: 'Zile',
+  Season: 'Sezon',
+  Priority: 'Prioritate',
+  Queue: 'Coadă',
+  Steps: 'Pași',
+  Rule: 'Regulă',
+  Backup: 'Copie de rezervă',
+  Cost: 'Cost',
+  Unknown: 'Necunoscut',
+
+  // statuses
+  Stopped: 'Oprit',
+  'All stopped': 'Totul oprit',
+  'Stopped by rain': 'Oprit de ploaie',
+  Paused: 'În pauză',
+  'Paused {n}h': 'În pauză {n} h',
+  Resumed: 'Reluat',
+  'Started with warnings': 'Pornit cu avertismente',
+  'Group "{name}" started': 'Grupul „{name}” a pornit',
+  'Group: {name}': 'Grup: {name}',
+  'Zone: {name}': 'Zonă: {name}',
+  'Settings saved': 'Setări salvate',
+  'Configuration imported': 'Configurație importată',
+  'Map uploaded': 'Hartă încărcată',
+  'Click to clear fault': 'Apasă pentru a șterge eroarea',
+  idle: 'inactiv',
+  queued: 'în coadă',
+  '{n} queued': '{n} în coadă',
+  state: 'stare',
+
+  // run control
+  'Water now ({duration})': 'Udă acum ({duration})',
+  'Water "{name}"': 'Udă „{name}”',
+  'Watering "{name}" for {minutes} min': 'Se udă „{name}” timp de {minutes} min',
+  '+5 min': '+5 min',
+  'Stop watering': 'Oprește udarea',
+  'Skip all automatic (scheduled, soil, weather) watering for a while. Manual runs still work.':
+    'Omite pentru o vreme toată udarea automată (după program, sol, vreme). Udările manuale funcționează în continuare.',
+  'Manual runs always start (rain sensor / weather are ignored) and switch off automatically when the timer ends.':
+    'Udările manuale pornesc întotdeauna (senzorul de ploaie și vremea sunt ignorate) și se opresc automat când expiră timerul.',
+
+  // relative time
+  'in {m}m': 'peste {m} min',
+  'in {h}h {m}m': 'peste {h} h {m} min',
+  'in {d}d {h}h': 'peste {d} z {h} h',
+  'next: {time}': 'următoarea: {time}',
+  '{n} enabled': '{n} activate',
+
+  // zone editor
+  'New zone': 'Zonă nouă',
+  'Edit zone': 'Editează zona',
+  'Controlled entities (switch / valve)': 'Entități controlate (switch / valve)',
+  'Water source': 'Sursă de apă',
+  'Flow (l/min)': 'Debit (l/min)',
+  'Flow rate': 'Debit',
+  'Flow min (l/min)': 'Debit minim (l/min)',
+  'Flow max (l/min)': 'Debit maxim (l/min)',
+  'Exact value': 'Valoare exactă',
+  'Range (min–max)': 'Interval (min–max)',
+  'Default duration': 'Durată implicită',
+  'Soak (min)': 'Absorbție (min)',
+  'Run (min)': 'Udare (min)',
+  'Cycle max (min, 0 = off)': 'Ciclu maxim (min, 0 = dezactivat)',
+  'Min duration (rollover threshold, min)': 'Durată minimă (prag de reportare, min)',
+  'Max runtime failsafe (min)': 'Limită de siguranță a duratei (min)',
+  'Moisture sensor (%)': 'Senzor de umiditate (%)',
+  'Ignore rain sensor': 'Ignoră senzorul de ploaie',
+  'Ignore weather': 'Ignoră vremea',
+  'Fire and keep watering even while the rain sensor is wet — e.g. soil under a roof or in a greenhouse':
+    'Declanșează și udă în continuare chiar dacă senzorul de ploaie este ud — de ex. sol sub acoperiș sau în seră',
+  'Own schedules (waters this zone alone, in addition to its group)':
+    'Programe proprii (udă doar această zonă, pe lângă grupul ei)',
+  'this zone': 'această zonă',
+  'other zone': 'altă zonă',
+  lawn: 'gazon',
+  beds: 'straturi',
+  shrubs: 'arbuști',
+  drip: 'picurare',
+  sprinkler: 'aspersor',
+
+  // group editor
+  'New group': 'Grup nou',
+  'Edit group': 'Editează grupul',
+  'Zones (order = watering order)': 'Zone (ordinea = ordinea de udare)',
+  'Execution mode': 'Mod de execuție',
+  'Sequential (one at a time)': 'Secvențial (câte una)',
+  'Parallel (all together)': 'Paralel (toate deodată)',
+  'Parallel with limit': 'Paralel cu limită',
+  'Max zones at once': 'Zone maxime simultan',
+  'Delay between zones (s)': 'Pauză între zone (s)',
+  'Group multiplier': 'Multiplicator de grup',
+  'Adjust %': 'Ajustare %',
+
+  // schedules
+  Schedules: 'Programe',
+  Waters: 'Udă',
+  'Zones watered by this schedule': 'Zone udate de acest program',
+  'Zone durations for this schedule (total ≈ {n} min)':
+    'Duratele zonelor pentru acest program (total ≈ {n} min)',
+  'Defaults come from each zone; overrides apply to this schedule only.':
+    'Valorile implicite vin din fiecare zonă; suprascrierile se aplică doar acestui program.',
+  'Untick a zone to leave it out of this start (its duration is kept for other schedules)':
+    'Debifează o zonă pentru a o exclude din această pornire (durata ei rămâne pentru alte programe)',
+  'Start times (several = several waterings a day) — tap to pick on the day strip':
+    'Ore de pornire (mai multe = mai multe udări pe zi) — atinge banda zilei pentru a alege',
+  'Start at this time': 'Pornește la această oră',
+  'Finish by this time': 'Termină până la această oră',
+  'No days selected — this schedule will not run.': 'Nicio zi selectată — acest program nu va rula.',
+  'Whole week': 'Toată săptămâna',
+  'Skip day': 'Sari peste zi',
+  'Season from (MM-DD)': 'Sezon de la (MM-DD)',
+  'Season to (MM-DD)': 'Sezon până la (MM-DD)',
+  '{from} → {to} (by)': '{from} → {to} (până la)',
+
+  // rules between groups
+  'Never overlap': 'Niciodată simultan',
+  'never overlap': 'niciodată simultan',
+  'Order (A before B)': 'Ordine (A înaintea lui B)',
+  'First (A)': 'Primul (A)',
+  'Then (B)': 'Apoi (B)',
+  order: 'ordine',
+  before: 'înainte de',
+  'May run in parallel': 'Pot rula în paralel',
+  'may run in parallel': 'pot rula în paralel',
+  'Applies to groups (empty = all)': 'Se aplică grupurilor (gol = toate)',
+  'When a scheduled run conflicts with group rules (never-overlap / order)':
+    'Când o udare programată intră în conflict cu regulile de grup (fără suprapunere / ordine)',
+  'Wait in queue (run later)': 'Așteaptă la coadă (udă mai târziu)',
+  'Skip the run (strict timetable)': 'Omite udarea (orar strict)',
+  'Wait = start as soon as the other group finishes (default). Skip = if it cannot start on time, skip it and log the reason.':
+    'Așteaptă = pornește imediat ce se termină celălalt grup (implicit). Omite = dacă nu poate porni la timp, udarea este omisă, iar motivul este notat în jurnal.',
+
+  // run conditions
+  'Run conditions': 'Condiții de pornire',
+  'Each condition is checked at start time. When it is not met you choose what happens: skip the run, or water less (run at the chosen % of the normal time — it only shortens, so it never clashes with other groups). Unavailable data never blocks watering. For soil: pick your moisture sensor(s), set ≤ your target % (several sensors are combined, average by default), then choose skip above that, or water less to just cut the run short. A soil trigger can still water the zone if it dries out before the next scheduled run.':
+    'Fiecare condiție este verificată în momentul pornirii. Când nu este îndeplinită, alegi ce se întâmplă: omiți udarea sau uzi mai puțin (rulează la procentul ales din timpul normal — durata doar se scurtează, deci nu intră niciodată în conflict cu alte grupuri). Datele indisponibile nu blochează niciodată udarea. Pentru sol: alege senzorii de umiditate, pune pragul ≤ procentul țintă (mai mulți senzori sunt combinați, implicit prin medie), apoi alege omiterea peste acel prag sau „udă mai puțin” doar ca să scurtezi udarea. Un declanșator de sol poate uda zona oricum, dacă solul se usucă înainte de următoarea udare programată.',
+  'Sensor value at start time': 'Valoarea senzorului la ora pornirii',
+  'Ignore if data older than (h)': 'Ignoră dacă datele sunt mai vechi de (h)',
+  Above: 'Peste',
+  Below: 'Sub',
+  'Block scheduled watering above (%)': 'Blochează udarea programată peste (%)',
+  'skip the run': 'omite udarea',
+  'water less': 'udă mai puțin',
+  else: 'altfel',
+
+  // settings
+  'Save settings': 'Salvează setările',
+  'With the default SQLite database everything lives in /data, which is included in Home Assistant backups.':
+    'Cu baza de date SQLite implicită, totul se află în /data, care este inclus în copiile de rezervă Home Assistant.',
+  'Import configuration': 'Importă configurația',
+  'Export configuration (JSON)': 'Exportă configurația (JSON)',
+  'Home Assistant integration (MQTT)': 'Integrare Home Assistant (MQTT)',
+  'MQTT connected ({broker}, via {source}) — Lovelace cards & entities are live':
+    'MQTT conectat ({broker}, prin {source}) — cardurile Lovelace și entitățile sunt active',
+  'MQTT configured ({broker}) but not connected: {detail}':
+    'MQTT configurat ({broker}), dar neconectat: {detail}',
+  'MQTT off — Lovelace cards and HA entities are unavailable. {detail}':
+    'MQTT dezactivat — cardurile Lovelace și entitățile HA nu sunt disponibile. {detail}',
+  'Check entity availability before scheduled starts':
+    'Verifică disponibilitatea entităților înainte de pornirile programate',
+  'Lead time (min)': 'Timp de anticipare (min)',
+  'If a zone\'s switch/valve entity (or its source pump) is unavailable within the lead window before a scheduled start, you get a fault notification with the exact entity — time to fix the controller.':
+    'Dacă entitatea de switch/valvă a unei zone (sau pompa sursei ei) este indisponibilă în fereastra de anticipare dinaintea unei porniri programate, primești o notificare de eroare cu entitatea exactă — e momentul să repari controlerul.',
+  'If a zone is switched on outside Zroshua': 'Dacă o zonă este pornită din afara Zroshua',
+  'Adopt as a manual run (auto-off by timer)':
+    'Preia ca udare manuală (oprire automată la expirarea timerului)',
+  'Turn it off and warn': 'Oprește-o și avertizează',
+  'Limits & misc': 'Limite și diverse',
+  'Global max total flow (l/min, empty = off)':
+    'Debit total maxim global (l/min, gol = dezactivat)',
+  'Energy tariff per kWh (for cost stats)': 'Tarif de energie per kWh (pentru statistica de cost)',
+  'Currency (shown in statistics)': 'Monedă (afișată în statistici)',
+
+  // weather
+  'Skip watering based on rain forecast': 'Omite udarea în funcție de prognoza de ploaie',
+  'Rain probability threshold': 'Prag pentru probabilitatea de ploaie',
+  'Forecast rain probability (%)': 'Probabilitate de ploaie prognozată (%)',
+  'Forecast rain amount threshold': 'Prag pentru cantitatea de ploaie prognozată',
+  'Forecast max temp today (°C)': 'Temperatura maximă prognozată azi (°C)',
+  'Today\'s forecast max': 'Maximul prognozat pentru azi',
+  'Freeze protect below (°C, empty = off)': 'Protecție la îngheț sub (°C, gol = dezactivat)',
+  'Weather entity (default: first weather.* in HA)':
+    'Entitate meteo (implicit: prima weather.* din HA)',
+  'No weather entity found in Home Assistant.': 'Nu s-a găsit nicio entitate meteo în Home Assistant.',
+  'Temperature input': 'Sursa temperaturii',
+  'Temperature sensor': 'Senzor de temperatură',
+  'Local temperature sensor (yesterday\'s max)': 'Senzor local de temperatură (maximul de ieri)',
+  'Yesterday\'s sensor max': 'Maximul de ieri al senzorului',
+  'Average of both': 'Media celor două',
+  'Max of both (safe in heat)': 'Maximul celor două (sigur pe caniculă)',
+
+  // notifications
+  'Home Assistant notify': 'Notificări Home Assistant',
+  'Notify service (e.g. notify.mobile_app_phone)': 'Serviciu notify (de ex. notify.mobile_app_phone)',
+  'Chat IDs (comma separated; bot token is set in add-on options)':
+    'ID-uri de chat (separate prin virgulă; tokenul botului se setează în opțiunile add-on-ului)',
+
+  // water sources
+  'Sources make hydraulics declarative: flow budgets, pump control with lead/lag delays, dependencies (e.g. a barrel refilled from the well) and pump energy metering counted only while watering.':
+    'Sursele fac hidraulica declarativă: bugete de debit, control al pompei cu întârzieri la pornire și oprire, dependențe (de ex. un butoi reumplut din puț) și contorizarea energiei pompei doar în timpul udării.',
+  'Pump entity (kept on while any zone of this source runs)':
+    'Entitatea pompei (rămâne pornită cât timp udă orice zonă a acestei surse)',
+  'Pump start delay (s before valve opens)':
+    'Avans la pornirea pompei (s înainte de deschiderea valvei)',
+  'Pump stop delay (s after last valve closes)':
+    'Întârziere la oprirea pompei (s după închiderea ultimei valve)',
+  'When the run finishes': 'Când se termină udarea',
+  'Leave the pump on': 'Lasă pompa pornită',
+  'Turn the pump off': 'Oprește pompa',
+  'Restore the state it had before (off only if it was off)':
+    'Restaurează starea anterioară (oprită doar dacă era oprită)',
+  'Use “Keep on” or “Restore” if the pump also feeds the house / water outlets and must not be switched off.':
+    'Folosește „Lasă pornită” sau „Restaurează” dacă pompa alimentează și casa sau robinetele și nu are voie să fie oprită.',
+  'Depends on (blocked while that source runs)':
+    'Depinde de (blocat cât timp funcționează acea sursă)',
+  'Never run at the same time as (source exclusivity)':
+    'Niciodată simultan cu (exclusivitate între surse)',
+  'One rule instead of many group pairs — all groups fed by these sources never overlap; new groups inherit it':
+    'O singură regulă în locul multor perechi de grupuri — toate grupurile alimentate de aceste surse nu se suprapun niciodată, iar grupurile noi o moștenesc',
+  'Max flow budget (l/min, empty = unlimited)': 'Buget maxim de debit (l/min, gol = nelimitat)',
+  'Capacity (L) — enables barrel level tracking':
+    'Capacitate (L) — activează urmărirea nivelului din butoi',
+  'Refill rate (l/min)': 'Viteză de reumplere (l/min)',
+  'Level sensor (%) — overrides the estimate': 'Senzor de nivel (%) — înlocuiește estimarea',
+  'Warn below (%)': 'Avertizează sub (%)',
+  'Block scheduled runs below (%)': 'Blochează udările programate sub (%)',
+  '"Water available" sensor (blocks watering when off)':
+    'Senzor „apă disponibilă” (blochează udarea când este oprit)',
+  'Flow sensor (l/min, optional)': 'Senzor de debit (l/min, opțional)',
+  pulses: 'impulsuri',
+  steady: 'valoare constantă',
+  'Flow deviation alert (%)': 'Alertă de abatere a debitului (%)',
+  'Alert when measured flow differs from the running zones\' total':
+    'Alertă când debitul măsurat diferă de totalul zonelor active',
+  'Idle-flow alert threshold (l/min)': 'Prag de alertă pentru debit în repaus (l/min)',
+  'Energy meter (W or kWh sensor, counted only during watering)':
+    'Contor de energie (senzor W sau kWh, contorizat doar în timpul udării)',
+  'Energy tail after watering (min, e.g. barrel refill)':
+    'Coadă de energie după udare (min, de ex. reumplerea butoiului)',
+  'Count the tail after these groups:': 'Contorizează coada după aceste grupuri:',
+  well: 'puț',
+  barrel: 'butoi',
+  mains: 'rețea de apă',
+  pump: 'pompă',
+  'pump {name}: ON': 'pompa {name}: PORNITĂ',
+  'pump {name}: off': 'pompa {name}: oprită',
+  'depends on {name}': 'depinde de {name}',
+  'budget {n} l/min': 'buget {n} l/min',
+  'energy meter': 'contor de energie',
+
+  // sensors page
+  'Stop linked zones only': 'Oprește doar zonele legate',
+  'Wet at start time → the run is skipped with a journal reason. Rain during a run → affected zones stop. Zones with the "ignore rain sensor" flag keep running. Manual runs always ignore the rain sensor.':
+    'Ud la ora pornirii → udarea este omisă, iar motivul este notat în jurnal. Ploaie în timpul udării → zonele afectate se opresc. Zonele marcate cu „ignoră senzorul de ploaie” continuă să ude. Udările manuale ignoră întotdeauna senzorul de ploaie.',
+  '+ Soil moisture': '+ Umiditate sol',
+  'Start below (%)': 'Pornește sub (%)',
+  'Sensor is slow — wait before re-checking':
+    'Senzorul este lent — așteaptă înainte de o nouă verificare',
+  'Cooldown (h)': 'Pauză între declanșări (h)',
+  '24 = at most once a day': '24 = cel mult o dată pe zi',
+  'Above (°C)': 'Peste (°C)',
+  'Window from': 'Fereastră de la',
+  'Window to': 'Fereastră până la',
+  'Cooling runs on hot days: when the live temperature crosses the threshold inside the daily window, water the target for a few minutes — at most once per cooldown. More flexible than a fixed midday schedule: it fires at 12:10 in a heat wave and stays quiet on a cloudy day.':
+    'Udări de răcorire în zilele toride: când temperatura curentă depășește pragul în interiorul ferestrei zilnice, ținta este udată câteva minute — cel mult o dată la fiecare pauză între declanșări. Este mai flexibil decât un program fix la prânz: pe caniculă pornește la 12:10, iar într-o zi înnorată nu se declanșează deloc.',
+
+  // timeline
+  'Zoom in': 'Mărește',
+  'Zoom out': 'Micșorează',
+  'Reset zoom': 'Resetează zoomul',
+  'Solid bars = planned zones (temperature scaling shifts the following zones, they never overlap). The white tick is the planned end; dark hatching inside the bar = may finish earlier (negative scaling), hatched tail after the tick = worst-case temperature boost. Gaps after the hatched tail are guaranteed free water time.':
+    'Barele pline = zonele planificate (scalarea după temperatură deplasează zonele următoare, ele nu se suprapun niciodată). Marcajul alb este finalul planificat; hașura închisă din interiorul barei = se poate termina mai devreme (scalare negativă), coada hașurată de după marcaj = prelungirea maximă dată de temperatură. Pauzele de după coada hașurată sunt timp garantat liber pentru apă.',
+  'Red = groups bound to this one by rules (never-overlap / order), incl. worst-case boost. Gray = other schedules. Teal = this run.':
+    'Roșu = grupurile legate de acesta prin reguli (fără suprapunere / ordine), inclusiv prelungirea maximă. Gri = alte programe. Turcoaz = această udare.',
+  red: 'roșu',
+  'free until {time}': 'liber până la {time}',
+  'ends {time}': 'se termină la {time}',
+  'no rule-bound schedules this day': 'niciun program legat prin reguli în această zi',
+  'overlaps "{label}" ({from}–{to})': 'se suprapune cu „{label}” ({from}–{to})',
+  '{start} overlaps "{label}"': '{start} se suprapune cu „{label}”',
+  '{conflicts} — resolve on the Timeline page or rely on the conflict policy.':
+    '{conflicts} — rezolvă pe pagina Cronologie sau bazează-te pe politica de conflicte.',
+  '{conflicts} — see the Timeline page.': '{conflicts} — vezi pagina Cronologie.',
+
+  // site map
+  'Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths, polygons, circles…). Shapes don\'t need ids; Zroshua adds them automatically. Then use “Assign zones” to link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is colored by live state.':
+    'Încarcă un plan SVG al proprietății tale (Inkscape, Figma, Illustrator — orice forme: dreptunghiuri, trasee, poligoane, cercuri…). Formele nu au nevoie de id-uri, Zroshua le adaugă automat. Apoi folosește „Atribuie zone” ca să legi formele de zone atingându-le — o zonă poate fi alcătuită din mai multe forme — iar planul este colorat după starea curentă.',
+  'Assign shapes to zone': 'Atribuie forme zonei',
+  'Pick a zone to assign first': 'Alege mai întâi o zonă pentru atribuire',
+  'Done assigning': 'Încheie atribuirea',
+  'Clear this zone': 'Golește această zonă',
+  'Tap shapes on the plan to add or remove them. A zone can be made of several shapes.':
+    'Atinge formele de pe plan pentru a le adăuga sau elimina. O zonă poate fi alcătuită din mai multe forme.',
+  'dashed outline': 'contur punctat',
+  faded: 'estompate',
+  unassigned: 'neatribuite',
+  '{name} · zone': '{name} · zonă',
+  'fault ✕': 'eroare ✕',
+
+  // statistics
+  'Per day': 'Pe zi',
+  'Liters per day (average of range)': 'Litri pe zi (media intervalului)',
+  'Minutes per day': 'Minute pe zi',
+  'Watering time': 'Timp de udare',
+  'Water (calculated)': 'Apă (calculată)',
+  'Pump energy': 'Energia pompei',
+  'Pump energy per day (incl. refill tail)': 'Energia pompei pe zi (inclusiv coada de reumplere)',
+  'Refill tail energy': 'Energia cozii de reumplere',
+  average: 'medie',
+  liters: 'litri',
+  kWh: 'kWh',
+
+  // small labels / units
+  min: 'min',
+  max: 'max',
+  minutes: 'minute',
+  '{n} min': '{n} min',
+  '{mins}m': '{mins} min',
+  '{h}h {m}m': '{h} h {m} min',
+  '{dur} (max {max})': '{dur} (max {max})',
+  '{n} L': '{n} L',
+  '{min}–{max} L': '{min}–{max} L',
+  '~{n} L ({pct}%)': '~{n} L ({pct}%)',
+  '{n} kWh': '{n} kWh',
+  '{flow} l/min': '{flow} l/min',
+
+  // weekdays
+  mon: 'lun',
+  tue: 'mar',
+  wed: 'mie',
+  thu: 'joi',
+  fri: 'vin',
+  sat: 'sâm',
+  sun: 'dum',
+  // weather conditions
+  'sunny': 'însorit',
+  'clear-night': 'noapte senină',
+  'cloudy': 'înnorat',
+  'partlycloudy': 'parțial înnorat',
+  'rainy': 'ploaie',
+  'pouring': 'ploaie torențială',
+  'snowy': 'ninsoare',
+  'snowy-rainy': 'lapoviță',
+  'fog': 'ceață',
+  'hail': 'grindină',
+  'lightning': 'furtună',
+  'lightning-rainy': 'furtună cu ploaie',
+  'windy': 'vânt',
+  'windy-variant': 'vânt',
+  'exceptional': 'vreme extremă',
 };

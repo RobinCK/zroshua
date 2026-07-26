@@ -2,7 +2,7 @@ import { Badge, Card, Group, Select, Stack, Table, Text, Title } from '@mantine/
 import { useMemo, useState } from 'react';
 import { useJournal, useResource } from '../hooks';
 import { Group as ZGroup, Zone } from '../api';
-import { t } from '../i18n';
+import { t as T, locale } from '../i18n';
 
 const KIND_COLORS: Record<string, string> = {
   run_start: 'teal',
@@ -40,8 +40,8 @@ export default function JournalPage({ tick }: { tick: number }) {
   // target options grouped into Zones / Groups so it is clear which is which
   const targetData = useMemo(
     () => [
-      { group: 'Zones', items: (zones ?? []).map((z) => ({ value: `zone:${z.id}`, label: z.name })) },
-      { group: 'Groups', items: (groups ?? []).map((g) => ({ value: `group:${g.id}`, label: g.name })) },
+      { group: T('Zones'), items: (zones ?? []).map((z) => ({ value: `zone:${z.id}`, label: z.name })) },
+      { group: T('Groups'), items: (groups ?? []).map((g) => ({ value: `group:${g.id}`, label: g.name })) },
     ],
     [zones, groups],
   );
@@ -68,19 +68,19 @@ export default function JournalPage({ tick }: { tick: number }) {
 
   return (
     <Stack>
-      <Title order={3}>{t('Journal')}</Title>
+      <Title order={3}>{T('Journal')}</Title>
       <Group gap="xs" grow wrap="wrap">
         <Select
-          label={t('Event')}
-          placeholder={t('All events')}
-          data={Object.keys(KIND_COLORS).map((k) => ({ value: k, label: t(KIND_LABELS[k] ?? k) }))}
+          label={T('Event')}
+          placeholder={T('All events')}
+          data={Object.keys(KIND_COLORS).map((k) => ({ value: k, label: T(KIND_LABELS[k] ?? k) }))}
           value={kind}
           onChange={setKind}
           clearable
         />
         <Select
-          label={t('Zone or group')}
-          placeholder={t('All targets')}
+          label={T('Zone or group')}
+          placeholder={T('All targets')}
           data={targetData}
           value={target}
           onChange={setTarget}
@@ -95,10 +95,10 @@ export default function JournalPage({ tick }: { tick: number }) {
           <Table striped highlightOnHover stickyHeader>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>{t('Time')}</Table.Th>
-                <Table.Th>{t('Event')}</Table.Th>
-                <Table.Th>{t('Target')}</Table.Th>
-                <Table.Th>{t('Details')}</Table.Th>
+                <Table.Th>{T('Time')}</Table.Th>
+                <Table.Th>{T('Event')}</Table.Th>
+                <Table.Th>{T('Target')}</Table.Th>
+                <Table.Th>{T('Details')}</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -108,12 +108,12 @@ export default function JournalPage({ tick }: { tick: number }) {
                   <Table.Tr key={e.id}>
                     <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       <Text size="xs" c="dimmed">
-                        {new Date(Number(e.ts)).toLocaleString()}
+                        {new Date(Number(e.ts)).toLocaleString(locale)}
                       </Text>
                     </Table.Td>
                     <Table.Td>
                       <Badge size="sm" variant="light" color={KIND_COLORS[e.kind] ?? 'gray'}>
-                        {t(KIND_LABELS[e.kind] ?? e.kind)}
+                        {T(KIND_LABELS[e.kind] ?? e.kind)}
                         {e.code ? `: ${e.code}` : ''}
                       </Badge>
                     </Table.Td>
@@ -121,7 +121,7 @@ export default function JournalPage({ tick }: { tick: number }) {
                       {tgt ? (
                         <Group gap={6} wrap="nowrap">
                           <Badge size="xs" variant="dot" color={tgt.color}>
-                            {t(tgt.tag)}
+                            {T(tgt.tag)}
                           </Badge>
                           <Text size="sm">{tgt.label}</Text>
                         </Group>
@@ -152,17 +152,17 @@ export default function JournalPage({ tick }: { tick: number }) {
             <Card key={e.id} withBorder p="sm">
               <Group justify="space-between" wrap="nowrap" mb={4}>
                 <Badge size="sm" variant="light" color={KIND_COLORS[e.kind] ?? 'gray'}>
-                  {t(KIND_LABELS[e.kind] ?? e.kind)}
+                  {T(KIND_LABELS[e.kind] ?? e.kind)}
                   {e.code ? `: ${e.code}` : ''}
                 </Badge>
                 <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                  {new Date(Number(e.ts)).toLocaleString()}
+                  {new Date(Number(e.ts)).toLocaleString(locale)}
                 </Text>
               </Group>
               {tgt && (
                 <Group gap={6} mb={2}>
                   <Badge size="xs" variant="dot" color={tgt.color}>
-                    {t(tgt.tag)}
+                    {T(tgt.tag)}
                   </Badge>
                   <Text size="sm" fw={500}>
                     {tgt.label}
@@ -179,7 +179,7 @@ export default function JournalPage({ tick }: { tick: number }) {
         })}
       </Stack>
 
-      {!filtered.length && <Text c="dimmed">{t('No matching journal entries.')}</Text>}
+      {!filtered.length && <Text c="dimmed">{T('No matching journal entries.')}</Text>}
     </Stack>
   );
 }

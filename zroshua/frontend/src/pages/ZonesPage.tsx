@@ -74,7 +74,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
           : (sch.starts ?? []).map((x) => ({ dows: sch.weekdays ?? [], start: x.start }));
       for (const e of entries) {
         const hit = overlapsConflict(toMin(e.start), dur, busy.filter((b) => e.dows.includes(b.dow)));
-        if (hit) out.push(`${e.start} overlaps "${hit.label}"`);
+        if (hit) out.push(t('{start} overlaps "{label}"', { start: e.start, label: hit.label }));
       }
     }
     return out;
@@ -88,8 +88,8 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
       else await api.post('/zones', editing);
       if (conflicts.length)
         notifications.show({
-          title: 'Saved with rule conflicts',
-          message: `${conflicts.join('; ')} — see the Timeline page.`,
+          title: t('Saved with rule conflicts'),
+          message: t('{conflicts} — see the Timeline page.', { conflicts: conflicts.join('; ') }),
           color: 'red',
           autoClose: 10000,
         });
@@ -113,8 +113,8 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
     try {
       const res = await api.post<{ warnings: string[] }>(`/zones/${runZone.id}/run`, { minutes: runMinutes });
       if (res.warnings?.length)
-        notifications.show({ title: 'Started with warnings', message: res.warnings.join('; '), color: 'yellow' });
-      else notifications.show({ message: `Watering "${runZone.name}" for ${runMinutes} min`, color: 'teal' });
+        notifications.show({ title: t('Started with warnings'), message: res.warnings.join('; '), color: 'yellow' });
+      else notifications.show({ message: t('Watering "{name}" for {minutes} min', { name: runZone.name, minutes: runMinutes }), color: 'teal' });
       setRunZone(null);
     } catch (e) {
       notifyErr(e);
@@ -145,9 +145,9 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                     color="red"
                     style={{ cursor: 'pointer' }}
                     onClick={() => api.post(`/zones/${z.id}/clear-fault`).then(() => reload())}
-                    title="Click to clear fault"
+                    title={t('Click to clear fault')}
                   >
-                    fault ✕
+                    {t('fault ✕')}
                   </Badge>
                 )}
               </Group>
@@ -166,9 +166,9 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               </Group>
             </Group>
             <Text size="sm" c="dimmed">
-              {z.type} · {fmtDur(z.baseDurationMin)}
+              {t(z.type)} · {fmtDur(z.baseDurationMin)}
               {z.flowLpm != null &&
-                ` · ${typeof z.flowLpm === 'number' ? z.flowLpm : `${z.flowLpm.min}–${z.flowLpm.max}`} l/min`}
+                ` · ${t('{flow} l/min', { flow: typeof z.flowLpm === 'number' ? z.flowLpm : `${z.flowLpm.min}–${z.flowLpm.max}` })}`}
               {z.sourceId && ` · ${sources?.find((s) => s.id === z.sourceId)?.name ?? z.sourceId}`}
             </Text>
             <Text size="xs" c="dimmed" lineClamp={1} style={{ wordBreak: 'break-all' }}>
@@ -204,19 +204,25 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
         ))}
       </SimpleGrid>
 
-      <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? 'Edit zone' : 'New zone'} size="lg">
+      <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? t('Edit zone') : t('New zone')} size="lg">
         {editing && (
           <Stack>
-            <TextInput label="Name" value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
+            <TextInput label={t('Name')} value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
             <Group grow>
               <Select
-                label="Type"
-                data={['sprinkler', 'drip', 'beds', 'lawn', 'shrubs']}
+                label={t('Type')}
+                data={[
+                  { value: 'sprinkler', label: t('sprinkler') },
+                  { value: 'drip', label: t('drip') },
+                  { value: 'beds', label: t('beds') },
+                  { value: 'lawn', label: t('lawn') },
+                  { value: 'shrubs', label: t('shrubs') },
+                ]}
                 value={editing.type ?? 'sprinkler'}
                 onChange={(v) => setEditing({ ...editing, type: v ?? 'sprinkler' })}
               />
               <Select
-                label="Water source"
+                label={t('Water source')}
                 data={(sources ?? []).map((s) => ({ value: s.id, label: s.name }))}
                 value={editing.sourceId}
                 onChange={(v) => setEditing({ ...editing, sourceId: v })}
@@ -224,35 +230,35 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               />
             </Group>
             <EntityMultiSelect
-              label="Controlled entities (switch / valve)"
+              label={t('Controlled entities (switch / valve)')}
               value={editing.entities ?? []}
               onChange={(v) => setEditing({ ...editing, entities: v })}
               domains={['switch', 'valve', 'input_boolean', 'light']}
             />
             <SliderInput
-              label="Default duration"
+              label={t('Default duration')}
               value={editing.baseDurationMin ?? 15}
               onChange={(v) => setEditing({ ...editing, baseDurationMin: v })}
               max={180}
             />
             <Group grow>
               <NumberInput
-                label="Min duration (rollover threshold, min)"
+                label={t('Min duration (rollover threshold, min)')}
                 value={editing.minDurationMin ?? 0}
                 onChange={(v) => setEditing({ ...editing, minDurationMin: Number(v) || 0 })}
               />
               <NumberInput
-                label="Max runtime failsafe (min)"
+                label={t('Max runtime failsafe (min)')}
                 value={editing.maxRuntimeMin ?? 60}
                 onChange={(v) => setEditing({ ...editing, maxRuntimeMin: Number(v) || 60 })}
               />
             </Group>
             <Select
-              label="Flow rate"
+              label={t('Flow rate')}
               data={[
-                { value: 'none', label: 'Unknown' },
-                { value: 'value', label: 'Exact value' },
-                { value: 'range', label: 'Range (min–max)' },
+                { value: 'none', label: t('Unknown') },
+                { value: 'value', label: t('Exact value') },
+                { value: 'range', label: t('Range (min–max)') },
               ]}
               value={flowMode}
               onChange={(v) => {
@@ -266,7 +272,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             />
             {flowMode === 'value' && (
               <NumberInput
-                label="Flow (l/min)"
+                label={t('Flow (l/min)')}
                 value={typeof editing.flowLpm === 'number' ? editing.flowLpm : 10}
                 onChange={(v) => setEditing({ ...editing, flowLpm: Number(v) || 0 })}
               />
@@ -274,7 +280,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             {flowMode === 'range' && (
               <Group grow>
                 <NumberInput
-                  label="Flow min (l/min)"
+                  label={t('Flow min (l/min)')}
                   value={typeof editing.flowLpm === 'object' && editing.flowLpm ? editing.flowLpm.min : 5}
                   onChange={(v) =>
                     setEditing({
@@ -284,7 +290,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                   }
                 />
                 <NumberInput
-                  label="Flow max (l/min)"
+                  label={t('Flow max (l/min)')}
                   value={typeof editing.flowLpm === 'object' && editing.flowLpm ? editing.flowLpm.max : 15}
                   onChange={(v) =>
                     setEditing({
@@ -297,7 +303,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             )}
             <Group grow>
               <NumberInput
-                label="Cycle max (min, 0 = off)"
+                label={t('Cycle max (min, 0 = off)')}
                 value={editing.cycleSoak?.max_cycle_min ?? 0}
                 onChange={(v) =>
                   setEditing({
@@ -307,7 +313,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                 }
               />
               <NumberInput
-                label="Soak (min)"
+                label={t('Soak (min)')}
                 value={editing.cycleSoak?.min_soak_min ?? 15}
                 disabled={!editing.cycleSoak}
                 onChange={(v) =>
@@ -319,9 +325,9 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               />
             </Group>
             <Group justify="space-between">
-              <Text fw={600} size="sm">Own schedules (waters this zone alone, in addition to its group)</Text>
+              <Text fw={600} size="sm">{t('Own schedules (waters this zone alone, in addition to its group)')}</Text>
               <Button size="xs" variant="light" onClick={() => setEditing({ ...editing, schedules: [...(editing.schedules ?? []), emptySchedule()] })}>
-                Add schedule
+                {t('Add schedule')}
               </Button>
             </Group>
             {(editing.schedules ?? []).map((sch, i) => (
@@ -341,33 +347,33 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             ))}
             <Group>
               <Switch
-                label="Ignore rain sensor"
+                label={t('Ignore rain sensor')}
                 checked={!!editing.ignore?.rain_sensor}
                 onChange={(e) => setEditing({ ...editing, ignore: { ...editing.ignore, rain_sensor: e.currentTarget.checked } })}
               />
               <Switch
-                label="Ignore weather"
+                label={t('Ignore weather')}
                 checked={!!editing.ignore?.weather}
                 onChange={(e) => setEditing({ ...editing, ignore: { ...editing.ignore, weather: e.currentTarget.checked } })}
               />
               <Switch
-                label="Enabled"
+                label={t('Enabled')}
                 checked={editing.enabled !== false}
                 onChange={(e) => setEditing({ ...editing, enabled: e.currentTarget.checked })}
               />
             </Group>
-            <Button onClick={save}>Save</Button>
+            <Button onClick={save}>{t('Save')}</Button>
           </Stack>
         )}
       </Modal>
 
-      <Modal opened={!!runZone} onClose={() => setRunZone(null)} title={`Water "${runZone?.name}"`}>
+      <Modal opened={!!runZone} onClose={() => setRunZone(null)} title={t('Water "{name}"', { name: runZone?.name ?? '' })}>
         <Stack>
-          <SliderInput label="Duration" value={runMinutes} onChange={setRunMinutes} min={1} max={runZone?.maxRuntimeMin ?? 120} />
+          <SliderInput label={t('Duration')} value={runMinutes} onChange={setRunMinutes} min={1} max={runZone?.maxRuntimeMin ?? 120} />
           <Text size="xs" c="dimmed">
-            Manual runs always start (rain sensor / weather are ignored) and switch off automatically when the timer ends.
+            {t('Manual runs always start (rain sensor / weather are ignored) and switch off automatically when the timer ends.')}
           </Text>
-          <Button onClick={startRun}>Start</Button>
+          <Button onClick={startRun}>{t('Start')}</Button>
         </Stack>
       </Modal>
     </Stack>

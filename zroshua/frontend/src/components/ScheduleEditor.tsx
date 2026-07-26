@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { Schedule, ScheduleCondition } from '../api';
 import TimeSlotPicker, { BusyBand, unionBands } from './TimeSlotPicker';
 import { EntityMultiSelect } from './common';
+import { t } from '../i18n';
 
 const CONDITION_KINDS = [
-  { value: 'forecast_max', label: 'Forecast max temp today (°C)' },
-  { value: 'forecast_rain_prob', label: 'Forecast rain probability (%)' },
-  { value: 'sensor', label: 'Sensor value at start time' },
+  { value: 'forecast_max', label: t('Forecast max temp today (°C)') },
+  { value: 'forecast_rain_prob', label: t('Forecast rain probability (%)') },
+  { value: 'sensor', label: t('Sensor value at start time') },
 ];
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -129,14 +130,14 @@ export default function ScheduleEditor({
         <SegmentedControl
           size="xs"
           data={[
-            { value: 'week', label: 'Whole week' },
-            { value: 'per_day', label: 'Per day' },
+            { value: 'week', label: t('Whole week') },
+            { value: 'per_day', label: t('Per day') },
           ]}
           value={schedule.mode}
           onChange={(v) => onChange({ ...schedule, mode: v as Schedule['mode'] })}
         />
         <Group gap="xs">
-          <Switch size="xs" label="Enabled" checked={schedule.enabled} onChange={(e) => onChange({ ...schedule, enabled: e.currentTarget.checked })} />
+          <Switch size="xs" label={t('Enabled')} checked={schedule.enabled} onChange={(e) => onChange({ ...schedule, enabled: e.currentTarget.checked })} />
           <ActionIcon variant="subtle" color="red" onClick={onDelete}>
             <IconTrash size={16} />
           </ActionIcon>
@@ -145,19 +146,19 @@ export default function ScheduleEditor({
 
       {schedule.mode === 'week' ? (
         <Stack gap="xs">
-          <Checkbox.Group label="Days" value={schedule.weekdays.map(String)} onChange={(v) => onChange({ ...schedule, weekdays: v.map(Number) })}>
+          <Checkbox.Group label={t('Days')} value={schedule.weekdays.map(String)} onChange={(v) => onChange({ ...schedule, weekdays: v.map(Number) })}>
             <Group gap="xs" mt={4}>
               {DAY_KEYS.map((d) => (
-                <Checkbox key={d} value={String(DAY_NUM[d])} label={d} />
+                <Checkbox key={d} value={String(DAY_NUM[d])} label={t(d)} />
               ))}
             </Group>
           </Checkbox.Group>
           {schedule.weekdays.length === 0 && (
             <Text size="xs" c="orange">
-              No days selected — this schedule will not run.
+              {t('No days selected — this schedule will not run.')}
             </Text>
           )}
-          <Text size="sm">Start times (several = several waterings a day) — tap to pick on the day strip</Text>
+          <Text size="sm">{t('Start times (several = several waterings a day) — tap to pick on the day strip')}</Text>
           {starts(schedule.starts, (v) => onChange({ ...schedule, starts: v }), schedule.weekdays)}
         </Stack>
       ) : (
@@ -165,7 +166,7 @@ export default function ScheduleEditor({
           {DAY_KEYS.map((d) => (
             <Group key={d} gap="xs" wrap="nowrap">
               <Text size="sm" w={36}>
-                {d}
+                {t(d)}
               </Text>
               {starts(schedule.perDay[d] ?? [], (v) => onChange({ ...schedule, perDay: { ...schedule.perDay, [d]: v } }), [DAY_NUM[d]])}
             </Group>
@@ -183,14 +184,14 @@ export default function ScheduleEditor({
           >
             <IconChevronDown size={14} style={{ transform: durOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }} />
             <Text size="sm" c="dimmed">
-              Zone durations for this schedule (total ≈ {Math.round(runMinutes)} min)
+              {t('Zone durations for this schedule (total ≈ {n} min)', { n: Math.round(runMinutes) })}
             </Text>
           </Group>
           <Collapse in={durOpen}>
             <Checkbox.Group
               mt="xs"
-              label="Zones watered by this schedule"
-              description="Untick a zone to leave it out of this start (its duration is kept for other schedules)"
+              label={t('Zones watered by this schedule')}
+              description={t('Untick a zone to leave it out of this start (its duration is kept for other schedules)')}
               value={schedule.zoneSelection?.length ? schedule.zoneSelection : zones.map((z) => z.id)}
               onChange={(v) =>
                 onChange({
@@ -228,7 +229,7 @@ export default function ScheduleEditor({
                 </Group>
               ))}
               <Text size="xs" c="dimmed">
-                Defaults come from each zone; overrides apply to this schedule only.
+                {t('Defaults come from each zone; overrides apply to this schedule only.')}
               </Text>
             </Stack>
           </Collapse>
@@ -239,7 +240,7 @@ export default function ScheduleEditor({
         <Group justify="space-between">
           <Group gap={6}>
             <Text size="sm" c="dimmed">
-              Run conditions
+              {t('Run conditions')}
             </Text>
             {(schedule.conditions?.length ?? 0) > 0 && (
               <Badge size="xs" variant="light" color="grape">
@@ -262,7 +263,7 @@ export default function ScheduleEditor({
                 })
               }
             >
-              + Soil moisture
+              {t('+ Soil moisture')}
             </Button>
             <Button
               size="compact-xs"
@@ -277,7 +278,7 @@ export default function ScheduleEditor({
                 })
               }
             >
-              Add condition
+              {t('Add condition')}
             </Button>
           </Group>
         </Group>
@@ -312,9 +313,9 @@ export default function ScheduleEditor({
                       size="xs"
                       w={90}
                       data={[
-                        { value: 'avg', label: 'average' },
-                        { value: 'min', label: 'min' },
-                        { value: 'max', label: 'max' },
+                        { value: 'avg', label: t('average') },
+                        { value: 'min', label: t('min') },
+                        { value: 'max', label: t('max') },
                       ]}
                       value={c.agg ?? 'avg'}
                       onChange={(v) => setC({ agg: (v as 'avg' | 'min' | 'max') ?? 'avg' })}
@@ -334,14 +335,14 @@ export default function ScheduleEditor({
               />
               <NumberInput size="xs" w={90} value={c.value} onChange={(v) => setC({ value: Number(v) || 0 })} />
               <Text size="xs" c="dimmed" mt={6}>
-                else
+                {t('else')}
               </Text>
               <Select
                 size="xs"
                 w={130}
                 data={[
-                  { value: 'skip', label: 'skip the run' },
-                  { value: 'scale', label: 'water less' },
+                  { value: 'skip', label: t('skip the run') },
+                  { value: 'scale', label: t('water less') },
                 ]}
                 value={c.action ?? 'skip'}
                 onChange={(v) => setC({ action: (v as 'skip' | 'scale') ?? 'skip', scalePct: v === 'scale' ? (c.scalePct ?? 50) : undefined })}
@@ -371,19 +372,14 @@ export default function ScheduleEditor({
         })}
         {(schedule.conditions?.length ?? 0) > 0 && (
           <Text size="xs" c="dimmed">
-            Each condition is checked at start time. When it is <b>not</b> met you choose what happens: skip the
-            run, or <b>water less</b> (run at the chosen % of the normal time — it only shortens, so it never
-            clashes with other groups). Unavailable data never blocks watering. For soil: pick your moisture
-            sensor(s), set <b>≤</b> your target % (several sensors are combined, average by default), then choose
-            <b> skip</b> above that, or <b>water less</b> to just cut the run short. A soil trigger can still water
-            the zone if it dries out before the next scheduled run.
+            {t('Each condition is checked at start time. When it is not met you choose what happens: skip the run, or water less (run at the chosen % of the normal time — it only shortens, so it never clashes with other groups). Unavailable data never blocks watering. For soil: pick your moisture sensor(s), set ≤ your target % (several sensors are combined, average by default), then choose skip above that, or water less to just cut the run short. A soil trigger can still water the zone if it dries out before the next scheduled run.')}
           </Text>
         )}
       </Stack>
 
       <Group mt="xs" gap="xs">
         <TextInput
-          label="Season from (MM-DD)"
+          label={t('Season from (MM-DD)')}
           size="xs"
           w={130}
           value={schedule.season?.from ?? ''}
@@ -391,7 +387,7 @@ export default function ScheduleEditor({
           placeholder="04-15"
         />
         <TextInput
-          label="Season to (MM-DD)"
+          label={t('Season to (MM-DD)')}
           size="xs"
           w={130}
           value={schedule.season?.to ?? ''}

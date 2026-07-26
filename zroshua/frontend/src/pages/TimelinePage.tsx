@@ -3,14 +3,14 @@ import { Alert, Badge, Box, Card, Group, ScrollArea, SegmentedControl, Stack, Te
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { PlanEnvelope, PlanResponse } from '../api';
 import { useResource } from '../hooks';
-import { t } from '../i18n';
+import { locale, t } from '../i18n';
 
 const HOUR_W = 100 / 24;
 
 function dayLabel(offset: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offset);
-  return offset === 0 ? t('Today') : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+  return offset === 0 ? t('Today') : d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' });
 }
 
 export default function TimelinePage() {
@@ -69,7 +69,7 @@ export default function TimelinePage() {
 
   const pct = (ts: number) => Math.max(0, Math.min(100, ((ts - dayStartTs) / (24 * 3600_000)) * 100));
   const nowPct = pct(Date.now());
-  const fmt = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const fmt = (ts: number) => new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
   return (
     <Stack>

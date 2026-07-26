@@ -4,7 +4,7 @@ import { IconPlus, IconMinus, IconZoomReset } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Zone } from '../api';
 import { fmtDur, fmtTime, useResource } from '../hooks';
-import { t } from '../i18n';
+import { t as T } from '../i18n';
 import { SliderInput } from '../components/common';
 
 const STATE_COLORS: Record<string, string> = {
@@ -91,7 +91,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
   // toggle one shape in/out of the zone currently being edited
   const toggleElement = async (elId: string) => {
     if (!assignZone) {
-      notifications.show({ message: 'Pick a zone to assign first', color: 'yellow' });
+      notifications.show({ message: T('Pick a zone to assign first'), color: 'yellow' });
       return;
     }
     try {
@@ -227,7 +227,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         }
         const mins = Math.max(0, Math.round((run.endsAt - now) / 60000));
         const lab = document.createElement('div');
-        lab.textContent = `${mins}m`;
+        lab.textContent = T('{mins}m', { mins });
         lab.style.cssText =
           `position:absolute;left:${(l + r) / 2 - hostRect.left}px;top:${(t + b) / 2 - hostRect.top}px;` +
           `transform:translate(-50%,-50%);font:800 13px/1 system-ui,sans-serif;color:#fff;` +
@@ -377,7 +377,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
     const svg = await file.text();
     try {
       await api.post('/map', { svg });
-      notifications.show({ message: 'Map uploaded', color: 'teal' });
+      notifications.show({ message: T('Map uploaded'), color: 'teal' });
       reload();
     } catch (e: any) {
       notifications.show({ message: e.message, color: 'red' });
@@ -404,19 +404,19 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         .zr-map-vp::-webkit-scrollbar { display: none; }
       `}</style>
       <Group justify="space-between">
-        <Title order={3}>{t('Site map')}</Title>
+        <Title order={3}>{T('Site map')}</Title>
         <Group>
           {assignMode ? (
             <Button variant="filled" onClick={() => setAssignMode(false)} disabled={!map?.svg}>
-              Done assigning
+              {T('Done assigning')}
             </Button>
           ) : (
             <Button variant="light" onClick={startAssign} disabled={!map?.svg || !(zones ?? []).length}>
-              {t('Assign zones')}
+              {T('Assign zones')}
             </Button>
           )}
           <FileButton onChange={upload} accept="image/svg+xml">
-            {(props) => <Button {...props}>{t('Upload SVG plan')}</Button>}
+            {(props) => <Button {...props}>{T('Upload SVG plan')}</Button>}
           </FileButton>
         </Group>
       </Group>
@@ -426,8 +426,8 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           {assignMode && (
             <Stack gap="xs" mb="sm">
               <Select
-                label="Assign shapes to zone"
-                description="Tap shapes on the plan to add or remove them. A zone can be made of several shapes."
+                label={T('Assign shapes to zone')}
+                description={T('Tap shapes on the plan to add or remove them. A zone can be made of several shapes.')}
                 data={zoneOpts}
                 value={assignZoneId}
                 onChange={setAssignZoneId}
@@ -436,13 +436,13 @@ export default function MapPage({ state }: { state: EngineState | null }) {
               />
               <Group gap="xs">
                 <Badge variant="light" style={{ backgroundColor: `${ASSIGN_SELECTED}33`, color: ASSIGN_SELECTED }}>
-                  this zone
+                  {T('this zone')}
                 </Badge>
                 <Badge variant="light" style={{ backgroundColor: `${ASSIGN_OTHER}33`, color: ASSIGN_OTHER }}>
-                  other zone
+                  {T('other zone')}
                 </Badge>
                 <Badge variant="light" style={{ backgroundColor: `${ASSIGN_FREE}33`, color: ASSIGN_FREE }}>
-                  unassigned
+                  {T('unassigned')}
                 </Badge>
                 {assignZone && (
                   <Button
@@ -452,7 +452,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
                     disabled={!elementsOf(assignZone).length}
                     onClick={() => saveElements(assignZone, []).then(reloadZones)}
                   >
-                    Clear this zone
+                    {T('Clear this zone')}
                   </Button>
                 )}
               </Group>
@@ -479,7 +479,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
               </div>
             </div>
             <Stack gap={6} style={{ position: 'absolute', top: 8, right: 8 }}>
-              <ActionIcon variant="default" size="lg" onClick={() => zoomButton(1.5)} title="Zoom in">
+              <ActionIcon variant="default" size="lg" onClick={() => zoomButton(1.5)} title={T('Zoom in')}>
                 <IconPlus size={18} />
               </ActionIcon>
               <ActionIcon
@@ -487,11 +487,11 @@ export default function MapPage({ state }: { state: EngineState | null }) {
                 size="lg"
                 onClick={() => zoomButton(1 / 1.5)}
                 disabled={scale <= 1}
-                title="Zoom out"
+                title={T('Zoom out')}
               >
                 <IconMinus size={18} />
               </ActionIcon>
-              <ActionIcon variant="default" size="lg" onClick={resetZoom} disabled={scale <= 1} title="Reset zoom">
+              <ActionIcon variant="default" size="lg" onClick={resetZoom} disabled={scale <= 1} title={T('Reset zoom')}>
                 <IconZoomReset size={18} />
               </ActionIcon>
             </Stack>
@@ -500,7 +500,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
             <Stack gap={8} mt="sm">
               <Group gap="sm">
                 <Text size="xs" c="dimmed" w={40}>
-                  type
+                  {T('type')}
                 </Text>
                 {['sprinkler', 'drip', 'beds', 'lawn', 'shrubs'].map((t) => (
                   <Group key={t} gap={6} wrap="nowrap">
@@ -518,21 +518,21 @@ export default function MapPage({ state }: { state: EngineState | null }) {
                       dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 24 24" width="13" height="13">${typeGlyph(t)}</svg>` }}
                     />
                     <Text size="xs" c="dimmed">
-                      {t}
+                      {T(t)}
                     </Text>
                   </Group>
                 ))}
               </Group>
               <Group gap="sm">
                 <Text size="xs" c="dimmed" w={40}>
-                  state
+                  {T('state')}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  <b style={{ color: 'var(--mantine-color-text)' }}>watering</b> pulses ·{' '}
-                  <b style={{ color: 'var(--mantine-color-text)' }}>idle</b> steady ·{' '}
-                  <b style={{ color: STATE_COLORS.queued }}>queued</b> dashed outline ·{' '}
-                  <b style={{ color: STATE_COLORS.fault }}>fault</b> red ·{' '}
-                  <b>disabled</b> faded
+                  <b style={{ color: 'var(--mantine-color-text)' }}>{T('watering')}</b> {T('pulses')} ·{' '}
+                  <b style={{ color: 'var(--mantine-color-text)' }}>{T('idle')}</b> {T('steady')} ·{' '}
+                  <b style={{ color: STATE_COLORS.queued }}>{T('queued')}</b> {T('dashed outline')} ·{' '}
+                  <b style={{ color: STATE_COLORS.fault }}>{T('fault')}</b> {T('red')} ·{' '}
+                  <b>{T('disabled')}</b> {T('faded')}
                 </Text>
               </Group>
             </Stack>
@@ -541,10 +541,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
       ) : (
         <Card withBorder>
           <Text c="dimmed">
-            Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths,
-            polygons, circles…). Shapes don't need ids; Zroshua adds them automatically. Then use “Assign zones” to
-            link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is
-            colored by live state.
+            {T('Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths, polygons, circles…). Shapes don\'t need ids; Zroshua adds them automatically. Then use “Assign zones” to link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is colored by live state.')}
           </Text>
         </Card>
       )}
@@ -553,20 +550,20 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         {popupZone && (
           <Stack>
             <Group gap="xs">
-              <Badge style={{ backgroundColor: STATE_COLORS[popupState] }}>{popupState}</Badge>
+              <Badge style={{ backgroundColor: STATE_COLORS[popupState] }}>{T(popupState)}</Badge>
               {nextRun && (
                 <Text size="sm" c="dimmed">
-                  next: {nextRun}
+                  {T('next: {time}', { time: nextRun })}
                 </Text>
               )}
             </Group>
             {popupState === 'watering' ? (
               <Button color="red" onClick={() => api.post(`/zones/${popupZone.id}/stop`).then(() => setPopupZone(null))}>
-                Stop watering
+                {T('Stop watering')}
               </Button>
             ) : (
               <>
-                <SliderInput label="Duration" value={runMinutes} onChange={setRunMinutes} min={1} max={popupZone.maxRuntimeMin || 120} />
+                <SliderInput label={T('Duration')} value={runMinutes} onChange={setRunMinutes} min={1} max={popupZone.maxRuntimeMin || 120} />
                 <Button
                   onClick={() =>
                     api
@@ -575,7 +572,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
                       .catch((e) => notifications.show({ message: e.message, color: 'red' }))
                   }
                 >
-                  Water now ({fmtDur(runMinutes)})
+                  {T('Water now ({duration})', { duration: fmtDur(runMinutes) })}
                 </Button>
               </>
             )}

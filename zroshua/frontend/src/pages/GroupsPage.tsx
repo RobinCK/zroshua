@@ -63,7 +63,7 @@ export default function GroupsPage() {
           : (sch.starts ?? []).map((x) => ({ dows: sch.weekdays ?? [], start: x.start }));
       for (const e of entries) {
         const hit = overlapsConflict(toMin(e.start), dur, busy.filter((b) => e.dows.includes(b.dow)));
-        if (hit) out.push(`${e.start} overlaps "${hit.label}"`);
+        if (hit) out.push(t('{start} overlaps "{label}"', { start: e.start, label: hit.label }));
       }
     }
     return out;
@@ -77,8 +77,8 @@ export default function GroupsPage() {
       else await api.post('/groups', editing);
       if (conflicts.length)
         notifications.show({
-          title: 'Saved with rule conflicts',
-          message: `${conflicts.join('; ')} — resolve on the Timeline page or rely on the conflict policy.`,
+          title: t('Saved with rule conflicts'),
+          message: t('{conflicts} — resolve on the Timeline page or rely on the conflict policy.', { conflicts: conflicts.join('; ') }),
           color: 'red',
           autoClose: 10000,
         });
@@ -145,7 +145,7 @@ export default function GroupsPage() {
                 onClick={() =>
                   api
                     .post(`/groups/${g.id}/run`)
-                    .then(() => notifications.show({ message: `Group "${g.name}" started`, color: 'teal' }))
+                    .then(() => notifications.show({ message: t('Group "{name}" started', { name: g.name }), color: 'teal' }))
                     .catch(notifyErr)
                 }
               >
@@ -182,15 +182,15 @@ export default function GroupsPage() {
                   {r.type === 'order' ? (
                     <Text size="sm">
                       <Badge variant="light" color="orange" mr={6}>
-                        order
+                        {t('order')}
                       </Badge>
-                      {groupOpts.find((g) => g.value === r.before)?.label ?? r.before} <b>before</b>{' '}
+                      {groupOpts.find((g) => g.value === r.before)?.label ?? r.before} <b>{t('before')}</b>{' '}
                       {groupOpts.find((g) => g.value === r.after)?.label ?? r.after}
                     </Text>
                   ) : (
                     <Text size="sm">
                       <Badge variant="light" color={r.type === 'mutex' ? 'red' : 'teal'} mr={6}>
-                        {r.type === 'mutex' ? 'never overlap' : 'may run in parallel'}
+                        {r.type === 'mutex' ? t('never overlap') : t('may run in parallel')}
                       </Badge>
                       {r.groups.map((id) => groupOpts.find((g) => g.value === id)?.label ?? id).join(' + ')}
                     </Text>
@@ -207,65 +207,65 @@ export default function GroupsPage() {
         </Table>
         <Group mt="sm" align="end">
           <Select
-            label="Rule"
+            label={t('Rule')}
             w={180}
             data={[
-              { value: 'mutex', label: 'Never overlap' },
-              { value: 'order', label: 'Order (A before B)' },
-              { value: 'parallel_ok', label: 'May run in parallel' },
+              { value: 'mutex', label: t('Never overlap') },
+              { value: 'order', label: t('Order (A before B)') },
+              { value: 'parallel_ok', label: t('May run in parallel') },
             ]}
             value={ruleType}
             onChange={(v) => setRuleType((v as any) ?? 'mutex')}
           />
           {ruleType === 'order' ? (
             <>
-              <Select label="First (A)" data={groupOpts} value={ruleBefore} onChange={setRuleBefore} w={180} />
-              <Select label="Then (B)" data={groupOpts} value={ruleAfter} onChange={setRuleAfter} w={180} />
+              <Select label={t('First (A)')} data={groupOpts} value={ruleBefore} onChange={setRuleBefore} w={180} />
+              <Select label={t('Then (B)')} data={groupOpts} value={ruleAfter} onChange={setRuleAfter} w={180} />
             </>
           ) : (
-            <MultiSelect label="Groups" data={groupOpts} value={ruleGroups} onChange={setRuleGroups} w={280} />
+            <MultiSelect label={t('Groups')} data={groupOpts} value={ruleGroups} onChange={setRuleGroups} w={280} />
           )}
-          <Button onClick={addRule}>Add rule</Button>
+          <Button onClick={addRule}>{t('Add rule')}</Button>
         </Group>
       </Card>
 
-      <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? 'Edit group' : 'New group'} size="xl">
+      <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? t('Edit group') : t('New group')} size="xl">
         {editing && (
           <Stack>
-            <TextInput label="Name" value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
+            <TextInput label={t('Name')} value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
             <MultiSelect
-              label="Zones (order = watering order)"
+              label={t('Zones (order = watering order)')}
               data={(zones ?? []).map((z) => ({ value: z.id, label: z.name }))}
               value={editing.zoneIds ?? []}
               onChange={(v) => setEditing({ ...editing, zoneIds: v })}
             />
             <Group grow>
               <Select
-                label="Execution mode"
+                label={t('Execution mode')}
                 data={[
-                  { value: 'sequential', label: 'Sequential (one at a time)' },
-                  { value: 'parallel', label: 'Parallel (all together)' },
-                  { value: 'parallel_limit', label: 'Parallel with limit' },
+                  { value: 'sequential', label: t('Sequential (one at a time)') },
+                  { value: 'parallel', label: t('Parallel (all together)') },
+                  { value: 'parallel_limit', label: t('Parallel with limit') },
                 ]}
                 value={editing.mode ?? 'sequential'}
                 onChange={(v) => setEditing({ ...editing, mode: (v as any) ?? 'sequential' })}
               />
               {editing.mode === 'parallel_limit' && (
-                <NumberInput label="Max zones at once" value={editing.parallelLimit ?? 2} onChange={(v) => setEditing({ ...editing, parallelLimit: Number(v) || 2 })} min={1} />
+                <NumberInput label={t('Max zones at once')} value={editing.parallelLimit ?? 2} onChange={(v) => setEditing({ ...editing, parallelLimit: Number(v) || 2 })} min={1} />
               )}
               <NumberInput
-                label="Delay between zones (s)"
+                label={t('Delay between zones (s)')}
                 value={editing.interZoneDelayS ?? 0}
                 onChange={(v) => setEditing({ ...editing, interZoneDelayS: Number(v) || 0 })}
               />
-              <NumberInput label="Priority" value={editing.priority ?? 0} onChange={(v) => setEditing({ ...editing, priority: Number(v) || 0 })} />
+              <NumberInput label={t('Priority')} value={editing.priority ?? 0} onChange={(v) => setEditing({ ...editing, priority: Number(v) || 0 })} />
             </Group>
-            <SliderInput label="Group multiplier" value={editing.multiplierPct ?? 100} onChange={(v) => setEditing({ ...editing, multiplierPct: v })} min={0} max={200} unit="%" />
+            <SliderInput label={t('Group multiplier')} value={editing.multiplierPct ?? 100} onChange={(v) => setEditing({ ...editing, multiplierPct: v })} min={0} max={200} unit="%" />
 
             <Group justify="space-between">
-              <Text fw={600}>Schedules</Text>
+              <Text fw={600}>{t('Schedules')}</Text>
               <Button size="xs" variant="light" onClick={() => setEditing({ ...editing, schedules: [...(editing.schedules ?? []), emptySchedule()] })}>
-                Add schedule
+                {t('Add schedule')}
               </Button>
             </Group>
             {(editing.schedules ?? []).map((s, i) => (
@@ -288,8 +288,8 @@ export default function GroupsPage() {
               />
             ))}
 
-            <Switch label="Enabled" checked={editing.enabled !== false} onChange={(e) => setEditing({ ...editing, enabled: e.currentTarget.checked })} />
-            <Button onClick={save}>Save</Button>
+            <Switch label={t('Enabled')} checked={editing.enabled !== false} onChange={(e) => setEditing({ ...editing, enabled: e.currentTarget.checked })} />
+            <Button onClick={save}>{t('Save')}</Button>
           </Stack>
         )}
       </Modal>

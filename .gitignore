@@ -4,3 +4,4 @@ dist/
 *.sqlite
 .DS_Store
 *.tsbuildinfo
+__pycache__/

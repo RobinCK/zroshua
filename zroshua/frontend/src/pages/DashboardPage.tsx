@@ -33,7 +33,7 @@ import { ThemeIcon } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Group as ZGroup, Upcoming, WeatherNow, Zone } from '../api';
 import { fmtDur, fmtTime, useResource } from '../hooks';
-import { t } from '../i18n';
+import { t, locale } from '../i18n';
 import { SliderInput } from '../components/common';
 
 function InfoTile({
@@ -56,7 +56,7 @@ function InfoTile({
           {icon}
         </ThemeIcon>
         <div style={{ minWidth: 0 }}>
-          <Text size="xs" c="dimmed" truncate>
+          <Text size="xs" c="dimmed" lineClamp={2}>
             {label}
           </Text>
           <Text size="lg" fw={700} lh={1.25} truncate>
@@ -92,9 +92,9 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
     const d = Math.floor(s / 86400);
     const h = Math.floor((s % 86400) / 3600);
     const m = Math.floor((s % 3600) / 60);
-    if (d > 0) return `in ${d}d ${h}h`;
-    if (h > 0) return `in ${h}h ${String(m).padStart(2, '0')}m`;
-    return `in ${m}m`;
+    if (d > 0) return t('in {d}d {h}h', { d, h });
+    if (h > 0) return t('in {h}h {m}m', { h, m: String(m).padStart(2, '0') });
+    return t('in {m}m', { m });
   };
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [hours, setHours] = useState(24);
@@ -127,7 +127,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
         <InfoTile
           label={t('Watering now')}
           value={String(state?.active.length ?? 0)}
-          sub={state?.queue.length ? `${state.queue.length} queued` : undefined}
+          sub={state?.queue.length ? t('{n} queued', { n: state.queue.length }) : undefined}
           icon={<IconDroplet size={22} />}
           color="teal"
         />
@@ -141,26 +141,26 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
         <InfoTile
           label={t('Groups')}
           value={String(groups?.length ?? 0)}
-          sub={`${(groups ?? []).filter((g) => g.enabled).length} enabled`}
+          sub={t('{n} enabled', { n: (groups ?? []).filter((g) => g.enabled).length })}
           icon={<IconCategory size={22} />}
           color="violet"
         />
         <InfoTile
           label={t('Today water')}
-          value={litersToday !== null ? `${litersToday} L` : '—'}
+          value={litersToday !== null ? t('{n} L', { n: litersToday }) : '—'}
           icon={<IconBucketDroplet size={22} />}
           color="blue"
         />
         <InfoTile
           label={t('Today time')}
-          value={today ? `${Math.round(today.totals.minutes)} min` : '—'}
+          value={today ? t('{n} min', { n: Math.round(today.totals.minutes) }) : '—'}
           icon={<IconClockHour4 size={22} />}
           color="orange"
         />
         <InfoTile
           label={t('Next watering')}
           value={next[0] ? countdown(next[0].ts) : '—'}
-          sub={next[0] ? `${new Date(next[0].ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · ${next[0].groupName}` : undefined}
+          sub={next[0] ? `${new Date(next[0].ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} · ${next[0].groupName}` : undefined}
           icon={<IconCalendarClock size={22} />}
           color="grape"
         />
@@ -179,25 +179,25 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                       <Group gap="xs">
                         <Text fw={600}>{a.zoneName}</Text>
                         <Badge size="xs" variant="light">
-                          {a.triggeredBy}
+                          {t(a.triggeredBy)}
                         </Badge>
                       </Group>
                       <Group gap="xs">
                         <Text size="sm" c="dimmed">
-                          ends {fmtTime(a.endsAt)}
+                          {t('ends {time}', { time: fmtTime(a.endsAt) })}
                         </Text>
                         <ActionIcon
                           variant="light"
-                          onClick={() => act(() => api.post(`/zones/${a.zoneId}/extend`, { minutes: 5 }), '+5 min')}
-                          title="+5 min"
+                          onClick={() => act(() => api.post(`/zones/${a.zoneId}/extend`, { minutes: 5 }), t('+5 min'))}
+                          title={t('+5 min')}
                         >
                           <IconPlus size={16} />
                         </ActionIcon>
                         <ActionIcon
                           color="red"
                           variant="light"
-                          onClick={() => act(() => api.post(`/zones/${a.zoneId}/stop`), 'Stopped')}
-                          title="Stop"
+                          onClick={() => act(() => api.post(`/zones/${a.zoneId}/stop`), t('Stopped'))}
+                          title={t('Stop')}
                         >
                           <IconPlayerStop size={16} />
                         </ActionIcon>
@@ -214,7 +214,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
             {state?.queue.length ? (
               <>
                 <Title order={5} mt="md" mb="xs">
-                  Queue
+                  {t('Queue')}
                 </Title>
                 <Stack gap={4}>
                   {state.queue.map((q, i) => (
@@ -244,14 +244,14 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                   <Text size="xl" fw={700}>
                     {weather.temperature != null ? `${weather.temperature}°` : '—'}
                   </Text>
-                  <Text c="dimmed">{weather.condition}</Text>
+                  <Text c="dimmed">{weather.condition ? t(weather.condition) : ''}</Text>
                   {weather.humidity != null && <Text c="dimmed">💧 {weather.humidity}%</Text>}
                 </Group>
                 <SimpleGrid cols={{ base: 4, sm: 7 }} mt="sm">
                   {weather.forecast.slice(0, 7).map((f, i) => (
                     <Stack key={i} gap={0} align="center">
                       <Text size="xs" c="dimmed">
-                        {new Date(Date.now() + i * 86400000).toLocaleDateString(undefined, { weekday: 'short' })}
+                        {new Date(Date.now() + i * 86400000).toLocaleDateString(locale, { weekday: 'short' })}
                       </Text>
                       <Text size="sm" fw={600}>
                         {f.tempMaxC != null ? `${Math.round(f.tempMaxC)}°` : '—'}
@@ -264,7 +264,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                 </SimpleGrid>
               </>
             ) : (
-              <Text c="dimmed">No weather entity found in Home Assistant.</Text>
+              <Text c="dimmed">{t('No weather entity found in Home Assistant.')}</Text>
             )}
           </Card>
 
@@ -273,7 +273,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
               {t('Quick actions')}
             </Title>
             <Group>
-              <Button color="red" leftSection={<IconPlayerStop size={16} />} onClick={() => act(() => api.post('/stop-all'), 'All stopped')}>
+              <Button color="red" leftSection={<IconPlayerStop size={16} />} onClick={() => act(() => api.post('/stop-all'), t('All stopped'))}>
                 {t('Stop all')}
               </Button>
               <Button variant="light" leftSection={<IconPlayerPause size={16} />} onClick={() => setSnoozeOpen(true)}>
@@ -284,7 +284,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
               <Group mt="sm" gap="xs">
                 {state.pumpStates.map((p) => (
                   <Badge key={p.sourceId} color={p.on ? 'teal' : 'gray'} variant="light">
-                    pump {p.name}: {p.on ? 'ON' : 'off'}
+                    {p.on ? t('pump {name}: ON', { name: p.name }) : t('pump {name}: off', { name: p.name })}
                   </Badge>
                 ))}
               </Group>
@@ -298,7 +298,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                         {l.name}
                       </Text>
                       <Text size="xs" c="dimmed">
-                        {l.levelL !== null ? `~${l.levelL} L (${l.levelPct}%)` : '—'}
+                        {l.levelL !== null ? t('~{n} L ({pct}%)', { n: l.levelL, pct: String(l.levelPct) }) : '—'}
                       </Text>
                     </Group>
                     <Progress
@@ -337,14 +337,14 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                     {u.kind === 'zone' ? '' : u.zones.length ? ` — ${u.zones.map((z) => z.name).join(', ')}` : ''}
                     {u.kind === 'zone' && (
                       <Badge size="xs" variant="light" color="blue" ml={6} style={{ verticalAlign: 'middle' }}>
-                        zone
+                        {t('zone')}
                       </Badge>
                     )}
                   </Text>
                   <Group gap="xs" wrap="wrap" justify="flex-end" style={{ flexShrink: 0 }}>
                     {paused && (
                       <Badge variant="light" color="gray" leftSection={<IconPlayerPause size={12} />}>
-                        paused
+                        {t('paused')}
                       </Badge>
                     )}
                     {!paused && u.willSkip && (
@@ -363,7 +363,10 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                     )}
                     <Text size="sm" c="dimmed">
                       {u.zones.length
-                        ? `${fmtDur(u.durationMin ?? u.zones.reduce((a, z) => a + z.minutes, 0))} (max ${fmtDur(u.maxDurationMin ?? u.zones.reduce((a, z) => a + z.maxMinutes, 0))})`
+                        ? t('{dur} (max {max})', {
+                            dur: fmtDur(u.durationMin ?? u.zones.reduce((a, z) => a + z.minutes, 0)),
+                            max: fmtDur(u.maxDurationMin ?? u.zones.reduce((a, z) => a + z.maxMinutes, 0)),
+                          })
                         : ''}
                     </Text>
                     <Badge variant="light" color="grape" style={{ opacity: dim }}>
@@ -379,10 +382,10 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                         </ActionIcon>
                       </Menu.Target>
                       <Menu.Dropdown>
-                        <Menu.Label>{u.kind === 'zone' ? u.groupName + ' · zone' : u.groupName}</Menu.Label>
+                        <Menu.Label>{u.kind === 'zone' ? t('{name} · zone', { name: u.groupName }) : u.groupName}</Menu.Label>
                         {paused ? (
                           <Menu.Item leftSection={<IconPlayerPlay size={14} />} onClick={() => pauseRow(u, 0)}>
-                            Resume
+                            {t('Resume')}
                           </Menu.Item>
                         ) : (
                           <>
@@ -412,13 +415,13 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
       <Modal opened={snoozeOpen} onClose={() => setSnoozeOpen(false)} title={t('Pause all watering')}>
         <Stack>
           <Text size="sm" c="dimmed">
-            Skip all automatic (scheduled, soil, weather) watering for a while. Manual runs still work.
+            {t('Skip all automatic (scheduled, soil, weather) watering for a while. Manual runs still work.')}
           </Text>
-          <SliderInput label="Pause for" value={hours} onChange={setHours} min={0} max={336} step={6} unit="h" />
+          <SliderInput label={t('Pause for')} value={hours} onChange={setHours} min={0} max={336} step={6} unit="h" />
           <Group>
-            <Button onClick={() => act(() => api.post('/snooze', { hours }), 'Paused').then(() => setSnoozeOpen(false))}>Pause</Button>
-            <Button variant="light" onClick={() => act(() => api.post('/snooze', { hours: 0 }), 'Resumed').then(() => setSnoozeOpen(false))}>
-              Resume now
+            <Button onClick={() => act(() => api.post('/snooze', { hours }), t('Paused')).then(() => setSnoozeOpen(false))}>{t('Pause')}</Button>
+            <Button variant="light" onClick={() => act(() => api.post('/snooze', { hours: 0 }), t('Resumed')).then(() => setSnoozeOpen(false))}>
+              {t('Resume now')}
             </Button>
           </Group>
         </Stack>

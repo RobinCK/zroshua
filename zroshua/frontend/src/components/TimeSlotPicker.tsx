@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ActionIcon, Badge, Box, Button, Group, Popover, SegmentedControl, Slider, Stack, Text, TextInput, Tooltip, UnstyledButton } from '@mantine/core';
 import { IconAlertTriangle, IconClock, IconMinus, IconPlus } from '@tabler/icons-react';
+import { t as T } from '../i18n';
 
 export interface BusyBand {
   dow: number;
@@ -125,7 +126,7 @@ export default function TimeSlotPicker({
               leftSection={conflict ? <IconAlertTriangle size={13} /> : <IconClock size={13} />}
               style={{ cursor: 'pointer', textTransform: 'none' }}
             >
-              {anchor === 'finish' ? `${toHHMM(startMin)} → ${value} (by)` : `${value} → ${toHHMM(startMin + durationMin)}`}
+              {anchor === 'finish' ? T('{from} → {to} (by)', { from: toHHMM(startMin), to: value }) : `${value} → ${toHHMM(startMin + durationMin)}`}
             </Badge>
           </Group>
         </UnstyledButton>
@@ -150,10 +151,10 @@ export default function TimeSlotPicker({
             </Group>
             <Text size="xs" c={conflict ? 'red' : 'dimmed'} ta="right">
               {conflict
-                ? `overlaps "${conflict.label}" (${toHHMM(conflict.startMin)}–${toHHMM(conflict.worstEndMin)})`
+                ? T('overlaps "{label}" ({from}–{to})', { label: conflict.label, from: toHHMM(conflict.startMin), to: toHHMM(conflict.worstEndMin) })
                 : until !== null
-                  ? `free until ${toHHMM(until)}`
-                  : 'no rule-bound schedules this day'}
+                  ? T('free until {time}', { time: toHHMM(until) })
+                  : T('no rule-bound schedules this day')}
             </Text>
           </Group>
 
@@ -164,8 +165,8 @@ export default function TimeSlotPicker({
               value={anchor}
               onChange={(v) => onAnchorChange(v as 'start' | 'finish')}
               data={[
-                { label: 'Start at this time', value: 'start' },
-                { label: 'Finish by this time', value: 'finish' },
+                { label: T('Start at this time'), value: 'start' },
+                { label: T('Finish by this time'), value: 'finish' },
               ]}
             />
           )}
@@ -261,12 +262,11 @@ export default function TimeSlotPicker({
               </Button>
             ))}
             <Button size="compact-xs" variant="subtle" ml="auto" onClick={() => setOpened(false)}>
-              Done
+              {T('Done')}
             </Button>
           </Group>
           <Text size="xs" c="dimmed">
-            Red = groups bound to this one by rules (never-overlap / order), incl. worst-case boost. Gray = other
-            schedules. Teal = this run.
+            {T('Red = groups bound to this one by rules (never-overlap / order), incl. worst-case boost. Gray = other schedules. Teal = this run.')}
           </Text>
         </Stack>
       </Popover.Dropdown>
