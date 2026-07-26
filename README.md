@@ -394,6 +394,20 @@ cd zroshua/backend && npm install && npm run build && node dist/main.js
 cd zroshua/frontend && npm install && npm run dev
 ```
 
+### Releases
+
+A release is a commit that changes `version:` in `zroshua/config.yaml` — that
+field is what the Supervisor compares to offer an update, so bump it **last**,
+after the change is verified. Add the matching `zroshua/CHANGELOG.md` section in
+the same commit, then tag it:
+
+```bash
+bash scripts/tag-releases.sh --push
+```
+
+The script tags every released version that is not tagged yet, taking the tag
+message from that version's changelog section, and is safe to re-run.
+
 ### Translations
 
 The UI uses [i18next](https://www.i18next.com/); dictionaries are plain JSON in
