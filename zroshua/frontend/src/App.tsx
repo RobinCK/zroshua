@@ -15,6 +15,7 @@ import {
   IconNotes,
 } from '@tabler/icons-react';
 import { useEngineState } from './hooks';
+import { t } from './i18n';
 import DashboardPage from './pages/DashboardPage';
 import ZonesPage from './pages/ZonesPage';
 import GroupsPage from './pages/GroupsPage';
@@ -103,17 +104,17 @@ export default function App() {
           <Group gap="xs" wrap="nowrap">
             {state && !state.haConnected && (
               <Badge color="red" variant="light" size="lg">
-                HA disconnected
+                {t('HA disconnected')}
               </Badge>
             )}
             {state && state.active.length > 0 && (
               <Badge color="teal" variant="light" size="lg" leftSection="●">
-                {state.active.length} watering
+                {t('{n} watering', { n: state.active.length })}
               </Badge>
             )}
             {state?.snoozeUntil && (
               <Badge color="orange" variant="light" size="lg">
-                paused
+                {t('paused')}
               </Badge>
             )}
           </Group>
@@ -124,11 +125,11 @@ export default function App() {
         <ScrollArea>
           {sections.map((s) => (
             <div key={s.label}>
-              <div className="z-navsec">{s.label}</div>
+              <div className="z-navsec">{t(s.label)}</div>
               {s.items.map((p) => (
                 <NavLink
                   key={p.key}
-                  label={p.label}
+                  label={t(p.label)}
                   leftSection={<p.icon size={18} stroke={1.8} />}
                   active={page === p.key}
                   variant="light"

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, EngineState, JournalEntry } from './api';
+import { t } from './i18n';
 
 /** Live engine state over the app WebSocket (relative path — ingress-safe). */
 export function useEngineState() {
@@ -82,13 +83,13 @@ export const fmtDur = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${
 
 /** Compact relative past time, e.g. "just now", "12 min ago", "3h ago", "2 days ago". */
 export const fmtAgo = (ts: number | null | undefined): string => {
-  if (!ts) return 'never';
+  if (!ts) return t('never');
   const s = Math.max(0, (Date.now() - Number(ts)) / 1000);
-  if (s < 60) return 'just now';
+  if (s < 60) return t('just now');
   const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
+  if (m < 60) return t('{n} min ago', { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t('{n}h ago', { n: h });
   const d = Math.floor(h / 24);
-  return d === 1 ? 'yesterday' : `${d} days ago`;
+  return d === 1 ? t('yesterday') : t('{n} days ago', { n: d });
 };

@@ -33,6 +33,7 @@ import { ThemeIcon } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Group as ZGroup, Upcoming, WeatherNow, Zone } from '../api';
 import { fmtDur, fmtTime, useResource } from '../hooks';
+import { t } from '../i18n';
 import { SliderInput } from '../components/common';
 
 function InfoTile({
@@ -83,8 +84,8 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
   );
   const [nowTick, setNowTick] = useState(Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNowTick(Date.now()), 30_000);
-    return () => clearInterval(t);
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
   }, []);
   const countdown = (ts: number) => {
     const s = Math.max(0, Math.round((ts - nowTick) / 1000));
@@ -112,7 +113,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
     const kind = u.kind ?? 'group';
     const id = u.targetId ?? u.groupId;
     const path = kind === 'zone' ? `/zones/${id}/pause` : `/groups/${id}/pause`;
-    return act(() => api.post(path, { hours }), hours > 0 ? 'Paused' : 'Resumed');
+    return act(() => api.post(path, { hours }), hours > 0 ? t('paused') : t('Resume'));
   };
 
   const next = (upcoming ?? []).filter((u) => u.ts > Date.now()).slice(0, 6);
@@ -124,40 +125,40 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
     <Stack>
       <SimpleGrid cols={{ base: 2, xs: 3, md: 6 }}>
         <InfoTile
-          label="Watering now"
+          label={t('Watering now')}
           value={String(state?.active.length ?? 0)}
           sub={state?.queue.length ? `${state.queue.length} queued` : undefined}
           icon={<IconDroplet size={22} />}
           color="teal"
         />
         <InfoTile
-          label="Zones"
+          label={t('Zones')}
           value={`${(zones ?? []).filter((z) => z.enabled).length}/${zones?.length ?? 0}`}
-          sub="enabled / total"
+          sub={t('enabled / total')}
           icon={<IconPlant2 size={22} />}
           color="green"
         />
         <InfoTile
-          label="Groups"
+          label={t('Groups')}
           value={String(groups?.length ?? 0)}
           sub={`${(groups ?? []).filter((g) => g.enabled).length} enabled`}
           icon={<IconCategory size={22} />}
           color="violet"
         />
         <InfoTile
-          label="Today water"
+          label={t('Today water')}
           value={litersToday !== null ? `${litersToday} L` : '—'}
           icon={<IconBucketDroplet size={22} />}
           color="blue"
         />
         <InfoTile
-          label="Today time"
+          label={t('Today time')}
           value={today ? `${Math.round(today.totals.minutes)} min` : '—'}
           icon={<IconClockHour4 size={22} />}
           color="orange"
         />
         <InfoTile
-          label="Next watering"
+          label={t('Next watering')}
           value={next[0] ? countdown(next[0].ts) : '—'}
           sub={next[0] ? `${new Date(next[0].ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · ${next[0].groupName}` : undefined}
           icon={<IconCalendarClock size={22} />}
@@ -168,7 +169,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
         <Grid.Col span={{ base: 12, md: 7 }}>
           <Card withBorder>
             <Title order={4} mb="sm">
-              Now
+              {t('Now')}
             </Title>
             {state?.active.length ? (
               <Stack gap="sm">
@@ -207,7 +208,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                 ))}
               </Stack>
             ) : (
-              <Text c="dimmed">Nothing is watering right now.</Text>
+              <Text c="dimmed">{t('Nothing is watering right now.')}</Text>
             )}
 
             {state?.queue.length ? (
@@ -235,7 +236,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
         <Grid.Col span={{ base: 12, md: 5 }}>
           <Card withBorder>
             <Title order={4} mb="sm">
-              Weather
+              {t('Weather')}
             </Title>
             {weather?.entity ? (
               <>
@@ -269,14 +270,14 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
 
           <Card withBorder mt="md">
             <Title order={4} mb="sm">
-              Quick actions
+              {t('Quick actions')}
             </Title>
             <Group>
               <Button color="red" leftSection={<IconPlayerStop size={16} />} onClick={() => act(() => api.post('/stop-all'), 'All stopped')}>
-                Stop all
+                {t('Stop all')}
               </Button>
               <Button variant="light" leftSection={<IconPlayerPause size={16} />} onClick={() => setSnoozeOpen(true)}>
-                {state?.snoozeUntil ? `Paused until ${fmtTime(state.snoozeUntil)}` : 'Pause all'}
+                {state?.snoozeUntil ? `${t('paused')} · ${fmtTime(state.snoozeUntil)}` : t('Pause all')}
               </Button>
             </Group>
             {state?.pumpStates.length ? (
@@ -315,7 +316,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          Upcoming waterings
+          {t('Upcoming waterings')}
         </Title>
         {next.length ? (
           <Stack gap="xs">
@@ -349,14 +350,14 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                     {!paused && u.willSkip && (
                       <Tooltip label={(u.skipReasons ?? []).join('; ')} multiline maw={320}>
                         <Badge variant="light" color="red" leftSection={<IconAlertTriangle size={12} />}>
-                          will skip
+                          {t('will skip')}
                         </Badge>
                       </Tooltip>
                     )}
                     {!paused && !u.willSkip && (u.maybeSkip?.length ?? 0) > 0 && (
                       <Tooltip label={(u.maybeSkip ?? []).join('; ')} multiline maw={320}>
                         <Badge variant="light" color="yellow" leftSection={<IconAlertTriangle size={12} />}>
-                          may skip
+                          {t('may skip')}
                         </Badge>
                       </Tooltip>
                     )}
@@ -389,11 +390,11 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                               leftSection={<IconPlayerPause size={14} />}
                               onClick={() => pauseRow(u, Math.max(0.05, (u.ts + 60_000 - Date.now()) / 3600_000))}
                             >
-                              Skip this run
+                              {t('Skip this run')}
                             </Menu.Item>
-                            <Menu.Item onClick={() => pauseRow(u, 6)}>Pause 6 h</Menu.Item>
-                            <Menu.Item onClick={() => pauseRow(u, 12)}>Pause 12 h</Menu.Item>
-                            <Menu.Item onClick={() => pauseRow(u, 24)}>Pause 24 h</Menu.Item>
+                            <Menu.Item onClick={() => pauseRow(u, 6)}>{t('Pause {n} h', { n: 6 })}</Menu.Item>
+                            <Menu.Item onClick={() => pauseRow(u, 12)}>{t('Pause {n} h', { n: 12 })}</Menu.Item>
+                            <Menu.Item onClick={() => pauseRow(u, 24)}>{t('Pause {n} h', { n: 24 })}</Menu.Item>
                           </>
                         )}
                       </Menu.Dropdown>
@@ -404,11 +405,11 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
             })}
           </Stack>
         ) : (
-          <Text c="dimmed">No scheduled waterings in the next 7 days.</Text>
+          <Text c="dimmed">{t('No scheduled waterings in the next 7 days.')}</Text>
         )}
       </Card>
 
-      <Modal opened={snoozeOpen} onClose={() => setSnoozeOpen(false)} title="Pause all watering">
+      <Modal opened={snoozeOpen} onClose={() => setSnoozeOpen(false)} title={t('Pause all watering')}>
         <Stack>
           <Text size="sm" c="dimmed">
             Skip all automatic (scheduled, soil, weather) watering for a while. Manual runs still work.

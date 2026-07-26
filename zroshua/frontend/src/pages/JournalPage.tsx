@@ -2,6 +2,7 @@ import { Badge, Card, Group, Select, Stack, Table, Text, Title } from '@mantine/
 import { useMemo, useState } from 'react';
 import { useJournal, useResource } from '../hooks';
 import { Group as ZGroup, Zone } from '../api';
+import { t } from '../i18n';
 
 const KIND_COLORS: Record<string, string> = {
   run_start: 'teal',
@@ -67,19 +68,19 @@ export default function JournalPage({ tick }: { tick: number }) {
 
   return (
     <Stack>
-      <Title order={3}>Journal</Title>
+      <Title order={3}>{t('Journal')}</Title>
       <Group gap="xs" grow wrap="wrap">
         <Select
-          label="Event"
-          placeholder="All events"
-          data={Object.keys(KIND_COLORS).map((k) => ({ value: k, label: KIND_LABELS[k] ?? k }))}
+          label={t('Event')}
+          placeholder={t('All events')}
+          data={Object.keys(KIND_COLORS).map((k) => ({ value: k, label: t(KIND_LABELS[k] ?? k) }))}
           value={kind}
           onChange={setKind}
           clearable
         />
         <Select
-          label="Zone or group"
-          placeholder="All targets"
+          label={t('Zone or group')}
+          placeholder={t('All targets')}
           data={targetData}
           value={target}
           onChange={setTarget}
@@ -94,15 +95,15 @@ export default function JournalPage({ tick }: { tick: number }) {
           <Table striped highlightOnHover stickyHeader>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Time</Table.Th>
-                <Table.Th>Event</Table.Th>
-                <Table.Th>Target</Table.Th>
-                <Table.Th>Details</Table.Th>
+                <Table.Th>{t('Time')}</Table.Th>
+                <Table.Th>{t('Event')}</Table.Th>
+                <Table.Th>{t('Target')}</Table.Th>
+                <Table.Th>{t('Details')}</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {filtered.map((e) => {
-                const t = targetCell(e);
+                const tgt = targetCell(e);
                 return (
                   <Table.Tr key={e.id}>
                     <Table.Td style={{ whiteSpace: 'nowrap' }}>
@@ -112,17 +113,17 @@ export default function JournalPage({ tick }: { tick: number }) {
                     </Table.Td>
                     <Table.Td>
                       <Badge size="sm" variant="light" color={KIND_COLORS[e.kind] ?? 'gray'}>
-                        {KIND_LABELS[e.kind] ?? e.kind}
+                        {t(KIND_LABELS[e.kind] ?? e.kind)}
                         {e.code ? `: ${e.code}` : ''}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      {t ? (
+                      {tgt ? (
                         <Group gap={6} wrap="nowrap">
-                          <Badge size="xs" variant="dot" color={t.color}>
-                            {t.tag}
+                          <Badge size="xs" variant="dot" color={tgt.color}>
+                            {t(tgt.tag)}
                           </Badge>
-                          <Text size="sm">{t.label}</Text>
+                          <Text size="sm">{tgt.label}</Text>
                         </Group>
                       ) : (
                         <Text size="sm" c="dimmed">
@@ -146,25 +147,25 @@ export default function JournalPage({ tick }: { tick: number }) {
       {/* mobile: stacked cards */}
       <Stack gap="xs" hiddenFrom="sm">
         {filtered.map((e) => {
-          const t = targetCell(e);
+          const tgt = targetCell(e);
           return (
             <Card key={e.id} withBorder p="sm">
               <Group justify="space-between" wrap="nowrap" mb={4}>
                 <Badge size="sm" variant="light" color={KIND_COLORS[e.kind] ?? 'gray'}>
-                  {KIND_LABELS[e.kind] ?? e.kind}
+                  {t(KIND_LABELS[e.kind] ?? e.kind)}
                   {e.code ? `: ${e.code}` : ''}
                 </Badge>
                 <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
                   {new Date(Number(e.ts)).toLocaleString()}
                 </Text>
               </Group>
-              {t && (
+              {tgt && (
                 <Group gap={6} mb={2}>
-                  <Badge size="xs" variant="dot" color={t.color}>
-                    {t.tag}
+                  <Badge size="xs" variant="dot" color={tgt.color}>
+                    {t(tgt.tag)}
                   </Badge>
                   <Text size="sm" fw={500}>
-                    {t.label}
+                    {tgt.label}
                   </Text>
                 </Group>
               )}
@@ -178,7 +179,7 @@ export default function JournalPage({ tick }: { tick: number }) {
         })}
       </Stack>
 
-      {!filtered.length && <Text c="dimmed">No matching journal entries.</Text>}
+      {!filtered.length && <Text c="dimmed">{t('No matching journal entries.')}</Text>}
     </Stack>
   );
 }

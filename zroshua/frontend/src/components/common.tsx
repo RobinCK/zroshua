@@ -3,6 +3,7 @@ import { IconPlayerPause, IconPlayerPauseFilled } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useResource } from '../hooks';
 import { api, HaEntity } from '../api';
+import { t } from '../i18n';
 
 /** Pause/resume automatic runs for a group or zone. `path` is e.g. `/groups/beds` or `/zones/bed1`. */
 export function PauseControl({
@@ -20,7 +21,7 @@ export function PauseControl({
     api
       .post(`${path}/pause`, { hours })
       .then(() => {
-        notifications.show({ message: hours ? 'Paused' : 'Resumed', color: hours ? 'orange' : 'teal' });
+        notifications.show({ message: hours ? t('paused') : t('Resume'), color: hours ? 'orange' : 'teal' });
         onChange?.();
       })
       .catch((e) => notifications.show({ message: e.message, color: 'red' }));
@@ -30,21 +31,21 @@ export function PauseControl({
         <ActionIcon
           variant={paused ? 'light' : 'subtle'}
           color={paused ? 'orange' : 'gray'}
-          title={paused ? `Paused until ${until} — click to resume` : 'Pause automatic runs'}
+          title={paused ? `${t('paused')} · ${until}` : t('Pause')}
         >
           {paused ? <IconPlayerPauseFilled size={18} /> : <IconPlayerPause size={18} />}
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Label>{paused ? `Paused until ${until}` : 'Pause automatic runs'}</Menu.Label>
+        <Menu.Label>{paused ? `${t('paused')} · ${until}` : t('Pause')}</Menu.Label>
         {[3, 6, 12, 24, 48].map((h) => (
           <Menu.Item key={h} onClick={() => set(h)}>
-            Pause {h}h
+            {t('Pause {n} h', { n: h })}
           </Menu.Item>
         ))}
         {paused && (
           <Menu.Item color="teal" onClick={() => set(0)}>
-            Resume now
+            {t('Resume now')}
           </Menu.Item>
         )}
       </Menu.Dropdown>

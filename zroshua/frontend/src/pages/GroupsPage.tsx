@@ -20,6 +20,7 @@ import { IconEdit, IconPlayerPlay, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, Group as ZGroup, GroupRule, Settings, Zone } from '../api';
 import { useResource, fmtAgo } from '../hooks';
+import { t } from '../i18n';
 import { SliderInput, PauseControl } from '../components/common';
 
 type LastRuns = { zones: Record<string, number>; groups: Record<string, number> };
@@ -114,9 +115,9 @@ export default function GroupsPage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>Groups & schedules</Title>
+        <Title order={3}>{t('Groups & schedules')}</Title>
         <Button onClick={() => openEditor({ name: '', zoneIds: [], mode: 'sequential', parallelLimit: 2, interZoneDelayS: 0, multiplierPct: 100, priority: 0, schedules: [], enabled: true })}>
-          Add group
+          {t('Add group')}
         </Button>
       </Group>
 
@@ -126,10 +127,10 @@ export default function GroupsPage() {
             <Group gap="xs">
               <Text fw={600}>{g.name}</Text>
               <Badge variant="light">{g.mode}</Badge>
-              {!g.enabled && <Badge color="gray">disabled</Badge>}
+              {!g.enabled && <Badge color="gray">{t('disabled')}</Badge>}
               {!!g.snoozeUntil && g.snoozeUntil > Date.now() && (
                 <Badge color="orange" variant="light">
-                  paused
+                  {t('paused')}
                 </Badge>
               )}
               <Badge variant="light" color="grape">
@@ -140,7 +141,7 @@ export default function GroupsPage() {
               <ActionIcon
                 variant="light"
                 color="teal"
-                title="Run group now"
+                title={t('Run group now')}
                 onClick={() =>
                   api
                     .post(`/groups/${g.id}/run`)
@@ -160,10 +161,10 @@ export default function GroupsPage() {
             </Group>
           </Group>
           <Text size="sm" c="dimmed">
-            {g.zoneIds.map((id) => zones?.find((z) => z.id === id)?.name ?? id).join(' → ') || 'no zones'}
+            {g.zoneIds.map((id) => zones?.find((z) => z.id === id)?.name ?? id).join(' → ') || t('no zones')}
           </Text>
           <Text size="xs" c="dimmed">
-            {g.schedules.filter((s) => s.enabled).length} active schedule(s) · last watered:{' '}
+            {g.schedules.filter((s) => s.enabled).length} {t('active schedule(s)')} · {t('last watered:')}{' '}
             {fmtAgo(lastRuns?.groups[g.id])}
           </Text>
         </Card>
@@ -171,7 +172,7 @@ export default function GroupsPage() {
 
       <Card withBorder>
         <Title order={4} mb="sm">
-          Rules between groups
+          {t('Rules between groups')}
         </Title>
         <Table>
           <Table.Tbody>

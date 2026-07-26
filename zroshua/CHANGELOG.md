@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- **Multi-language UI.** The interface now follows the browser / Home Assistant
+  language automatically — no separate setting. Supported: English (default),
+  Українська, Polski, Deutsch, Slovenčina, Română, Italiano, Español, Čeština,
+  Français. Anything not yet translated falls back to English, so the UI is
+  never blank. Covers the navigation, dashboard, zones, groups, the journal and
+  common actions to start; deeper settings screens will be translated next.
+
 ## 0.2.8
 
 - **Group and zone cards show when each was last actually watered.** A skipped

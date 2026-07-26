@@ -19,6 +19,7 @@ import { IconDroplet, IconEdit, IconPlayerStop, IconTrash } from '@tabler/icons-
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Settings, WaterSource, Zone } from '../api';
 import { useResource, fmtDur, fmtAgo } from '../hooks';
+import { t } from '../i18n';
 import { EntityMultiSelect, SliderInput, PauseControl } from '../components/common';
 import ScheduleEditor, { emptySchedule } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
@@ -123,8 +124,8 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>Zones</Title>
-        <Button onClick={() => openEdit(emptyZone)}>Add zone</Button>
+        <Title order={3}>{t('Zones')}</Title>
+        <Button onClick={() => openEdit(emptyZone)}>{t('Add zone')}</Button>
       </Group>
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
@@ -133,10 +134,10 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             <Group justify="space-between" mb="xs">
               <Group gap="xs">
                 <Text fw={600}>{z.name}</Text>
-                {running.has(z.id) && <Badge color="teal">watering</Badge>}
+                {running.has(z.id) && <Badge color="teal">{t('watering')}</Badge>}
                 {!!z.snoozeUntil && z.snoozeUntil > Date.now() && (
                   <Badge color="orange" variant="light">
-                    paused
+                    {t('paused')}
                   </Badge>
                 )}
                 {faults.has(z.id) && (
@@ -171,10 +172,10 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               {z.sourceId && ` · ${sources?.find((s) => s.id === z.sourceId)?.name ?? z.sourceId}`}
             </Text>
             <Text size="xs" c="dimmed" lineClamp={1} style={{ wordBreak: 'break-all' }}>
-              {z.entities.join(', ') || 'no entities'}
+              {z.entities.join(', ') || t('no entities')}
             </Text>
             <Text size="xs" c="dimmed" mb="sm">
-              Last watered: {fmtAgo(lastRuns?.zones[z.id])}
+              {t('Last watered:')} {fmtAgo(lastRuns?.zones[z.id])}
             </Text>
             {running.has(z.id) ? (
               <Button
@@ -184,7 +185,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                 leftSection={<IconPlayerStop size={16} />}
                 onClick={() => api.post(`/zones/${z.id}/stop`).catch(notifyErr)}
               >
-                Stop
+                {t('Stop')}
               </Button>
             ) : (
               <Button
@@ -196,7 +197,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                   setRunMinutes(Math.round(z.baseDurationMin));
                 }}
               >
-                Water now
+                {t('Water now')}
               </Button>
             )}
           </Card>
