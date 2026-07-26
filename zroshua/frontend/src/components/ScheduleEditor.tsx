@@ -215,7 +215,7 @@ export default function ScheduleEditor({
                   <NumberInput
                     size="xs"
                     w={110}
-                    suffix=" min"
+                    suffix={` ${t('min')}`}
                     min={0}
                     max={z.maxRuntimeMin || undefined}
                     value={schedule.zoneDurations?.[z.id] ?? z.baseMin}
