@@ -275,7 +275,9 @@ policy…), temperature adjustments, faults, reconciliations. Filter by **event 
 is which). On a phone the log renders as stacked cards instead of a wide table.
 
 Group and zone cards also show **when each was last actually watered** — a skipped run is not
-counted, so "last watered" reflects real watering, not the schedule.
+counted, so "last watered" reflects real watering, not the schedule. For a group it is the last
+time the *group* ran: watering one of its zones by hand, or by that zone's own schedule or soil
+trigger, updates the zone but leaves the group as it was.
 
 ![Journal](docs/screenshots/journal.png)
 

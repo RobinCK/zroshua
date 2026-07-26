@@ -1509,12 +1509,19 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       .getRawMany<{ zoneId: string; ts: string | number }>();
     const zones: Record<string, number> = {};
     for (const r of rows) if (r.zoneId && r.ts != null) zones[r.zoneId] = Number(r.ts);
+
+    // A group counts as watered when the group itself ran. Runs started outside
+    // a group run — by hand, by a zone schedule or by a soil trigger — carry no
+    // groupId, so watering a single zone no longer refreshes the whole group.
+    const groupRows = await this.runsRepo
+      .createQueryBuilder('r')
+      .select('r.groupId', 'groupId')
+      .addSelect('MAX(r.endTs)', 'ts')
+      .where('r.endTs IS NOT NULL AND r.groupId IS NOT NULL')
+      .groupBy('r.groupId')
+      .getRawMany<{ groupId: string; ts: string | number }>();
     const groups: Record<string, number> = {};
-    for (const g of this.groups) {
-      let m = 0;
-      for (const zid of g.zoneIds) if (zones[zid] && zones[zid] > m) m = zones[zid];
-      if (m) groups[g.id] = m;
-    }
+    for (const r of groupRows) if (r.groupId && r.ts != null) groups[r.groupId] = Number(r.ts);
     return { zones, groups };
   }
 

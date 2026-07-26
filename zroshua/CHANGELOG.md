@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.5
+
+- **A group's "last watered" no longer counts a single zone's run.** Watering
+  one zone by hand — or by that zone's own schedule or a soil trigger — made the
+  whole group look freshly watered. It now reports the last time the group
+  itself ran; the zone card still shows the zone.
+- Group cards said "1 активних розкладів"; the schedule count now takes the
+  right plural form in every language.
+
 ## 0.3.4
 
 - **The journal page is translated again.** It was still showing English

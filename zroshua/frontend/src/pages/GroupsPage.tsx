@@ -164,8 +164,8 @@ export default function GroupsPage() {
             {g.zoneIds.map((id) => zones?.find((z) => z.id === id)?.name ?? id).join(' → ') || t('no zones')}
           </Text>
           <Text size="xs" c="dimmed">
-            {g.schedules.filter((s) => s.enabled).length} {t('active schedule(s)')} · {t('last watered:')}{' '}
-            {fmtAgo(lastRuns?.groups[g.id])}
+            {t('{count} active schedules', { count: g.schedules.filter((s) => s.enabled).length })} ·{' '}
+            {t('last watered:')} {fmtAgo(lastRuns?.groups[g.id])}
           </Text>
         </Card>
       ))}
