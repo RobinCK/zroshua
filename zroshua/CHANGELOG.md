@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.8
+
+- **Run conditions are readable again.** A condition used to be one long row of
+  controls that ran into the next one, so it was hard to see where one ended.
+  Each is now its own bordered block: what is measured on top, then
+  *if … else …* underneath. The paragraph that explained them moved behind the
+  ⓘ next to the heading.
+- **Notification rows line up.** A switch and the fields it controls sat on
+  different baselines because only the fields had a label above them, and the
+  fields drifted to the far side of the row. They now share a baseline next to
+  their switch, and are greyed out until the switch is on.
+- The lead-time field no longer breaks its label across three lines; the unit
+  sits inside the input instead.
+
 ## 0.3.7
 
 - **Form help moved into an info icon.** Long explanations under fields — and

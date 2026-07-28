@@ -288,8 +288,10 @@ export default function SettingsPage() {
             checked={s.notifications.groupLevel ?? true}
             onChange={(e) => setS({ ...s, notifications: { ...s.notifications, groupLevel: e.currentTarget.checked } })}
           />
-          <Group grow>
+          <Group align="flex-end" wrap="wrap" gap="md">
             <Switch
+              style={{ minWidth: 240 }}
+              pb={8}
               label={<HintLabel label={t('Daily digest')} hint={t('Evening summary: runs, liters, energy, cost, skips')} />}
               checked={s.notifications.digest?.enabled ?? false}
               onChange={(e) =>
@@ -298,7 +300,9 @@ export default function SettingsPage() {
             />
             <TextInput
               type="time"
+              w={150}
               label={t('Digest time')}
+              disabled={!(s.notifications.digest?.enabled ?? false)}
               value={s.notifications.digest?.time ?? '21:00'}
               onChange={(e) =>
                 e.target.value &&
@@ -306,8 +310,10 @@ export default function SettingsPage() {
               }
             />
           </Group>
-          <Group grow>
+          <Group align="flex-end" wrap="wrap" gap="md">
             <Switch
+              style={{ minWidth: 240 }}
+              pb={8}
               label={<HintLabel label={t('Quiet hours')} hint={t('Suppress all but fault alerts in this window')} />}
               checked={s.notifications.quiet?.enabled ?? false}
               onChange={(e) =>
@@ -316,7 +322,9 @@ export default function SettingsPage() {
             />
             <TextInput
               type="time"
+              w={150}
               label={t('From')}
+              disabled={!(s.notifications.quiet?.enabled ?? false)}
               value={s.notifications.quiet?.from ?? '22:00'}
               onChange={(e) =>
                 e.target.value && setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, from: e.target.value } } })
@@ -324,7 +332,9 @@ export default function SettingsPage() {
             />
             <TextInput
               type="time"
+              w={150}
               label={t('To')}
+              disabled={!(s.notifications.quiet?.enabled ?? false)}
               value={s.notifications.quiet?.to ?? '07:00'}
               onChange={(e) =>
                 e.target.value && setS({ ...s, notifications: { ...s.notifications, quiet: { ...s.notifications.quiet, to: e.target.value } } })
@@ -441,15 +451,18 @@ export default function SettingsPage() {
             value={s.conflictPolicy}
             onChange={(v) => setS({ ...s, conflictPolicy: (v as any) ?? 'wait' })}
           />
-          <Group align="end">
+          <Group align="flex-end" wrap="wrap" gap="md">
             <Switch
+              style={{ minWidth: 300 }}
+              pb={8}
               label={<HintLabel label={t('Check entity availability before scheduled starts')} hint={t('If a zone\'s switch/valve entity (or its source pump) is unavailable within the lead window before a scheduled start, you get a fault notification with the exact entity — time to fix the controller.')} />}
               checked={s.preStartCheck?.enabled ?? true}
               onChange={(e) => setS({ ...s, preStartCheck: { minutes: s.preStartCheck?.minutes ?? 30, enabled: e.currentTarget.checked } })}
             />
             <NumberInput
-              label={t('Lead time (min)')}
-              w={130}
+              label={t('Lead time')}
+              suffix={` ${t('min')}`}
+              w={150}
               min={1}
               max={720}
               disabled={!(s.preStartCheck?.enabled ?? true)}

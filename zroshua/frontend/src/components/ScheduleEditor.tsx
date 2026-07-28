@@ -236,12 +236,13 @@ export default function ScheduleEditor({
         </>
       )}
 
-      <Stack gap={4} mt="sm">
+      <Stack gap={6} mt="sm">
         <Group justify="space-between">
           <Group gap={6}>
-            <Text size="sm" c="dimmed">
-              {t('Run conditions')}
-            </Text>
+            <HintLabel
+              label={t('Run conditions')}
+              hint={t('Each condition is checked at start time. When it is not met you choose what happens: skip the run, or water less (run at the chosen % of the normal time — it only shortens, so it never clashes with other groups). Unavailable data never blocks watering. For soil: pick your moisture sensor(s), set ≤ your target % (several sensors are combined, average by default), then choose skip above that, or water less to just cut the run short. A soil trigger can still water the zone if it dries out before the next scheduled run.')}
+            />
             {(schedule.conditions?.length ?? 0) > 0 && (
               <Badge size="xs" variant="light" color="grape">
                 {schedule.conditions!.length}
@@ -290,91 +291,98 @@ export default function ScheduleEditor({
           };
           const sensorList = c.entities?.length ? c.entities : c.entity ? [c.entity] : [];
           return (
-            <Group key={c.id} gap="xs" wrap="wrap" align="flex-start">
-              <Select
-                size="xs"
-                w={230}
-                data={CONDITION_KINDS}
-                value={c.kind}
-                onChange={(v) => setC({ kind: (v as ScheduleCondition['kind']) ?? 'forecast_max' })}
-              />
-              {c.kind === 'sensor' && (
-                <>
-                  <div style={{ minWidth: 260, flexGrow: 1 }}>
-                    <EntityMultiSelect
-                      label=""
-                      value={sensorList}
-                      onChange={(v) => setC({ entities: v, entity: undefined })}
-                      domains={['sensor']}
-                    />
-                  </div>
-                  {sensorList.length > 1 && (
-                    <Select
-                      size="xs"
-                      w={90}
-                      data={[
-                        { value: 'avg', label: t('average') },
-                        { value: 'min', label: t('min') },
-                        { value: 'max', label: t('max') },
-                      ]}
-                      value={c.agg ?? 'avg'}
-                      onChange={(v) => setC({ agg: (v as 'avg' | 'min' | 'max') ?? 'avg' })}
-                    />
+            <Card key={c.id} withBorder p="xs" radius="sm">
+              {/* what is measured */}
+              <Group gap="xs" wrap="nowrap" align="flex-start" mb={6}>
+                <Group gap="xs" wrap="wrap" align="flex-start" style={{ flexGrow: 1, minWidth: 0 }}>
+                  <Select
+                    size="xs"
+                    style={{ flexGrow: 1, minWidth: 180, maxWidth: 320 }}
+                    data={CONDITION_KINDS}
+                    value={c.kind}
+                    onChange={(v) => setC({ kind: (v as ScheduleCondition['kind']) ?? 'forecast_max' })}
+                  />
+                  {c.kind === 'sensor' && (
+                    <>
+                      <div style={{ minWidth: 220, flexGrow: 1 }}>
+                        <EntityMultiSelect
+                          label=""
+                          value={sensorList}
+                          onChange={(v) => setC({ entities: v, entity: undefined })}
+                          domains={['sensor']}
+                        />
+                      </div>
+                      {sensorList.length > 1 && (
+                        <Select
+                          size="xs"
+                          style={{ flexGrow: 1, minWidth: 110, maxWidth: 140 }}
+                          data={[
+                            { value: 'avg', label: t('average') },
+                            { value: 'min', label: t('min') },
+                            { value: 'max', label: t('max') },
+                          ]}
+                          value={c.agg ?? 'avg'}
+                          onChange={(v) => setC({ agg: (v as 'avg' | 'min' | 'max') ?? 'avg' })}
+                        />
+                      )}
+                    </>
                   )}
-                </>
-              )}
-              <Select
-                size="xs"
-                w={70}
-                data={[
-                  { value: 'gte', label: '≥' },
-                  { value: 'lte', label: '≤' },
-                ]}
-                value={c.op}
-                onChange={(v) => setC({ op: (v as 'gte' | 'lte') ?? 'gte' })}
-              />
-              <NumberInput size="xs" w={90} value={c.value} onChange={(v) => setC({ value: Number(v) || 0 })} />
-              <Text size="xs" c="dimmed" mt={6}>
-                {t('else')}
-              </Text>
-              <Select
-                size="xs"
-                w={130}
-                data={[
-                  { value: 'skip', label: t('skip the run') },
-                  { value: 'scale', label: t('water less') },
-                ]}
-                value={c.action ?? 'skip'}
-                onChange={(v) => setC({ action: (v as 'skip' | 'scale') ?? 'skip', scalePct: v === 'scale' ? (c.scalePct ?? 50) : undefined })}
-              />
-              {c.action === 'scale' && (
-                <NumberInput
+                </Group>
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  color="red"
+                  mt={4}
+                  onClick={() => onChange({ ...schedule, conditions: (schedule.conditions ?? []).filter((_, j) => j !== ci) })}
+                >
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Group>
+
+              {/* the test, and what happens when it fails */}
+              <Group gap={6} wrap="wrap" align="center">
+                <Text size="xs" c="dimmed">
+                  {t('if')}
+                </Text>
+                <Select
                   size="xs"
-                  w={90}
-                  min={0}
-                  max={100}
-                  suffix=" %"
-                  value={c.scalePct ?? 50}
-                  onChange={(v) => setC({ scalePct: Math.max(0, Math.min(100, Number(v) || 0)) })}
+                  w={64}
+                  data={[
+                    { value: 'gte', label: '≥' },
+                    { value: 'lte', label: '≤' },
+                  ]}
+                  value={c.op}
+                  onChange={(v) => setC({ op: (v as 'gte' | 'lte') ?? 'gte' })}
                 />
-              )}
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="red"
-                mt={2}
-                onClick={() => onChange({ ...schedule, conditions: (schedule.conditions ?? []).filter((_, j) => j !== ci) })}
-              >
-                <IconTrash size={14} />
-              </ActionIcon>
-            </Group>
+                <NumberInput size="xs" w={86} value={c.value} onChange={(v) => setC({ value: Number(v) || 0 })} />
+                <Text size="xs" c="dimmed" ml={4}>
+                  {t('else')}
+                </Text>
+                <Select
+                  size="xs"
+                  w={150}
+                  data={[
+                    { value: 'skip', label: t('skip the run') },
+                    { value: 'scale', label: t('water less') },
+                  ]}
+                  value={c.action ?? 'skip'}
+                  onChange={(v) => setC({ action: (v as 'skip' | 'scale') ?? 'skip', scalePct: v === 'scale' ? (c.scalePct ?? 50) : undefined })}
+                />
+                {c.action === 'scale' && (
+                  <NumberInput
+                    size="xs"
+                    w={86}
+                    min={0}
+                    max={100}
+                    suffix=" %"
+                    value={c.scalePct ?? 50}
+                    onChange={(v) => setC({ scalePct: Math.max(0, Math.min(100, Number(v) || 0)) })}
+                  />
+                )}
+              </Group>
+            </Card>
           );
         })}
-        {(schedule.conditions?.length ?? 0) > 0 && (
-          <Text size="xs" c="dimmed">
-            {t('Each condition is checked at start time. When it is not met you choose what happens: skip the run, or water less (run at the chosen % of the normal time — it only shortens, so it never clashes with other groups). Unavailable data never blocks watering. For soil: pick your moisture sensor(s), set ≤ your target % (several sensors are combined, average by default), then choose skip above that, or water less to just cut the run short. A soil trigger can still water the zone if it dries out before the next scheduled run.')}
-          </Text>
-        )}
       </Stack>
 
       <Group mt="xs" gap="xs">
