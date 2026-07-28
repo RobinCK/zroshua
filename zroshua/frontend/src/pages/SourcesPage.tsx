@@ -20,6 +20,7 @@ import { api, Group as ZGroup, WaterSource } from '../api';
 import { useResource } from '../hooks';
 import { EntitySelect } from '../components/common';
 import { t } from '../i18n';
+import { HintLabel, HintTitle } from '../components/Hint';
 
 export default function SourcesPage() {
   const { data: sources, reload } = useResource<WaterSource[]>('/sources');
@@ -42,12 +43,9 @@ export default function SourcesPage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>{t('Water sources')}</Title>
+        <HintTitle title={t('Water sources')} hint={t('Sources make hydraulics declarative: flow budgets, pump control with lead/lag delays, dependencies (e.g. a barrel refilled from the well) and pump energy metering counted only while watering.')} order={3} />
         <Button onClick={() => setEditing({ name: '', type: 'well', pumpStartDelayS: 0, pumpStopDelayS: 0 })}>{t('Add source')}</Button>
       </Group>
-      <Text size="sm" c="dimmed">
-        {t('Sources make hydraulics declarative: flow budgets, pump control with lead/lag delays, dependencies (e.g. a barrel refilled from the well) and pump energy metering counted only while watering.')}
-      </Text>
 
       {(sources ?? []).map((s) => (
         <Card key={s.id} withBorder>
@@ -92,12 +90,12 @@ export default function SourcesPage() {
             </Group>
             <Group grow>
               <NumberInput
-                label={t('Max flow budget (l/min, empty = unlimited)')}
+                label={<HintLabel label={t('Max flow budget')} hint={t('l/min, empty = unlimited')} />}
                 value={editing.maxFlowLpm ?? ''}
                 onChange={(v) => setEditing({ ...editing, maxFlowLpm: v === '' ? null : Number(v) })}
               />
               <Select
-                label={t('Depends on (blocked while that source runs)')}
+                label={<HintLabel label={t('Depends on')} hint={t('blocked while that source runs')} />}
                 data={(sources ?? []).filter((s) => s.id !== editing.id).map((s) => ({ value: s.id, label: s.name }))}
                 value={editing.dependsOn ?? null}
                 onChange={(v) => setEditing({ ...editing, dependsOn: v })}
@@ -106,15 +104,14 @@ export default function SourcesPage() {
             </Group>
             <Group grow align="flex-start" wrap="wrap">
               <EntitySelect
-                label={t('Pump entity (kept on while any zone of this source runs)')}
+                label={<HintLabel label={t('Pump entity')} hint={t('kept on while any zone of this source runs')} />}
                 value={editing.pumpEntity ?? null}
                 onChange={(v) => setEditing({ ...editing, pumpEntity: v })}
                 domains={['switch', 'input_boolean']}
               />
               {editing.pumpEntity && (
                 <Select
-                  label={t('When the run finishes')}
-                  description={t('Use “Keep on” or “Restore” if the pump also feeds the house / water outlets and must not be switched off.')}
+                  label={<HintLabel label={t('When the run finishes')} hint={t('Use “Keep on” or “Restore” if the pump also feeds the house / water outlets and must not be switched off.')} />}
                   data={[
                     { value: 'off', label: t('Turn the pump off') },
                     { value: 'keep_on', label: t('Leave the pump on') },
@@ -128,26 +125,26 @@ export default function SourcesPage() {
             {editing.pumpEntity && (
               <Group grow>
                 <NumberInput
-                  label={t('Pump start delay (s before valve opens)')}
+                  label={<HintLabel label={t('Pump start delay')} hint={t('s before valve opens')} />}
                   value={editing.pumpStartDelayS ?? 0}
                   onChange={(v) => setEditing({ ...editing, pumpStartDelayS: Number(v) || 0 })}
                 />
                 <NumberInput
-                  label={t('Pump stop delay (s after last valve closes)')}
+                  label={<HintLabel label={t('Pump stop delay')} hint={t('s after last valve closes')} />}
                   value={editing.pumpStopDelayS ?? 0}
                   onChange={(v) => setEditing({ ...editing, pumpStopDelayS: Number(v) || 0 })}
                 />
               </Group>
             )}
             <EntitySelect
-              label={t('Energy meter (W or kWh sensor, counted only during watering)')}
+              label={<HintLabel label={t('Energy meter')} hint={t('W or kWh sensor, counted only during watering')} />}
               value={editing.energyEntity ?? null}
               onChange={(v) => setEditing({ ...editing, energyEntity: v })}
               domains={['sensor']}
             />
             <Group grow>
               <NumberInput
-                label={t('Energy tail after watering (min, e.g. barrel refill)')}
+                label={<HintLabel label={t('Energy tail after watering')} hint={t('min, e.g. barrel refill')} />}
                 value={editing.energyTail?.minutes ?? 0}
                 onChange={(v) =>
                   setEditing({
@@ -179,33 +176,43 @@ export default function SourcesPage() {
               </Stack>
             )}
             <EntitySelect
-              label={t('"Water available" sensor (blocks watering when off)')}
+              label={<HintLabel label={t('"Water available" sensor')} hint={t('blocks watering when off')} />}
               value={editing.okSensor ?? null}
               onChange={(v) => setEditing({ ...editing, okSensor: v })}
               domains={['binary_sensor']}
             />
             <Group grow>
               <EntitySelect
-                label={t('Flow sensor (l/min, optional)')}
+                label={<HintLabel label={t('Flow sensor')} hint={t('l/min, optional')} />}
                 value={editing.flowSensor ?? null}
                 onChange={(v) => setEditing({ ...editing, flowSensor: v })}
                 domains={['sensor']}
               />
               <NumberInput
-                label={t('Idle-flow alert threshold (l/min)')}
+                label={<HintLabel label={t('Idle-flow alert threshold')} hint={t('l/min')} />}
                 value={editing.idleFlowAlertLpm ?? ''}
                 onChange={(v) => setEditing({ ...editing, idleFlowAlertLpm: v === '' ? null : Number(v) })}
               />
               <NumberInput
-                label={t('Flow deviation alert (%)')}
-                description={t('Alert when measured flow differs from the running zones\' total')}
+                label={<HintLabel label={t('Flow deviation alert (%)')} hint={t('Alert when measured flow differs from the running zones\' total')} />}
                 value={editing.flowDeviationPct ?? ''}
                 onChange={(v) => setEditing({ ...editing, flowDeviationPct: v === '' ? null : Number(v) })}
               />
             </Group>
             <MultiSelect
-              label={t('Never run at the same time as (source exclusivity)')}
-              description={t('One rule instead of many group pairs — all groups fed by these sources never overlap; new groups inherit it')}
+              label={
+                <HintLabel
+                  label={t('Never run at the same time as')}
+                  hint={
+                    <>
+                      {t('source exclusivity')}
+                      <br />
+                      <br />
+                      {t('One rule instead of many group pairs — all groups fed by these sources never overlap; new groups inherit it')}
+                    </>
+                  }
+                />
+              }
               data={(sources ?? []).filter((x) => x.id !== editing.id).map((x) => ({ value: x.id, label: x.name }))}
               value={editing.exclusiveWithSourceIds ?? []}
               onChange={(v) => setEditing({ ...editing, exclusiveWithSourceIds: v })}

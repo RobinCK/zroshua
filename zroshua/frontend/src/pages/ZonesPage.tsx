@@ -23,6 +23,7 @@ import { t } from '../i18n';
 import { EntityMultiSelect, SliderInput, PauseControl } from '../components/common';
 import ScheduleEditor, { emptySchedule } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
+import { HintLabel, HintTitle } from '../components/Hint';
 
 const emptyZone: Partial<Zone> = {
   name: '',
@@ -230,7 +231,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               />
             </Group>
             <EntityMultiSelect
-              label={t('Controlled entities (switch / valve)')}
+              label={<HintLabel label={t('Controlled entities')} hint={t('switch / valve')} />}
               value={editing.entities ?? []}
               onChange={(v) => setEditing({ ...editing, entities: v })}
               domains={['switch', 'valve', 'input_boolean', 'light']}
@@ -243,7 +244,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             />
             <Group grow>
               <NumberInput
-                label={t('Min duration (rollover threshold, min)')}
+                label={<HintLabel label={t('Min duration')} hint={t('rollover threshold, min')} />}
                 value={editing.minDurationMin ?? 0}
                 onChange={(v) => setEditing({ ...editing, minDurationMin: Number(v) || 0 })}
               />
@@ -325,7 +326,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               />
             </Group>
             <Group justify="space-between">
-              <Text fw={600} size="sm">{t('Own schedules (waters this zone alone, in addition to its group)')}</Text>
+              <HintTitle title={t('Own schedules')} hint={t('waters this zone alone, in addition to its group')} />
               <Button size="xs" variant="light" onClick={() => setEditing({ ...editing, schedules: [...(editing.schedules ?? []), emptySchedule()] })}>
                 {t('Add schedule')}
               </Button>

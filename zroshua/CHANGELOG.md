@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.7
+
+- **Form help moved into an info icon.** Long explanations under fields — and
+  the paragraphs above the sensors, sources, timeline and map sections — pushed
+  the inputs around and made side-by-side columns line up badly, especially on
+  a phone. Each explanation now sits behind an ⓘ next to its label or heading,
+  shown on hover, on keyboard focus and on tap. Labels themselves lost their
+  trailing parenthetical, so most now fit on one line.
+
 ## 0.3.6
 
 - **Rain no longer lets the next zone of a group start.** When the sensor turned

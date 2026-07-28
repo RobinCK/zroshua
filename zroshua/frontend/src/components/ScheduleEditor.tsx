@@ -5,6 +5,7 @@ import { Schedule, ScheduleCondition } from '../api';
 import TimeSlotPicker, { BusyBand, unionBands } from './TimeSlotPicker';
 import { EntityMultiSelect } from './common';
 import { t } from '../i18n';
+import { HintLabel } from './Hint';
 
 const CONDITION_KINDS = [
   { value: 'forecast_max', label: t('Forecast max temp today (°C)') },
@@ -190,8 +191,7 @@ export default function ScheduleEditor({
           <Collapse in={durOpen}>
             <Checkbox.Group
               mt="xs"
-              label={t('Zones watered by this schedule')}
-              description={t('Untick a zone to leave it out of this start (its duration is kept for other schedules)')}
+              label={<HintLabel label={t('Zones watered by this schedule')} hint={t('Untick a zone to leave it out of this start (its duration is kept for other schedules)')} />}
               value={schedule.zoneSelection?.length ? schedule.zoneSelection : zones.map((z) => z.id)}
               onChange={(v) =>
                 onChange({

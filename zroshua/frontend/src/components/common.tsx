@@ -60,7 +60,7 @@ export function EntitySelect({
   domains,
   clearable = true,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string | null;
   onChange: (v: string | null) => void;
   domains?: string[];
@@ -79,7 +79,7 @@ export function EntityMultiSelect({
   onChange,
   domains,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string[];
   onChange: (v: string[]) => void;
   domains?: string[];
@@ -101,7 +101,7 @@ export function SliderInput({
   step = 1,
   unit = 'min',
 }: {
-  label: string;
+  label: React.ReactNode;
   value: number;
   onChange: (v: number) => void;
   min?: number;

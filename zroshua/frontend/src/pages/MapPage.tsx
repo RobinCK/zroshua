@@ -6,6 +6,7 @@ import { api, EngineState, Zone } from '../api';
 import { fmtDur, fmtTime, useResource } from '../hooks';
 import { t } from '../i18n';
 import { SliderInput } from '../components/common';
+import { HintLabel, HintTitle } from '../components/Hint';
 
 const STATE_COLORS: Record<string, string> = {
   watering: '#12b886',
@@ -404,7 +405,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         .zr-map-vp::-webkit-scrollbar { display: none; }
       `}</style>
       <Group justify="space-between">
-        <Title order={3}>{t('Site map')}</Title>
+        <HintTitle title={t('Site map')} hint={t('Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths, polygons, circles…). Shapes don\'t need ids; Zroshua adds them automatically. Then use “Assign zones” to link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is colored by live state.')} order={3} />
         <Group>
           {assignMode ? (
             <Button variant="filled" onClick={() => setAssignMode(false)} disabled={!map?.svg}>
@@ -426,8 +427,7 @@ export default function MapPage({ state }: { state: EngineState | null }) {
           {assignMode && (
             <Stack gap="xs" mb="sm">
               <Select
-                label={t('Assign shapes to zone')}
-                description={t('Tap shapes on the plan to add or remove them. A zone can be made of several shapes.')}
+                label={<HintLabel label={t('Assign shapes to zone')} hint={t('Tap shapes on the plan to add or remove them. A zone can be made of several shapes.')} />}
                 data={zoneOpts}
                 value={assignZoneId}
                 onChange={setAssignZoneId}
@@ -540,9 +540,6 @@ export default function MapPage({ state }: { state: EngineState | null }) {
         </Card>
       ) : (
         <Card withBorder>
-          <Text c="dimmed">
-            {t('Upload an SVG plan of your property (Inkscape, Figma, Illustrator — any shapes: rectangles, paths, polygons, circles…). Shapes don\'t need ids; Zroshua adds them automatically. Then use “Assign zones” to link shapes to zones by tapping them — a single zone can be made of several shapes — and the plan is colored by live state.')}
-          </Text>
         </Card>
       )}
 

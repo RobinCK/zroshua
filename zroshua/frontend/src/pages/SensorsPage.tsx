@@ -18,6 +18,7 @@ import { api, Group as ZGroup, Settings, SoilTrigger, TempTrigger, Zone } from '
 import { useResource } from '../hooks';
 import { EntityMultiSelect, EntitySelect, SliderInput } from '../components/common';
 import { t } from '../i18n';
+import { HintLabel, HintTitle } from '../components/Hint';
 
 export default function SensorsPage() {
   const { data: settings, reload } = useResource<Settings>('/settings');
@@ -52,7 +53,17 @@ export default function SensorsPage() {
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
-          <Title order={4}>{t('Rain sensor (from leak / moisture sensors)')}</Title>
+          <HintTitle
+            title={t('Rain sensor')}
+            hint={
+              <>
+                {t('from leak / moisture sensors')}
+                <br />
+                <br />
+                {t('Wet at start time → the run is skipped with a journal reason. Rain during a run → affected zones stop. Zones with the "ignore rain sensor" flag keep running. Manual runs always ignore the rain sensor.')}
+              </>
+            }
+          />
           <Switch
             label={t('Enabled')}
             checked={s.rainSensor.enabled}
@@ -61,14 +72,14 @@ export default function SensorsPage() {
         </Group>
         <Stack>
           <EntityMultiSelect
-            label={t('Sensors (any binary_sensor; several supported)')}
+            label={<HintLabel label={t('Sensors')} hint={t('any binary_sensor; several supported')} />}
             value={s.rainSensor.entities}
             onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, entities: v } })}
             domains={['binary_sensor']}
           />
           <Group grow>
             <NumberInput
-              label={t('Quorum (how many must be wet)')}
+              label={<HintLabel label={t('Quorum')} hint={t('how many must be wet')} />}
               min={1}
               value={s.rainSensor.quorum}
               onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, quorum: Number(v) || 1 } })}
@@ -84,16 +95,13 @@ export default function SensorsPage() {
             />
           </Group>
           <SliderInput
-            label={t('Dry-out delay (watering stays blocked after rain)')}
+            label={<HintLabel label={t('Dry-out delay')} hint={t('watering stays blocked after rain')} />}
             value={s.rainSensor.dryOutHours}
             onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, dryOutHours: v } })}
             min={0}
             max={72}
             unit="h"
           />
-          <Text size="xs" c="dimmed">
-            {t('Wet at start time → the run is skipped with a journal reason. Rain during a run → affected zones stop. Zones with the "ignore rain sensor" flag keep running. Manual runs always ignore the rain sensor.')}
-          </Text>
         </Stack>
       </Card>
 
@@ -166,8 +174,7 @@ export default function SensorsPage() {
                   />
                   <NumberInput label={t('Run (min)')} value={trigger.runMin} onChange={(v) => set({ runMin: Number(v) || 15 })} />
                   <NumberInput
-                    label={t('Cooldown (h)')}
-                    description={t('Sensor is slow — wait before re-checking')}
+                    label={<HintLabel label={t('Cooldown (h)')} hint={t('Sensor is slow — wait before re-checking')} />}
                     value={trigger.cooldownHours}
                     onChange={(v) => set({ cooldownHours: Number(v) || 6 })}
                   />
@@ -186,8 +193,7 @@ export default function SensorsPage() {
                 </Group>
                 <Switch
                   mt="xs"
-                  label={t('Ignore rain sensor')}
-                  description={t('Fire and keep watering even while the rain sensor is wet — e.g. soil under a roof or in a greenhouse')}
+                  label={<HintLabel label={t('Ignore rain sensor')} hint={t('Fire and keep watering even while the rain sensor is wet — e.g. soil under a roof or in a greenhouse')} />}
                   checked={!!trigger.ignoreRainSensor}
                   onChange={(e) => set({ ignoreRainSensor: e.currentTarget.checked })}
                 />
@@ -199,7 +205,7 @@ export default function SensorsPage() {
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">
-          <Title order={4}>{t('Temperature triggers (heat burst)')}</Title>
+          <HintTitle title={t('Temperature triggers')} hint={t('Cooling runs on hot days: when the live temperature crosses the threshold inside the daily window, water the target for a few minutes — at most once per cooldown. More flexible than a fixed midday schedule: it fires at 12:10 in a heat wave and stays quiet on a cloudy day.')} />
           <Button
             size="xs"
             variant="light"
@@ -227,9 +233,6 @@ export default function SensorsPage() {
             {t('Add trigger')}
           </Button>
         </Group>
-        <Text size="xs" c="dimmed" mb="sm">
-          {t('Cooling runs on hot days: when the live temperature crosses the threshold inside the daily window, water the target for a few minutes — at most once per cooldown. More flexible than a fixed midday schedule: it fires at 12:10 in a heat wave and stays quiet on a cloudy day.')}
-        </Text>
         <Stack>
           {(s.tempTriggers ?? []).map((trigger, i) => {
             const set = (patch: Partial<TempTrigger>) => {
@@ -269,8 +272,7 @@ export default function SensorsPage() {
                 <Group grow mt="xs">
                   <NumberInput label={t('Run (min)')} value={trigger.runMin} onChange={(v) => set({ runMin: Number(v) || 10 })} />
                   <NumberInput
-                    label={t('Cooldown (h)')}
-                    description={t('24 = at most once a day')}
+                    label={<HintLabel label={t('Cooldown (h)')} hint={t('24 = at most once a day')} />}
                     value={trigger.cooldownHours}
                     onChange={(v) => set({ cooldownHours: Number(v) || 24 })}
                   />

@@ -26,6 +26,7 @@ import { SliderInput, PauseControl } from '../components/common';
 type LastRuns = { zones: Record<string, number>; groups: Record<string, number> };
 import ScheduleEditor, { emptySchedule, estimateRunMinutes, ZoneInfo } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
+import { HintLabel } from '../components/Hint';
 
 export default function GroupsPage() {
   const { data: groups, reload } = useResource<ZGroup[]>('/groups');
@@ -234,7 +235,7 @@ export default function GroupsPage() {
           <Stack>
             <TextInput label={t('Name')} value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
             <MultiSelect
-              label={t('Zones (order = watering order)')}
+              label={<HintLabel label={t('Zones')} hint={t('order = watering order')} />}
               data={(zones ?? []).map((z) => ({ value: z.id, label: z.name }))}
               value={editing.zoneIds ?? []}
               onChange={(v) => setEditing({ ...editing, zoneIds: v })}
