@@ -9,6 +9,7 @@ import {
   MultiSelect,
   NumberInput,
   Select,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
@@ -75,7 +76,7 @@ export default function SourcesPage() {
       <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? t('Edit source') : t('New source')} size="lg">
         {editing && (
           <Stack>
-            <Group grow>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
               <TextInput label={t('Name')} value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
               <Select
                 label={t('Type')}
@@ -87,8 +88,8 @@ export default function SourcesPage() {
                 value={editing.type ?? 'well'}
                 onChange={(v) => setEditing({ ...editing, type: v ?? 'well' })}
               />
-            </Group>
-            <Group grow>
+            </SimpleGrid>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
               <NumberInput
                 label={<HintLabel label={t('Max flow budget')} hint={t('l/min, empty = unlimited')} />}
                 value={editing.maxFlowLpm ?? ''}
@@ -101,7 +102,7 @@ export default function SourcesPage() {
                 onChange={(v) => setEditing({ ...editing, dependsOn: v })}
                 clearable
               />
-            </Group>
+            </SimpleGrid>
             <Group grow align="flex-start" wrap="wrap">
               <EntitySelect
                 label={<HintLabel label={t('Pump entity')} hint={t('kept on while any zone of this source runs')} />}
@@ -123,7 +124,7 @@ export default function SourcesPage() {
               )}
             </Group>
             {editing.pumpEntity && (
-              <Group grow>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
                 <NumberInput
                   label={<HintLabel label={t('Pump start delay')} hint={t('s before valve opens')} />}
                   value={editing.pumpStartDelayS ?? 0}
@@ -134,7 +135,7 @@ export default function SourcesPage() {
                   value={editing.pumpStopDelayS ?? 0}
                   onChange={(v) => setEditing({ ...editing, pumpStopDelayS: Number(v) || 0 })}
                 />
-              </Group>
+              </SimpleGrid>
             )}
             <EntitySelect
               label={<HintLabel label={t('Energy meter')} hint={t('W or kWh sensor, counted only during watering')} />}
@@ -142,7 +143,7 @@ export default function SourcesPage() {
               onChange={(v) => setEditing({ ...editing, energyEntity: v })}
               domains={['sensor']}
             />
-            <Group grow>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
               <NumberInput
                 label={<HintLabel label={t('Energy tail after watering')} hint={t('min, e.g. barrel refill')} />}
                 value={editing.energyTail?.minutes ?? 0}
@@ -153,7 +154,7 @@ export default function SourcesPage() {
                   })
                 }
               />
-            </Group>
+            </SimpleGrid>
             {editing.energyTail && (
               <Stack gap={4}>
                 <Text size="sm">{t('Count the tail after these groups:')}</Text>
@@ -181,7 +182,7 @@ export default function SourcesPage() {
               onChange={(v) => setEditing({ ...editing, okSensor: v })}
               domains={['binary_sensor']}
             />
-            <Group grow>
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs" verticalSpacing="xs">
               <EntitySelect
                 label={<HintLabel label={t('Flow sensor')} hint={t('l/min, optional')} />}
                 value={editing.flowSensor ?? null}
@@ -189,16 +190,18 @@ export default function SourcesPage() {
                 domains={['sensor']}
               />
               <NumberInput
-                label={<HintLabel label={t('Idle-flow alert threshold')} hint={t('l/min')} />}
+                label={<HintLabel label={t('Idle flow')} hint={t('Idle-flow alert threshold')} />}
+                suffix={` ${t('l/min')}`}
                 value={editing.idleFlowAlertLpm ?? ''}
                 onChange={(v) => setEditing({ ...editing, idleFlowAlertLpm: v === '' ? null : Number(v) })}
               />
               <NumberInput
-                label={<HintLabel label={t('Flow deviation alert (%)')} hint={t('Alert when measured flow differs from the running zones\' total')} />}
+                label={<HintLabel label={t('Flow deviation')} hint={t('Alert when measured flow differs from the running zones\' total')} />}
+              suffix=" %"
                 value={editing.flowDeviationPct ?? ''}
                 onChange={(v) => setEditing({ ...editing, flowDeviationPct: v === '' ? null : Number(v) })}
               />
-            </Group>
+            </SimpleGrid>
             <MultiSelect
               label={
                 <HintLabel
@@ -217,37 +220,41 @@ export default function SourcesPage() {
               value={editing.exclusiveWithSourceIds ?? []}
               onChange={(v) => setEditing({ ...editing, exclusiveWithSourceIds: v })}
             />
-            <Group grow>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
               <NumberInput
-                label={t('Capacity (L) — enables barrel level tracking')}
+                label={<HintLabel label={t('Capacity')} hint={t('Capacity (L) — enables barrel level tracking')} />}
+                suffix={` ${t('L')}`}
                 value={editing.capacityL ?? ''}
                 onChange={(v) => setEditing({ ...editing, capacityL: v === '' ? null : Number(v) })}
               />
               <NumberInput
-                label={t('Refill rate (l/min)')}
+                label={<HintLabel label={t('Refill rate')} hint={t('l/min')} />}
+                suffix={` ${t('l/min')}`}
                 value={editing.refillLpm ?? ''}
                 onChange={(v) => setEditing({ ...editing, refillLpm: v === '' ? null : Number(v) })}
               />
-            </Group>
+            </SimpleGrid>
             {editing.capacityL ? (
-              <Group grow>
+              <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs" verticalSpacing="xs">
                 <EntitySelect
-                  label={t('Level sensor (%) — overrides the estimate')}
+                  label={<HintLabel label={t('Level sensor')} hint={t('Level sensor (%) — overrides the estimate')} />}
                   value={editing.levelEntity ?? null}
                   onChange={(v) => setEditing({ ...editing, levelEntity: v })}
                   domains={['sensor']}
                 />
                 <NumberInput
-                  label={t('Warn below (%)')}
+                  label={t('Warn below')}
+                  suffix=" %"
                   value={editing.lowReservePct ?? 20}
                   onChange={(v) => setEditing({ ...editing, lowReservePct: v === '' ? null : Number(v) })}
                 />
                 <NumberInput
-                  label={t('Block scheduled runs below (%)')}
+                  label={<HintLabel label={t('Block below')} hint={t('Block scheduled runs below (%)')} />}
+                  suffix=" %"
                   value={editing.blockBelowPct ?? ''}
                   onChange={(v) => setEditing({ ...editing, blockBelowPct: v === '' ? null : Number(v) })}
                 />
-              </Group>
+              </SimpleGrid>
             ) : null}
             <Button onClick={save}>{t('Save')}</Button>
           </Stack>

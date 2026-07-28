@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.9
+
+- **Water source labels are short again.** The ones that explained themselves
+  with a dash — capacity, level sensor, idle flow, flow deviation, the two
+  level thresholds — took two or three lines each and pushed their fields out
+  of line. They now name the field and keep the explanation under the ⓘ, with
+  the unit inside the input.
+- On a phone the source form no longer squeezes three fields into a row; the
+  rows stack instead, so nothing is cut mid-word.
+
 ## 0.3.8
 
 - **Run conditions are readable again.** A condition used to be one long row of
