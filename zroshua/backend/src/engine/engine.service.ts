@@ -827,6 +827,15 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     const settings = await this.config.getSettings();
     const sorted = [...this.queue].sort((a, b) => b.priority - a.priority || a.seqIndex - b.seqIndex || a.enqueuedAt - b.enqueuedAt);
     for (const q of sorted) {
+      // Rain can start after the run was queued — a group plans all its zones up
+      // front, so the sensor has to be re-read before each zone actually starts.
+      if (await this.rainBlocks(q, settings)) {
+        this.queue = this.queue.filter((x) => x.key !== q.key);
+        await this.skip(q.groupId, q.zoneId, 'rain_sensor', 'rain sensor is wet (or in dry-out window)');
+        await this.settleEmptyGroupRuns();
+        this.broadcastState();
+        continue;
+      }
       const check = this.canStart(q, now);
       q.waitReason = check.ok ? undefined : check.reason;
       if (!check.ok) {
@@ -949,6 +958,14 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   private async startRun(q: QueuedRun) {
     const zone = this.zone(q.zoneId);
     if (!zone) return;
+    // last gate before the valve opens: rain may have started while this run was
+    // waiting for a pump, a soak delay or the zone ahead of it in the group
+    if (await this.rainBlocks(q)) {
+      await this.skip(q.groupId, q.zoneId, 'rain_sensor', 'rain sensor is wet (or in dry-out window)');
+      await this.settleEmptyGroupRuns();
+      this.broadcastState();
+      return;
+    }
     this.startingZones.add(zone.id);
     try {
       const src = this.source(zone.sourceId);
@@ -1232,6 +1249,30 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
   // ---------------------------------------------------------------- sensors
 
+  /** Whether the rain sensor must keep this queued run from starting. */
+  private async rainBlocks(q: QueuedRun, settings?: Awaited<ReturnType<ConfigService['getSettings']>>): Promise<boolean> {
+    if (q.manual || q.ignoreRain) return false;
+    if (this.zone(q.zoneId)?.ignore?.rain_sensor) return false;
+    return this.rainIsWet(settings);
+  }
+
+  /**
+   * Drop group runs that have nothing left to run. Normally the last zone's
+   * finishRun() closes the run, but when the remaining zones are skipped — by
+   * rain, for instance — no run finishes and the state would linger, keeping
+   * the source's refill tail from starting.
+   */
+  private async settleEmptyGroupRuns() {
+    for (const [id, state] of [...this.groupRuns]) {
+      if (this.queue.some((q) => q.groupRunId === id)) continue;
+      if (this.active.some((a) => a.groupRunId === id)) continue;
+      if (this.pendingStarts.some((p) => p.groupRunId === id)) continue;
+      this.groupRuns.delete(id);
+      const zoneId = this.group(state.groupId)?.zoneIds[0];
+      await this.maybeStartTail(state.groupId, this.source(zoneId ? this.zone(zoneId)?.sourceId ?? null : null));
+    }
+  }
+
   private async rainIsWet(settings?: Awaited<ReturnType<ConfigService['getSettings']>>): Promise<boolean> {
     const s = settings ?? (await this.config.getSettings());
     if (!s.rainSensor.enabled || !s.rainSensor.entities.length) return false;
@@ -1250,6 +1291,13 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         this.lastWetTs = Date.now();
         await this.config.setKV('lastWetTs', this.lastWetTs);
         await this.journal.add('info', { code: 'rain_detected', detail: `sensor ${entityId} is wet` });
+
+        // Drop the queued work first: stopping a run lets the dispatcher start
+        // the next zone of the same group, and it would beat a later cleanup.
+        const rained = this.queue.filter((q) => !q.manual && !q.ignoreRain && !this.zone(q.zoneId)?.ignore?.rain_sensor);
+        this.queue = this.queue.filter((q) => !rained.includes(q));
+        for (const q of rained) await this.skip(q.groupId, q.zoneId, 'rain_sensor', 'rain started before this zone ran');
+
         const linked = settings.rainSensor.linkedZones;
         await this.stopAll('rain', (a) => {
           if (a.manual || a.ignoreRain) return false;
@@ -1258,12 +1306,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           if (settings.rainSensor.onWetDuringRun === 'stop_linked' && linked && !linked.includes(a.zoneId)) return false;
           return true;
         });
-        // also drop queued scheduled work for affected zones
-        this.queue = this.queue.filter((q) => {
-          if (q.manual || q.ignoreRain) return true;
-          const z = this.zone(q.zoneId);
-          return !!z?.ignore?.rain_sensor;
-        });
+        await this.settleEmptyGroupRuns();
         this.broadcastState();
       }
     }

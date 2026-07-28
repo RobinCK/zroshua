@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.6
+
+- **Rain no longer lets the next zone of a group start.** When the sensor turned
+  wet mid-run, the running zone stopped but the zone behind it in the group
+  could still start a second later and water through the rain for its full time.
+  The queued zones are now dropped before the running ones are stopped, and the
+  sensor is re-read at the moment a zone would actually open its valve — a group
+  plans all of its zones up front, so the reading taken at planning time is not
+  enough. Skipped zones say so in the journal instead of vanishing silently.
+
 ## 0.3.5
 
 - **A group's "last watered" no longer counts a single zone's run.** Watering
