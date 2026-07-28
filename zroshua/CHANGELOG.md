@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.10
+
+- **The dry-out delay now starts when the sensor goes dry.** It was measured
+  from the moment the rain sensor turned *wet*, so any rain lasting longer than
+  the delay left nothing blocking the next run: the window had already expired
+  while it was still raining, and watering was allowed the second the sensor
+  dried. With a 2 h delay and rain from 05:37 to 19:11, a run scheduled for the
+  evening went ahead. The window is now counted from the last time the sensor
+  was seen wet, so it always runs from the end of the rain.
+
 ## 0.3.9
 
 - **Water source labels are short again.** The ones that explained themselves

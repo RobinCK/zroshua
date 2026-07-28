@@ -103,6 +103,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   private firedOccurrences = new Set<string>();
   private faultZones = new Set<string>();
   private lastWetTs = 0;
+  private lastWetPersistTs = 0;
   private lastSoilCheck = 0;
   private lastFlowCheck = 0;
   private lastIdleFlowAlert = new Map<string, number>();
@@ -224,6 +225,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     await this.superviseActive(now);
     this.sampleEnergy(now);
     await this.superviseTails(now);
+    await this.trackRainWet(now);
 
     if (now - this.lastSoilCheck > 60_000) {
       this.lastSoilCheck = now;
@@ -1270,6 +1272,25 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       this.groupRuns.delete(id);
       const zoneId = this.group(state.groupId)?.zoneIds[0];
       await this.maybeStartTail(state.groupId, this.source(zoneId ? this.zone(zoneId)?.sourceId ?? null : null));
+    }
+  }
+
+  /**
+   * The dry-out window runs from the moment the sensor goes dry, so lastWetTs
+   * has to mean "last seen wet", not "rain started" — a shower that lasts
+   * longer than the window would otherwise leave nothing blocking the run the
+   * second it dries. Persisted at most once a minute; the value only has to
+   * survive a restart.
+   */
+  private async trackRainWet(now: number) {
+    const s = await this.config.getSettings();
+    if (!s.rainSensor.enabled || !s.rainSensor.entities.length) return;
+    const wetCount = s.rainSensor.entities.filter((e) => this.ha.isOn(e)).length;
+    if (wetCount < Math.max(1, s.rainSensor.quorum)) return;
+    this.lastWetTs = now;
+    if (now - this.lastWetPersistTs > 60_000) {
+      this.lastWetPersistTs = now;
+      await this.config.setKV('lastWetTs', this.lastWetTs);
     }
   }
 
