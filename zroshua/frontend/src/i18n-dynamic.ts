@@ -18,7 +18,7 @@ const ZONE_TYPES = [t('sprinkler'), t('drip'), t('beds'), t('lawn'), t('shrubs')
 const MAP_STATES = [t('watering'), t('queued'), t('fault'), t('disabled'), t('idle')];
 
 /** What started a run — DashboardPage `t(active.triggeredBy)`. */
-const RUN_TRIGGERS = [t('manual'), t('schedule'), t('soil'), t('external'), t('tail')];
+const RUN_TRIGGERS = [t('manual'), t('schedule'), t('soil'), t('external'), t('tail'), t('once')];
 
 /** Units passed to SliderInput as `unit` and rendered with `t(unit)`. */
 const UNITS = [t('min'), t('h'), t('%'), t('mm')];
@@ -54,6 +54,7 @@ const NAV = [
   t('Watering'),
   t('Zones'),
   t('Groups & schedules'),
+  t('One-off watering'),
   t('Water sources'),
   t('Sensors'),
   t('Insights'),

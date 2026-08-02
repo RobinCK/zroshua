@@ -13,10 +13,11 @@ import { ConfigController } from './api/config.controller';
 import { ActionsController } from './api/actions.controller';
 import { MapController } from './api/map.controller';
 import { StatsController } from './api/stats.controller';
+import { OneTimeController } from './api/one-time.controller';
 
 @Module({
   imports: [DatabaseModule],
-  controllers: [ConfigController, ActionsController, MapController, StatsController],
+  controllers: [ConfigController, ActionsController, MapController, StatsController, OneTimeController],
   providers: [HaService, ConfigService, EventsService, JournalService, NotifyService, WeatherService, EngineService, MqttService, CardDeployService],
 })
 export class AppModule {}

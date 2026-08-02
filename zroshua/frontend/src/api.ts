@@ -6,7 +6,18 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'content-type': 'application/json' },
     ...init,
   });
-  if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text();
+    // Nest wraps errors as {message, error, statusCode}; the envelope is not
+    // something to show a user, only the message inside it is
+    let message = body;
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed.message === 'string') message = parsed.message;
+      else if (Array.isArray(parsed?.message)) message = parsed.message.join('; ');
+    } catch { /* plain text body */ }
+    throw new Error(message || `HTTP ${res.status}`);
+  }
   const text = await res.text();
   try {
     return JSON.parse(text) as T;
@@ -234,11 +245,13 @@ export interface JournalEntry {
 export interface Upcoming {
   groupId: string;
   groupName: string;
-  /** what to pause to skip this run: a whole group, or one zone's own schedule */
-  kind?: 'group' | 'zone';
+  /** what to pause to skip this run: a whole group, one zone's own schedule, or a one-off run */
+  kind?: 'group' | 'zone' | 'once';
   targetId?: string;
   /** current pause end of that target (ms epoch), or null */
   snoozeUntil?: number | null;
+  /** one-off runs are not snoozed by hours — they are soft-skipped until they expire */
+  paused?: boolean;
   ts: number;
   /** Wall-clock run length honoring the group's execution mode (parallel = longest zone). */
   durationMin?: number;
@@ -259,7 +272,7 @@ export interface PlanSegment {
   end: number;
   worstEnd: number;
   conflict: boolean;
-  kind: 'group' | 'zone';
+  kind: 'group' | 'zone' | 'once';
   /** 'certain' = already decided (paused / rain dry-out), 'possible' = re-evaluated at start time. */
   skip?: 'certain' | 'possible' | null;
   /** Human-readable reasons for the skip state, at most 3. */
@@ -275,7 +288,7 @@ export interface PlanEnvelope {
   minEnd: number;
   end: number;
   worstEnd: number;
-  kind: 'group' | 'zone';
+  kind: 'group' | 'zone' | 'once';
   /** 'certain' = already decided (paused / rain dry-out), 'possible' = re-evaluated at start time. */
   skip?: 'certain' | 'possible' | null;
   /** Human-readable reasons for the skip state, at most 3. */
@@ -286,6 +299,90 @@ export interface PlanResponse {
   segments: PlanSegment[];
   envelopes?: PlanEnvelope[];
   conflicts: { aZone: string; bZone: string; at: number }[];
+}
+
+export interface OneTimeStepZone {
+  zoneId: string;
+  minutes: number;
+}
+
+export type OneTimeStatus = 'scheduled' | 'running' | 'done' | 'cancelled' | 'skipped' | 'expired';
+
+/** A dated, one-shot watering request: these zones, in these parallel steps, once. */
+export interface OneTimeRun {
+  id: string;
+  name: string | null;
+  /** absolute epoch ms — sqlite returns bigint as a string, so always read it through Number() */
+  startTs: number;
+  /** ordered steps; the zones inside one step run in parallel */
+  steps: OneTimeStepZone[][];
+  interStepDelayS: number;
+  status: OneTimeStatus;
+  /** soft skip: the run is left to expire instead of firing */
+  paused: boolean;
+  /** ignore pauses, rain and wet soil — nothing else */
+  force: boolean;
+  firedTs: number | null;
+  createdTs: number;
+  /** why it ended the way it did — a code the UI translates */
+  resultCode?: string | null;
+  /** the English specifics behind that code (a zone count, a time) */
+  resultDetail?: string | null;
+}
+
+/**
+ * Something the user has to know before scheduling, as a code plus its specifics.
+ * The text lives here rather than in the backend: it is wizard body copy, and an
+ * English alert in the middle of a translated wizard is a defect.
+ */
+export interface OneTimeWarning {
+  code: string;
+  params?: Record<string, string | number>;
+}
+
+/** Body of POST/PUT /one-time and POST /one-time/preview. */
+export interface OneTimeDraft {
+  name?: string | null;
+  startTs: number;
+  /** 'finish' = the picked time is when the run must be done; the server stores the resolved start */
+  anchor?: 'start' | 'finish';
+  steps: OneTimeStepZone[][];
+  interStepDelayS?: number;
+  force?: boolean;
+}
+
+export interface OneTimePreviewZone {
+  zoneId: string;
+  name: string;
+  minutes: number;
+  startTs: number;
+  endTs: number;
+}
+
+export interface OneTimePreviewStep {
+  index: number;
+  startTs: number;
+  endTs: number;
+  zones: OneTimePreviewZone[];
+  /** the flow budget forces at least one zone of this step to wait for another */
+  serialised: boolean;
+  /** hydraulic verdict for this step: flow budget, missing source, disabled or paused zones */
+  warnings: OneTimeWarning[];
+}
+
+export interface OneTimePreview {
+  startTs: number;
+  endTs: number;
+  totalMin: number;
+  litersMin: number;
+  litersMax: number;
+  steps: OneTimePreviewStep[];
+  warnings: OneTimeWarning[];
+  /** already decided (pauses, rain dry-out) — English, same bucket as the timeline */
+  skipReasons: string[];
+  /** re-checked at start time (rain now, soil moisture) */
+  maybeSkip: string[];
+  conflicts: { label: string; startTs: number; endTs: number }[];
 }
 
 export interface WeatherNow {

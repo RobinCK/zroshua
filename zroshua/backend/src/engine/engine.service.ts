@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { DATA_SOURCE } from '../db/database.module';
-import { Group, GroupRule, Run, Schedule, WaterSource, Zone } from '../db/entities';
+import { Group, GroupRule, OneTimeRun, OneTimeStepZone, Run, Schedule, WaterSource, Zone } from '../db/entities';
 import { ConfigService } from '../config/config.service';
 import { HaService } from '../ha/ha.service';
 import { JournalService } from '../journal/journal.service';
@@ -22,13 +22,17 @@ interface QueuedRun {
   seqIndex: number;
   durationMin: number;
   manual: boolean;
-  triggeredBy: 'schedule' | 'manual' | 'soil';
+  triggeredBy: 'schedule' | 'manual' | 'soil' | 'once';
   priority: number;
   enqueuedAt: number;
   notBefore: number;
   waitReason?: string;
   /** survive rain-sensor events and skip the wet check (soil triggers in a greenhouse etc.) */
   ignoreRain?: boolean;
+  /** id of the one-off run this item belongs to */
+  onceId?: string;
+  /** step index inside that one-off; steps run strictly in order */
+  batch?: number;
 }
 
 interface ActiveRun {
@@ -43,6 +47,8 @@ interface ActiveRun {
   manual: boolean;
   triggeredBy: string;
   ignoreRain?: boolean;
+  onceId?: string;
+  batch?: number;
   energySnapshotKwh: number | null;
   energyIntegralWh: number;
   lastSampleTs: number;
@@ -62,6 +68,45 @@ interface GroupRunState {
   zonesDone?: number;
   totalMin?: number;
   liters?: number;
+}
+
+/**
+ * A one-off queue item that cannot start within this window after its slot is
+ * dropped. Waiting an hour for a mutex is not the run the user asked for, and
+ * an item that can never start (deleted zone, unavailable entity, a zone whose
+ * own flow exceeds its source) would otherwise pin the whole run forever.
+ */
+const ONCE_GIVE_UP_MS = 30 * 60_000;
+/** Finished one-offs are history, not configuration — they are pruned. */
+const ONCE_RETENTION_MS = 30 * 24 * 3600_000;
+
+/** Live state of one firing one-off run (dropped once every step has finished). */
+interface OneTimeRunState {
+  id: string;
+  label: string;
+  interStepDelayS: number;
+  force: boolean;
+  /** the whole plan; only the current step is ever in the queue */
+  steps: OneTimeStepZone[][];
+  /** step currently in flight, -1 before the first one is enqueued */
+  stepIndex: number;
+  /** zones queued so far — only the current step is ever queued */
+  zonesPlanned: number;
+  /** zones the whole run intends to water, for the "N zone(s)" it announces up front */
+  plannedTotal: number;
+  startNotified?: boolean;
+  startTs: number;
+  /** zones that actually watered — a set, because cycle/soak splits one zone into several runs */
+  doneZones: Set<string>;
+  liters: number;
+  /**
+   * Cycle/soak remainder of the zones in the current step. A soak has to be
+   * measured from when the previous segment really ended, so the next segment
+   * is queued on finish instead of being stamped up front — a later step does
+   * not start when the plan said it would, and a pre-stamped soak would have
+   * already elapsed by then, re-opening the valve with no soak at all.
+   */
+  rest: Map<string, { minutes: number[]; soakMs: number; groupId: string | null }>;
 }
 
 interface TailTracker {
@@ -99,6 +144,45 @@ interface SkipPrediction {
   uncertain: string[];
 }
 
+/**
+ * Something the user has to know before scheduling a one-off, as a code plus its
+ * specifics. It is wizard body copy, not a journal line, so the text itself lives
+ * in the frontend translations — an orange alert in the middle of an otherwise
+ * translated wizard has no business being English.
+ */
+export interface OneTimeWarning {
+  code: string;
+  params?: Record<string, string | number>;
+}
+
+export interface OneTimeSimZone {
+  zoneId: string;
+  name: string;
+  minutes: number;
+  startTs: number;
+  endTs: number;
+}
+
+export interface OneTimeSimStep {
+  index: number;
+  startTs: number;
+  endTs: number;
+  zones: OneTimeSimZone[];
+  /** the flow budget forces at least one zone of this step to wait for another */
+  serialised: boolean;
+}
+
+/** Create/edit/preview payload of a one-off run. */
+export interface OneTimeDraft {
+  name?: string | null;
+  /** the time the user picked — a start, or a finish when `anchor` says so */
+  startTs: number;
+  anchor?: 'start' | 'finish';
+  steps: OneTimeStepZone[][];
+  interStepDelayS?: number;
+  force?: boolean;
+}
+
 /** what gets stamped on every segment/envelope of one occurrence */
 interface SkipStamp {
   skip: SkipState;
@@ -116,6 +200,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   private rulesRepo: Repository<GroupRule>;
   private sourcesRepo: Repository<WaterSource>;
   private runsRepo: Repository<Run>;
+  private onceRepo: Repository<OneTimeRun>;
 
   // config cache
   private zones: Zone[] = [];
@@ -128,6 +213,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   queue: QueuedRun[] = [];
   active: ActiveRun[] = [];
   private groupRuns = new Map<string, GroupRunState>();
+  /** one-offs that are currently firing, keyed by one-off id */
+  private onceRuns = new Map<string, OneTimeRunState>();
+  private lastOncePrune = 0;
   private tails: TailTracker[] = [];
   private pumpRefs = new Map<string, number>();
   private pumpStopTimers = new Map<string, NodeJS.Timeout>();
@@ -161,6 +249,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     this.rulesRepo = ds.getRepository(GroupRule);
     this.sourcesRepo = ds.getRepository(WaterSource);
     this.runsRepo = ds.getRepository(Run);
+    this.onceRepo = ds.getRepository(OneTimeRun);
   }
 
   async onModuleInit() {
@@ -168,6 +257,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     this.snoozeUntil = await this.config.getKV('snoozeUntil', 0);
     this.lastWetTs = await this.config.getKV('lastWetTs', 0);
     this.firedOccurrences = new Set(await this.config.getKV<string[]>('firedOccurrences', []));
+    await this.closeOrphanedOneTimeRuns();
     this.ha.on('state_changed', (id: string, ns: any, os: any) => this.onStateChanged(id, ns, os));
     this.ha.on('connection', (ok: boolean) => ok && this.resumeAndReconcile().catch((e) => this.log.error(e)));
     this.timer = setInterval(() => void this.safeTick(), TICK_MS);
@@ -252,8 +342,10 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     if (now - this.cacheLoadedAt > 30_000) await this.reloadConfig();
 
     await this.fireDueOccurrences(now);
+    await this.fireDueOneTimeRuns(now);
     await this.processQueue(now);
     await this.superviseActive(now);
+    await this.settleOneTimeRuns();
     this.sampleEnergy(now);
     await this.superviseTails(now);
     await this.trackRainWet(now);
@@ -553,6 +645,415 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
   private persistFired() {
     return this.config.setKV('firedOccurrences', [...this.firedOccurrences]);
+  }
+
+  // ------------------------------------------------------- one-off watering
+
+  /** Display name of a one-off, used in journal details and notifications. */
+  private onceLabel(o: OneTimeRun): string {
+    return o.name ? `One-off "${o.name}"` : 'One-off watering';
+  }
+
+  /** All zone entries of a one-off, flattened over its steps, in run order. */
+  private onceEntries(o: OneTimeRun): OneTimeStepZone[] {
+    return (o.steps ?? []).flat();
+  }
+
+  /** Existing, enabled zones of a one-off. */
+  private onceZones(o: OneTimeRun): Zone[] {
+    return this.onceEntries(o)
+      .map((e) => this.zone(e.zoneId))
+      .filter((z): z is Zone => !!z && z.enabled);
+  }
+
+  private containingGroup(zoneId: string): Group | undefined {
+    return this.groups.find((g) => g.zoneIds.includes(zoneId));
+  }
+
+  /**
+   * The one group a one-off belongs to. A one-off can mix zones from several
+   * groups, and then no single group's pause can speak for the whole run — in
+   * that case each zone is judged against its own group instead.
+   */
+  private onceGroup(o: OneTimeRun): Group | null {
+    const groups = new Set(this.onceZones(o).map((z) => this.containingGroup(z.id)?.id ?? ''));
+    if (groups.size !== 1) return null;
+    const [only] = [...groups];
+    return only ? this.group(only) ?? null : null;
+  }
+
+  /** The minutes a zone will really run: what the user typed, capped by the failsafe. */
+  private onceMinutes(zone: Zone, minutes: number): number {
+    return Math.min(Math.max(0, minutes), zone.maxRuntimeMin || minutes);
+  }
+
+  /**
+   * Wall clock a zone occupies, cycle/soak included. A 30 min zone split into
+   * 3×10 min with a 20 min soak holds its slot for 70 minutes, and a promise
+   * made of the raw minutes ("finish by 21:00") would miss by the soak time.
+   */
+  private onceZoneWallMs(zone: Zone | undefined, minutes: number): number {
+    const m = Math.max(0, minutes);
+    if (!zone) return m * 60_000;
+    const segments = this.splitCycleSoak(zone, m);
+    const last = segments[segments.length - 1];
+    return last.delayMs + last.minutes * 60_000;
+  }
+
+  /** Would this zone fit next to what is already running, on its source's budget? */
+  private onceFits(zone: Zone | undefined, running: { sourceId: string | null; flow: number | null }[]): boolean {
+    if (!zone) return true;
+    const src = this.source(zone.sourceId);
+    if (!src?.maxFlowLpm) return true;
+    const pool = running.filter((r) => r.sourceId === src.id);
+    const own = this.flowOf(zone);
+    // mirrors flowBudgetCheck(): an unknown flow rate waits for exclusive access,
+    // and a zone whose own flow exceeds the budget never fits at all
+    if (own === null) return pool.length === 0;
+    if (pool.some((r) => r.flow === null)) return false;
+    return pool.reduce((sum, r) => sum + (r.flow ?? 0), 0) + own <= src.maxFlowLpm;
+  }
+
+  /**
+   * Wall-clock cascade of a one-off. Zones of one step start together, but only
+   * as far as the water goes: the flow budget is the same gate canStart() applies
+   * at runtime, so a step whose zones do not fit is timed as the partly serial run
+   * it will really be instead of the parallel one the user drew. `skip` leaves out
+   * zones that are already known not to water.
+   */
+  private simulateOneTime(
+    steps: OneTimeStepZone[][],
+    interStepDelayS: number,
+    startTs: number,
+    skip: (zoneId: string) => boolean = () => false,
+  ): { steps: OneTimeSimStep[]; endTs: number } {
+    const delayMs = Math.max(0, interStepDelayS) * 1000;
+    const out: OneTimeSimStep[] = [];
+    let cursor = startTs;
+    let endTs = startTs;
+
+    (steps ?? []).forEach((step, index) => {
+      const zones: OneTimeSimZone[] = [];
+      const running: { endTs: number; sourceId: string | null; flow: number | null }[] = [];
+      const pending = (step ?? [])
+        .filter((e) => !skip(e.zoneId))
+        .map((e) => {
+          const zone = this.zone(e.zoneId);
+          return { zoneId: e.zoneId, zone, minutes: zone ? this.onceMinutes(zone, e.minutes) : Math.max(0, e.minutes) };
+        })
+        .filter((p) => p.minutes > 0);
+      let t = cursor;
+      let serialised = false;
+
+      while (pending.length) {
+        const live = () => running.filter((r) => r.endTs > t);
+        for (let i = 0; i < pending.length; ) {
+          const p = pending[i];
+          if (!this.onceFits(p.zone, live())) {
+            i++;
+            continue;
+          }
+          const end = t + this.onceZoneWallMs(p.zone, p.minutes);
+          zones.push({ zoneId: p.zoneId, name: p.zone?.name ?? p.zoneId, minutes: p.minutes, startTs: t, endTs: end });
+          running.push({ endTs: end, sourceId: p.zone?.sourceId ?? null, flow: this.flowOf(p.zone!) ?? null });
+          pending.splice(i, 1);
+        }
+        if (!pending.length) break;
+        const next = live()
+          .map((r) => r.endTs)
+          .sort((a, b) => a - b)[0];
+        // nothing running and the next zone still does not fit: it is over the
+        // budget on its own and can never start. It is left out of the cascade —
+        // the caller warns about it by name.
+        if (next === undefined) {
+          pending.shift();
+          continue;
+        }
+        serialised = true;
+        t = next;
+      }
+
+      const stepEnd = zones.reduce((max, z) => Math.max(max, z.endTs), cursor);
+      out.push({ index, startTs: cursor, endTs: stepEnd, zones, serialised });
+      if (zones.length) {
+        endTs = Math.max(endTs, stepEnd);
+        cursor = stepEnd + delayMs;
+      }
+    });
+
+    return { steps: out, endTs };
+  }
+
+  /** Wall-clock length of a one-off, cycle/soak and flow budget included. */
+  private onceLengthMs(steps: OneTimeStepZone[][], interStepDelayS: number): number {
+    return this.simulateOneTime(steps, interStepDelayS, 0).endTs;
+  }
+
+  private async fireDueOneTimeRuns(now: number) {
+    await this.pruneOneTimeRuns(now);
+    const rows = await this.onceRepo.find({ where: { status: 'scheduled' } });
+    for (const o of rows) {
+      const startTs = Number(o.startTs);
+      if (startTs > now) continue;
+      const label = this.onceLabel(o);
+      if (o.paused) {
+        await this.finishOneTimeRow(o, 'skipped', 'once_paused', null);
+        await this.journal.add('skip', { code: 'once_paused', detail: `${label} was paused — not started` });
+        await this.notify.emit('skip', `⏭ ${label} did not run: it was paused.`);
+        this.broadcastState();
+        continue;
+      }
+      // a one-off means a specific evening; the same 5-minute look-back the
+      // planner uses keeps a restart from watering at 03:00 what was due at 19:00
+      if (now - startTs > 5 * 60_000) {
+        const when = new Date(startTs).toLocaleString();
+        await this.finishOneTimeRow(o, 'expired', 'once_expired', when);
+        await this.journal.add('skip', { code: 'once_expired', detail: `${label} missed its start at ${when} — expired` });
+        await this.notify.emit('skip', `⏭ ${label} did not run: it missed its ${when} start.`);
+        this.broadcastState();
+        continue;
+      }
+      await this.fireOneTimeRun(o, now);
+    }
+  }
+
+  /** Writes the terminal state of a one-off together with the reason the UI shows. */
+  private finishOneTimeRow(o: OneTimeRun, status: OneTimeRun['status'], code: string, detail: string | null) {
+    return this.onceRepo.update(o.id, { status, resultCode: code, resultDetail: detail });
+  }
+
+  /** Finished one-offs are history, not configuration — drop the old ones. */
+  private async pruneOneTimeRuns(now: number) {
+    if (now - this.lastOncePrune < 24 * 3600_000) return;
+    this.lastOncePrune = now;
+    const rows = await this.onceRepo.find();
+    for (const o of rows) {
+      if (o.status === 'scheduled' || o.status === 'running') continue;
+      if (now - Number(o.createdTs) < ONCE_RETENTION_MS) continue;
+      await this.onceRepo.delete(o.id);
+    }
+  }
+
+  /**
+   * Turns a due one-off into queued runs. It is an automatic run on purpose:
+   * manual runs bypass every constraint in canStart(), and a one-off must still
+   * obey mutex/order rules, source dependencies, okSensor and the flow budget.
+   */
+  private async fireOneTimeRun(o: OneTimeRun, now: number) {
+    const label = this.onceLabel(o);
+    const force = !!o.force;
+    const settings = await this.config.getSettings();
+
+    // `specifics` is what the code alone cannot say (a group name, a time); the UI
+    // translates the code and appends this, so repeating the code here reads double
+    const skipWholeRun = async (code: string, detail: string, specifics: string | null = null, groupId?: string) => {
+      await this.onceRepo.update(o.id, { status: 'skipped', firedTs: now, resultCode: code, resultDetail: specifics });
+      await this.journal.add('skip', { groupId, code, detail: `${label}: ${detail}` });
+      await this.notify.emit('skip', `⏭ ${label} skipped: ${detail}.`);
+      this.broadcastState();
+    };
+
+    if (!force && this.snoozeUntil > now) return skipWholeRun('once_paused_global', 'all watering is paused');
+    const containing = this.onceGroup(o);
+    if (!force && containing?.snoozeUntil && Number(containing.snoozeUntil) > now)
+      return skipWholeRun('once_group_paused', `group "${containing.name}" is paused`, containing.name, containing.id);
+
+    const state: OneTimeRunState = {
+      id: o.id,
+      label,
+      interStepDelayS: Math.max(0, o.interStepDelayS ?? 0),
+      force,
+      steps: (o.steps ?? []).filter((s) => s?.length),
+      stepIndex: -1,
+      zonesPlanned: 0,
+      plannedTotal: this.onceZones(o).length,
+      doneZones: new Set(),
+      liters: 0,
+      startTs: now,
+      rest: new Map(),
+    };
+
+    if (!(await this.enqueueOneTimeStep(state, now))) {
+      return skipWholeRun('once_skipped', 'nothing left to water');
+    }
+
+    this.onceRuns.set(o.id, state);
+    await this.onceRepo.update(o.id, { status: 'running', firedTs: now, resultCode: null, resultDetail: null });
+    await this.journal.add('info', {
+      code: 'once_start',
+      detail: `${label}: ${state.plannedTotal} zone(s) in ${state.steps.length} step(s)`,
+    });
+    this.broadcastState();
+  }
+
+  /**
+   * Queues the next step that has anything left to water, and returns whether it
+   * found one. Only ever ONE step is in the queue: a later step sitting there
+   * would look like pending work of its zones' groups to the order rules, which
+   * deadlocks a one-off that runs two rule-bound groups in the "wrong" order —
+   * and would also let a pre-stamped cycle/soak gap elapse before its step began.
+   * Zone-level gates are re-read here, so they reflect the moment the step starts.
+   */
+  private async enqueueOneTimeStep(state: OneTimeRunState, now: number): Promise<boolean> {
+    const settings = await this.config.getSettings();
+    const wet = state.force ? false : await this.rainIsWet(settings);
+    const first = state.stepIndex < 0;
+
+    while (state.stepIndex + 1 < state.steps.length) {
+      state.stepIndex++;
+      const step = state.steps[state.stepIndex] ?? [];
+      const items: QueuedRun[] = [];
+      state.rest.clear();
+
+      for (let i = 0; i < step.length; i++) {
+        const entry = step[i];
+        const zone = this.zone(entry.zoneId);
+        if (!zone || !zone.enabled) {
+          await this.skip(null, zone?.id ?? null, 'once_zone_gone', `${state.label}: zone "${zone?.name ?? entry.zoneId}" is disabled or no longer exists`);
+          continue;
+        }
+        const groupId = this.containingGroup(zone.id)?.id ?? null;
+        if (this.faultZones.has(zone.id)) {
+          await this.skip(groupId, zone.id, 'fault', `${state.label}: zone "${zone.name}" is in fault state`);
+          continue;
+        }
+        if (!state.force) {
+          if (zone.snoozeUntil && Number(zone.snoozeUntil) > now) {
+            await this.skip(groupId, zone.id, 'zone_paused', `${state.label}: zone "${zone.name}" is paused`);
+            continue;
+          }
+          const zoneGroup = this.group(groupId);
+          if (zoneGroup?.snoozeUntil && Number(zoneGroup.snoozeUntil) > now) {
+            await this.skip(groupId, zone.id, 'group_paused', `${state.label}: group "${zoneGroup.name}" is paused`);
+            continue;
+          }
+          if (wet && !zone.ignore?.rain_sensor) {
+            await this.skip(groupId, zone.id, 'rain_sensor', `${state.label}: rain sensor is wet (or in dry-out window)`);
+            continue;
+          }
+          if (this.soilBlockedBy(zone, settings)) {
+            await this.skip(groupId, zone.id, 'soil_wet', `${state.label}: soil moisture above block threshold`);
+            continue;
+          }
+          const src = this.source(zone.sourceId);
+          const level = src?.capacityL && src.blockBelowPct != null ? this.sourceLevelL(src.id) : null;
+          if (src?.capacityL && src.blockBelowPct != null && level !== null && (level / src.capacityL) * 100 < src.blockBelowPct) {
+            await this.skip(groupId, zone.id, 'source_low', `${state.label}: source "${src.name}" below ${src.blockBelowPct}%`);
+            continue;
+          }
+        }
+
+        const duration = this.onceMinutes(zone, entry.minutes);
+        if (duration <= 0) continue;
+        const segments = this.splitCycleSoak(zone, duration);
+        state.rest.set(zone.id, {
+          minutes: segments.slice(1).map((s) => s.minutes),
+          soakMs: Math.max(0, zone.cycleSoak?.min_soak_min ?? 0) * 60_000,
+          groupId,
+        });
+        items.push(this.onceQueueItem(state, zone.id, groupId, segments[0].minutes, i, first ? 0 : now + state.interStepDelayS * 1000, now));
+        state.zonesPlanned++;
+      }
+
+      if (items.length) {
+        this.queue.push(...items);
+        this.broadcastState();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private onceQueueItem(
+    state: OneTimeRunState,
+    zoneId: string,
+    groupId: string | null,
+    durationMin: number,
+    index: number,
+    notBefore: number,
+    now: number,
+  ): QueuedRun {
+    return {
+      key: `${state.id}:${state.stepIndex}:${zoneId}:${now}`,
+      zoneId,
+      groupId,
+      groupRunId: null,
+      seqIndex: state.stepIndex * 100 + index,
+      durationMin,
+      manual: false,
+      triggeredBy: 'once',
+      priority: 500, // above group priorities, below the 1000 a manual run uses
+      enqueuedAt: now,
+      notBefore,
+      ignoreRain: state.force,
+      onceId: state.id,
+      batch: state.stepIndex,
+    };
+  }
+
+  /**
+   * Once the current step has drained, moves the one-off on to the next step, or
+   * closes it. Runs every tick rather than off finishRun(), so a step whose zones
+   * were all skipped after they were queued still advances.
+   */
+  private async settleOneTimeRuns() {
+    const now = Date.now();
+    for (const [id, state] of [...this.onceRuns]) {
+      if (this.queue.some((q) => q.onceId === id)) continue;
+      if (this.active.some((a) => a.onceId === id)) continue;
+      if (this.pendingStarts.some((p) => p.onceId === id)) continue;
+      if (await this.enqueueOneTimeStep(state, now)) continue;
+
+      this.onceRuns.delete(id);
+      const watered = state.doneZones.size > 0;
+      if (watered) {
+        const liters = state.liters ? ` · ~${Math.round(state.liters)} L` : '';
+        const wall = (now - state.startTs) / 60_000;
+        const count = state.doneZones.size;
+        await this.onceRepo.update({ id, status: 'running' }, { status: 'done', resultCode: 'once_done', resultDetail: null });
+        await this.journal.add('info', {
+          code: 'once_done',
+          detail: `${state.label} finished: ${count} zone(s), ${Math.round(wall)} min`,
+        });
+        await this.notify.emit('run_end', `✅ ${state.label} finished: ${count} zone(s), ${Math.round(wall)} min${liters}.`);
+      } else {
+        await this.onceRepo.update(
+          { id, status: 'running' },
+          { status: 'skipped', resultCode: 'once_skipped', resultDetail: null },
+        );
+        await this.journal.add('skip', { code: 'once_skipped', detail: `${state.label}: nothing was watered` });
+        await this.notify.emit('skip', `⏭ ${state.label}: nothing was watered — every zone was skipped.`);
+      }
+      this.broadcastState();
+    }
+  }
+
+  /**
+   * The queue does not survive a restart, so a one-off caught mid-flight loses
+   * every step that had not started. Say so instead of calling it done: the runs
+   * table tells us how much of it actually watered.
+   */
+  private async closeOrphanedOneTimeRuns() {
+    const rows = await this.onceRepo.find({ where: { status: 'running' } });
+    for (const o of rows) {
+      const label = this.onceLabel(o);
+      const from = o.firedTs === null || o.firedTs === undefined ? Number(o.startTs) : Number(o.firedTs);
+      const planned = new Set(this.onceEntries(o).map((e) => e.zoneId));
+      const rows2 = await this.runsRepo
+        .createQueryBuilder('r')
+        .where('r.triggeredBy = :t AND r.startTs >= :from', { t: 'once', from })
+        .getMany();
+      const watered = new Set(rows2.map((r) => r.zoneId).filter((z): z is string => !!z && planned.has(z)));
+      if (watered.size >= planned.size) {
+        await this.onceRepo.update(o.id, { status: 'done', resultCode: 'once_done', resultDetail: null });
+        await this.journal.add('info', { code: 'once_done', detail: `${label} closed after a restart` });
+        continue;
+      }
+      const detail = `${watered.size} of ${planned.size} zone(s) watered before the restart`;
+      await this.onceRepo.update(o.id, { status: 'skipped', resultCode: 'once_interrupted', resultDetail: detail });
+      await this.journal.add('skip', { code: 'once_interrupted', detail: `${label} was cut short by a restart — ${detail}` });
+      await this.notify.emit('skip', `⏭ ${label} was cut short by a restart: ${detail}.`);
+    }
   }
 
   /** A zone's own schedule fired: run just this zone, but under its group's rules. */
@@ -872,6 +1373,20 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       const check = this.canStart(q, now);
       q.waitReason = check.ok ? undefined : check.reason;
       if (!check.ok) {
+        // A one-off is a specific evening, not a standing schedule: if it cannot
+        // start within half an hour of its slot it is no longer the run that was
+        // asked for. This also releases items that can never start at all — a
+        // deleted zone, a dead entity, a zone whose own flow exceeds its source —
+        // which would otherwise hold the whole one-off open forever.
+        if (q.onceId && now - q.enqueuedAt > ONCE_GIVE_UP_MS) {
+          this.queue = this.queue.filter((x) => x.key !== q.key);
+          const label = this.onceRuns.get(q.onceId)?.label ?? 'One-off watering';
+          const detail = `${label}: could not start within ${Math.round(ONCE_GIVE_UP_MS / 60_000)} min (${q.waitReason})`;
+          await this.skip(q.groupId, q.zoneId, 'once_gave_up', detail);
+          await this.notify.emit('skip', `⏭ ${detail} — dropped.`);
+          this.broadcastState();
+          continue;
+        }
         // strict mode: a scheduled run blocked by group rules does not wait — it is skipped
         if (
           settings.conflictPolicy === 'skip' &&
@@ -914,6 +1429,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (group.interZoneDelayS > 0 && groupRun.lastEndTs && now < groupRun.lastEndTs + group.interZoneDelayS * 1000)
         return { ok: false, reason: 'inter-zone delay' };
     }
+
+    // One-off step ordering needs no gate here: only the current step is ever in
+    // the queue, and the inter-step delay rides on the next step's notBefore.
 
     if (!q.manual) {
       // mutex rules (active + starting)
@@ -991,6 +1509,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   private async startRun(q: QueuedRun) {
     const zone = this.zone(q.zoneId);
     if (!zone) return;
+    // cancelling drains the queue, but an item already on its way here would
+    // otherwise still open its valve a moment later
+    if (q.onceId && !this.onceRuns.has(q.onceId)) return;
     // last gate before the valve opens: rain may have started while this run was
     // waiting for a pump, a soak delay or the zone ahead of it in the group
     if (await this.rainBlocks(q)) {
@@ -1040,6 +1561,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         manual: q.manual,
         triggeredBy: q.triggeredBy,
         ignoreRain: q.ignoreRain,
+        onceId: q.onceId,
+        batch: q.batch,
         energySnapshotKwh: snapshot,
         energyIntegralWh: 0,
         lastSampleTs: now,
@@ -1050,10 +1573,18 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         groupId: q.groupId ?? undefined,
         detail: `${q.durationMin.toFixed(1)} min (${q.triggeredBy})`,
       });
+      // a one-off is one user action, so it announces itself once — same
+      // suppression GroupRunState.startNotified does for a group run
+      const onceState = q.onceId ? this.onceRuns.get(q.onceId) : null;
       // group-level mode: one message per group run, not one per zone
       const groupState = q.groupRunId ? this.groupRuns.get(q.groupRunId) : null;
       const settingsN = (await this.config.getSettings()).notifications;
-      if (groupState && settingsN.groupLevel) {
+      if (onceState) {
+        if (!onceState.startNotified) {
+          onceState.startNotified = true;
+          await this.notify.emit('run_start', `💧 ${onceState.label} started: ${onceState.plannedTotal} zone(s).`);
+        }
+      } else if (groupState && settingsN.groupLevel) {
         if (!groupState.startNotified) {
           groupState.startNotified = true;
           groupState.startTs = now;
@@ -1156,6 +1687,22 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
     if (src?.pumpEntity && off) await this.releasePump(src);
 
+    const onceState = run.onceId ? this.onceRuns.get(run.onceId) : null;
+    if (onceState) {
+      if (run.zoneId) onceState.doneZones.add(run.zoneId);
+      onceState.liters += ((lMin ?? 0) + (lMax ?? 0)) / 2;
+      // the soak is measured from the segment that just ended, not from when the
+      // step was planned — a step can start much later than its plan said
+      const rest = run.zoneId ? onceState.rest.get(run.zoneId) : undefined;
+      if (rest?.minutes.length && reason === 'completed') {
+        const minutes = rest.minutes.shift()!;
+        this.queue.push(this.onceQueueItem(onceState, run.zoneId, rest.groupId, minutes, 0, now + rest.soakMs, now));
+      } else if (rest) {
+        // stopped early (rain, manual, fault): the rest of the cycle is off too
+        onceState.rest.delete(run.zoneId);
+      }
+    }
+
     let groupFinished: GroupRunState | null = null;
     if (run.groupRunId) {
       const state = this.groupRuns.get(run.groupRunId);
@@ -1185,6 +1732,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     const groupLevel = run.groupRunId && (await this.config.getSettings()).notifications.groupLevel;
     if (reason === 'rain') {
       await this.notify.emit('stop_rain', `🌧 Watering of "${zone?.name ?? run.zoneId}" stopped: rain detected.`);
+    } else if (onceState) {
+      // summarized in one message once the whole one-off has settled
     } else if (groupLevel) {
       if (groupFinished) {
         const g = this.group(run.groupId);
@@ -1415,7 +1964,11 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async soilBlocks(zone: Zone): Promise<boolean> {
-    const settings = await this.config.getSettings();
+    return this.soilBlockedBy(zone, await this.config.getSettings());
+  }
+
+  /** Same check against settings the caller already has (predictions run it per zone). */
+  private soilBlockedBy(zone: Zone, settings: Awaited<ReturnType<ConfigService['getSettings']>>): boolean {
     for (const t of settings.soilTriggers) {
       if (!t.enabled || t.blockAbovePct === null) continue;
       const applies =
@@ -1794,6 +2347,70 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (v != null && !(c.op === 'gte' ? v >= c.value : v <= c.value))
         uncertain.push(`${label} now ${v.toFixed(1)} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);
     }
+    // a soil block is a live sensor re-read at start time, never a fact
+    if (zones.length && zones.every((z) => this.soilBlockedBy(z, settings)))
+      uncertain.push('soil moisture above block threshold');
+
+    return { willSkip: certain.length > 0, reasons: certain, maybe: uncertain, certain, uncertain };
+  }
+
+  /**
+   * Same idea as predictSkip(), for a one-off. A one-off ignores the weather
+   * multiplier, temperature scaling and run conditions, so only the gates it
+   * actually obeys can predict a skip; `force` clears every one of them.
+   */
+  private async predictOneTimeSkip(
+    o: OneTimeRun,
+    settings: Awaited<ReturnType<ConfigService['getSettings']>>,
+  ): Promise<SkipPrediction> {
+    const certain: string[] = [];
+    const uncertain: string[] = [];
+    const empty = { willSkip: false, reasons: [], maybe: [], certain: [], uncertain: [] };
+    if (o.force) return empty;
+
+    const ts = Number(o.startTs);
+    const fmt = (t: number) => new Date(t).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
+    const zones = this.onceZones(o);
+
+    if (o.paused) certain.push('one-off is paused');
+    if (this.snoozeUntil > ts) certain.push(`all watering paused until ${fmt(this.snoozeUntil)}`);
+
+    // A one-off can mix zones from several groups, so a gate is only decided for
+    // the whole run when it covers every zone; covering some of them means the
+    // run happens, just smaller — which is a "may be skipped", not a fact.
+    const part = (blocked: Zone[], whole: string, some: string) => {
+      if (!zones.length || !blocked.length) return;
+      if (blocked.length === zones.length) certain.push(whole);
+      else uncertain.push(`${some} (${blocked.length} of ${zones.length} zones: ${blocked.map((z) => z.name).join(', ')})`);
+    };
+
+    part(
+      zones.filter((z) => {
+        if (z.snoozeUntil && Number(z.snoozeUntil) > ts) return true;
+        const g = this.containingGroup(z.id);
+        return !!(g?.snoozeUntil && Number(g.snoozeUntil) > ts);
+      }),
+      'every zone is paused',
+      'some zones are paused',
+    );
+
+    const rainZones = zones.filter((z) => !z.ignore?.rain_sensor);
+    if (settings.rainSensor.enabled && rainZones.length) {
+      const wetNow = settings.rainSensor.entities.filter((e) => this.ha.isOn(e)).length >= Math.max(1, settings.rainSensor.quorum);
+      const dryOutUntil = this.lastWetTs + settings.rainSensor.dryOutHours * 3600_000;
+      const all = rainZones.length === zones.length;
+      if (wetNow) uncertain.push(all ? 'rain sensor is wet now' : `rain sensor is wet now (${rainZones.length} of ${zones.length} zones)`);
+      else if (ts >= this.lastWetTs && dryOutUntil > ts) {
+        if (all) certain.push(`rain dry-out until ${fmt(dryOutUntil)}`);
+        else uncertain.push(`rain dry-out until ${fmt(dryOutUntil)} (${rainZones.length} of ${zones.length} zones)`);
+      }
+    }
+
+    part(
+      zones.filter((z) => this.soilBlockedBy(z, settings)),
+      'soil moisture above block threshold',
+      'soil moisture above block threshold',
+    );
 
     return { willSkip: certain.length > 0, reasons: certain, maybe: uncertain, certain, uncertain };
   }
@@ -1818,11 +2435,13 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       /** the group this run belongs to (containing group for a zone's own schedule) */
       groupId: string;
       groupName: string;
-      /** what to pause to skip this run: a group, or a single zone (own schedule) */
-      kind: 'group' | 'zone';
+      /** what to pause to skip this run: a group, a single zone (own schedule) or a one-off */
+      kind: 'group' | 'zone' | 'once';
       targetId: string;
-      /** current pause end of that target, ms epoch, or null */
+      /** current pause end of that target, ms epoch, or null (a one-off has no end) */
       snoozeUntil: number | null;
+      /** target is paused right now — a one-off carries its own flag instead of a pause end */
+      paused: boolean;
       ts: number;
       durationMin: number;
       maxDurationMin: number;
@@ -1857,6 +2476,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           kind: 'group',
           targetId: group.id,
           snoozeUntil: group.snoozeUntil ? Number(group.snoozeUntil) : null,
+          paused: !!group.snoozeUntil && Number(group.snoozeUntil) > now,
           ts: occ.ts,
           durationMin: this.groupRunMinutes(group, zones.map((z) => z.minutes)),
           maxDurationMin: this.groupRunMinutes(group, zones.map((z) => z.maxMinutes)),
@@ -1882,6 +2502,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           kind: 'zone',
           targetId: zone.id,
           snoozeUntil: zone.snoozeUntil ? Number(zone.snoozeUntil) : null,
+          paused: !!zone.snoozeUntil && Number(zone.snoozeUntil) > now,
           ts: occ.ts,
           durationMin: minutes,
           maxDurationMin: maxMinutes,
@@ -1892,7 +2513,46 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         });
       }
     }
+
+    // one-offs: dated, one-shot runs — no recurrence, no scaling
+    for (const o of await this.pendingOneTimeRuns()) {
+      const ts = Number(o.startTs);
+      if (ts < now || ts > until) continue;
+      const skip = await this.predictOneTimeSkip(o, settings);
+      const zones = this.onceEntries(o).map((e) => {
+        const z = this.zone(e.zoneId);
+        const minutes = z ? this.onceMinutes(z, e.minutes) : Math.max(0, e.minutes);
+        return { zoneId: e.zoneId, name: z?.name ?? e.zoneId, minutes, maxMinutes: minutes };
+      });
+      const durationMin = this.onceLengthMs(o.steps ?? [], o.interStepDelayS ?? 0) / 60_000;
+      out.push({
+        // never a real group id: an older Lovelace card takes the group branch for
+        // an unknown kind, and would pause a whole irrigation group for hours
+        groupId: o.id,
+        // empty means "no name" — the label is the consumer's translated one
+        groupName: o.name || '',
+        kind: 'once',
+        targetId: o.id,
+        snoozeUntil: null,
+        paused: !!o.paused,
+        ts,
+        durationMin,
+        maxDurationMin: durationMin,
+        willSkip: skip.willSkip,
+        skipReasons: skip.reasons,
+        maybeSkip: skip.maybe,
+        zones,
+      });
+    }
     return out.sort((a, b) => a.ts - b.ts);
+  }
+
+  /** One-offs that still have something ahead of them ('scheduled' or 'running'). */
+  private async pendingOneTimeRuns(): Promise<OneTimeRun[]> {
+    const rows = await this.onceRepo.find();
+    return rows
+      .filter((o) => o.status === 'scheduled' || o.status === 'running')
+      .sort((a, b) => Number(a.startTs) - Number(b.startTs));
   }
 
   /**
@@ -1923,7 +2583,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       end: number;
       worstEnd: number;
       conflict: boolean;
-      kind: 'group' | 'zone';
+      kind: 'group' | 'zone' | 'once';
       /** predicted skip of the whole occurrence — same on every segment of it */
       skip: SkipState;
       /** why, at most MAX_SKIP_REASONS entries */
@@ -1938,7 +2598,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       minEnd: number;
       end: number;
       worstEnd: number;
-      kind: 'group' | 'zone';
+      kind: 'group' | 'zone' | 'once';
       skip: SkipState;
       skipWhy: string[];
     };
@@ -2046,6 +2706,57 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // one-offs: the steps cascade exactly the way the runtime will run them —
+    // a step ends with its longest zone, then the inter-step delay. The minutes
+    // are literal, so there is no envelope to widen: minEnd === end === worstEnd.
+    for (const o of await this.pendingOneTimeRuns()) {
+      const start = Number(o.startTs);
+      if (start >= to) continue;
+      const occKey = `once:${o.id}`;
+      // empty means "no name": the label is the consumer's translated one
+      const label = o.name || '';
+      const { skip, skipWhy } = this.skipStamp(await this.predictOneTimeSkip(o, settings));
+      const sim = this.simulateOneTime(o.steps ?? [], o.interStepDelayS ?? 0, start, (id) => {
+        const z = this.zone(id);
+        return !z || !z.enabled;
+      });
+      let last = start;
+      for (const step of sim.steps) {
+        for (const z of step.zones) {
+          segments.push({
+            // the containing group keeps mutex/order pairing working
+            groupId: this.containingGroup(z.zoneId)?.id ?? null,
+            groupName: label,
+            zoneId: z.zoneId,
+            zoneName: z.name,
+            occ: occKey,
+            start: z.startTs,
+            end: z.endTs,
+            worstEnd: z.endTs,
+            conflict: false,
+            kind: 'once',
+            skip,
+            skipWhy,
+          });
+          last = Math.max(last, z.endTs);
+        }
+      }
+      if (last > start) {
+        envelopes.push({
+          occ: occKey,
+          groupId: o.id,
+          groupName: label,
+          start,
+          minEnd: last,
+          end: last,
+          worstEnd: last,
+          kind: 'once',
+          skip,
+          skipWhy,
+        });
+      }
+    }
+
     // mutex/order conflicts: worst-case overlap between rule-bound groups
     // (incl. pairs derived from water-source exclusivity)
     const mutexPairs = new Set<string>(this.srcMutexPairs);
@@ -2089,22 +2800,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           ? this.groups.find((g) => g.zoneIds.includes(exclude.id))?.id ?? null
           : null;
 
-    const relationTo = (groupId: string | null): 'conflict' | 'info' => {
-      if (!ctxGroupId || !groupId || groupId === ctxGroupId) return 'info';
-      if (this.srcMutexPairs.has(`${ctxGroupId}|${groupId}`)) return 'conflict';
-      for (const rule of this.rules) {
-        if (rule.type === 'mutex' && rule.groups.includes(ctxGroupId) && rule.groups.includes(groupId)) return 'conflict';
-        if (
-          rule.type === 'order' &&
-          rule.before &&
-          rule.after &&
-          [rule.before, rule.after].includes(ctxGroupId) &&
-          [rule.before, rule.after].includes(groupId)
-        )
-          return 'conflict';
-      }
-      return 'info';
-    };
+    const relationTo = (groupId: string | null): 'conflict' | 'info' =>
+      this.groupRelation(groupId, ctxGroupId ? [ctxGroupId] : []);
 
     const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
     // worstLenMin shifts finish-anchored starts earlier (start = finish − worst length)
@@ -2211,6 +2908,373 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     }
 
     return { bands, worstFactor: maxBoost };
+  }
+
+  /**
+   * Whether a group can never run next to any of the context groups: a mutex or
+   * order rule binds them, or their water sources are marked exclusive.
+   */
+  private groupRelation(groupId: string | null, ctxGroupIds: string[]): 'conflict' | 'info' {
+    if (!groupId || !ctxGroupIds.length) return 'info';
+    for (const ctx of ctxGroupIds) {
+      if (!ctx || ctx === groupId) continue;
+      if (this.srcMutexPairs.has(`${ctx}|${groupId}`)) return 'conflict';
+      for (const rule of this.rules) {
+        if (rule.type === 'mutex' && rule.groups.includes(ctx) && rule.groups.includes(groupId)) return 'conflict';
+        if (
+          rule.type === 'order' &&
+          rule.before &&
+          rule.after &&
+          [rule.before, rule.after].includes(ctx) &&
+          [rule.before, rule.after].includes(groupId)
+        )
+          return 'conflict';
+      }
+    }
+    return 'info';
+  }
+
+  /**
+   * Busy bands of ONE calendar date in the same shape as busyWeek(), but built
+   * from plan() — so they carry real occurrences, season windows, finish
+   * anchors and other one-offs instead of the weekly template.
+   */
+  async dayBands(dateISO: string, zoneIds: string[], excludeOnceId?: string) {
+    const worstFactor = (await this.weather.maxBoostPct()) / 100;
+    const dayStart = new Date(`${dateISO}T00:00:00`).getTime();
+    const bands: {
+      dow: number;
+      startMin: number;
+      endMin: number;
+      worstEndMin: number;
+      groupId: string | null;
+      label: string;
+      relation: 'conflict' | 'info';
+    }[] = [];
+    if (!Number.isFinite(dayStart)) return { bands, worstFactor };
+
+    // the next local midnight, not +24h: on a DST switch day one of them is 23 or 25 hours
+    const nextDay = new Date(dayStart);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const dayEnd = nextDay.getTime();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    // plan() always starts at today's midnight; a past date has nothing to show
+    if (dayEnd <= todayStart.getTime()) return { bands, worstFactor };
+    const days = Math.min(60, Math.max(1, Math.ceil((dayEnd - todayStart.getTime()) / (24 * 3600_000))));
+    const { segments, envelopes } = await this.plan(days);
+
+    const ctx = [...new Set(zoneIds.map((id) => this.containingGroup(id)?.id).filter((id): id is string => !!id))];
+    // a one-off envelope carries the one-off's own id, so its rule relation comes
+    // from the groups its zones belong to — those are on the segments
+    const occGroups = new Map<string, string[]>();
+    for (const s of segments) {
+      if (!s.occ || !s.groupId) continue;
+      const seen = occGroups.get(s.occ) ?? [];
+      if (!seen.includes(s.groupId)) occGroups.set(s.occ, [...seen, s.groupId]);
+    }
+    const dow = new Date(dayStart).getDay();
+    const dayMin = (ts: number) => (ts - dayStart) / 60_000;
+    for (const e of envelopes) {
+      const end = Math.max(e.end, e.worstEnd);
+      if (e.start >= dayEnd || end <= dayStart) continue;
+      // the run being edited must not appear as an obstacle to itself
+      if (excludeOnceId && e.kind === 'once' && e.groupId === excludeOnceId) continue;
+      const related = e.kind === 'once' ? occGroups.get(e.occ) ?? [] : [e.groupId].filter((id): id is string => !!id);
+      const relation = related.some((id) => this.groupRelation(id, ctx) === 'conflict') ? 'conflict' : 'info';
+      bands.push({
+        dow,
+        startMin: Math.max(0, dayMin(e.start)),
+        endMin: Math.min(1440, Math.max(0, dayMin(e.end))),
+        worstEndMin: Math.min(1440, Math.max(0, dayMin(e.worstEnd))),
+        groupId: e.groupId,
+        label: e.groupName,
+        relation,
+      });
+    }
+    return { bands, worstFactor };
+  }
+
+  /** Hydraulic reality check for the zones of ONE one-off step, before it exists. */
+  private stepHydraulicWarnings(zones: Zone[]): OneTimeWarning[] {
+    const out: OneTimeWarning[] = [];
+    const add = (w: OneTimeWarning) => {
+      if (!out.some((x) => x.code === w.code && JSON.stringify(x.params) === JSON.stringify(w.params))) out.push(w);
+    };
+
+    // a zone whose own flow is over the budget never starts at all — the runtime
+    // compares sum + candidate even against an empty pool, so this is not a
+    // "they will take turns" warning, it is a "this zone will never water" one
+    for (const z of zones) {
+      const src = this.source(z.sourceId);
+      const own = this.flowOf(z);
+      if (src?.maxFlowLpm && own !== null && own > src.maxFlowLpm)
+        add({ code: 'flow_impossible', params: { zone: z.name, source: src.name, flow: own, limit: src.maxFlowLpm } });
+    }
+
+    const bySource = new Map<string, Zone[]>();
+    for (const z of zones) {
+      if (!z.sourceId) continue;
+      bySource.set(z.sourceId, [...(bySource.get(z.sourceId) ?? []), z]);
+    }
+    for (const [sourceId, pool] of bySource) {
+      const src = this.source(sourceId);
+      if (!src?.maxFlowLpm || pool.length < 2) continue;
+      let sum = 0;
+      for (const z of pool) sum += this.flowOf(z) ?? 0;
+      for (const z of pool.filter((z) => this.flowOf(z) === null))
+        add({ code: 'flow_unknown', params: { source: src.name, zone: z.name } });
+      if (sum > src.maxFlowLpm)
+        add({ code: 'flow_over_budget', params: { source: src.name, sum: Math.round(sum), limit: src.maxFlowLpm } });
+    }
+
+    for (const z of zones) {
+      const src = this.source(z.sourceId);
+      if (!src?.dependsOn) continue;
+      if (zones.some((other) => other.sourceId === src.dependsOn))
+        add({ code: 'source_depends', params: { source: src.name, other: this.source(src.dependsOn)?.name ?? src.dependsOn } });
+    }
+
+    const groupIds = [...new Set(zones.map((z) => this.containingGroup(z.id)?.id).filter((id): id is string => !!id))];
+    for (let i = 0; i < groupIds.length; i++) {
+      for (let j = i + 1; j < groupIds.length; j++) {
+        if (this.groupRelation(groupIds[i], [groupIds[j]]) !== 'conflict') continue;
+        add({
+          code: 'groups_exclusive',
+          params: { a: this.group(groupIds[i])?.name ?? groupIds[i], b: this.group(groupIds[j])?.name ?? groupIds[j] },
+        });
+      }
+    }
+    return out;
+  }
+
+  /** Absolute start of a draft: a 'finish' anchor means "be done by that time". */
+  resolveOneTimeStart(draft: OneTimeDraft): number {
+    const len = this.onceLengthMs(draft.steps ?? [], Math.max(0, draft.interStepDelayS ?? 0));
+    return draft.anchor === 'finish' ? draft.startTs - len : draft.startTs;
+  }
+
+  /** Planned occurrences that can never run next to the draft's zones. */
+  private async oneTimeConflicts(startTs: number, endTs: number, ctxGroupIds: string[]) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (!ctxGroupIds.length || endTs <= todayStart.getTime()) return [];
+    const days = Math.min(60, Math.max(1, Math.ceil((endTs - todayStart.getTime()) / (24 * 3600_000))));
+    const { envelopes } = await this.plan(days);
+    return envelopes
+      .filter((e) => e.start < endTs && Math.max(e.end, e.worstEnd) > startTs && this.groupRelation(e.groupId, ctxGroupIds) === 'conflict')
+      .map((e) => ({ label: e.groupName, startTs: e.start, endTs: Math.max(e.end, e.worstEnd) }));
+  }
+
+  /** Dry run of a one-off draft: the cascade, the water, and everything that can bite. */
+  async oneTimePreview(draft: OneTimeDraft) {
+    const settings = await this.config.getSettings();
+    const startTs = this.resolveOneTimeStart(draft);
+    const warnings: OneTimeWarning[] = [];
+    const stepWarnings = new Map<number, OneTimeWarning[]>();
+    const warn = (index: number, w: OneTimeWarning) => stepWarnings.set(index, [...(stepWarnings.get(index) ?? []), w]);
+
+    // Zones that are already decided not to water are left out of the cascade and
+    // of the water estimate: a summary that bills a faulted zone contradicts the
+    // alert right above it.
+    const skipped = new Set<string>();
+    (draft.steps ?? []).forEach((step, index) => {
+      for (const entry of step ?? []) {
+        const z = this.zone(entry.zoneId);
+        if (!z) {
+          warn(index, { code: 'zone_missing', params: { zone: entry.zoneId } });
+          skipped.add(entry.zoneId);
+          continue;
+        }
+        if (!z.enabled) {
+          warn(index, { code: 'zone_disabled', params: { zone: z.name } });
+          skipped.add(z.id);
+          continue;
+        }
+        if (this.faultZones.has(z.id)) {
+          warn(index, { code: 'zone_fault', params: { zone: z.name } });
+          skipped.add(z.id);
+          continue;
+        }
+        if (!draft.force) {
+          // a pause that still covers the start time is not a maybe
+          if (z.snoozeUntil && Number(z.snoozeUntil) > startTs) {
+            warn(index, { code: 'zone_paused', params: { zone: z.name } });
+            skipped.add(z.id);
+            continue;
+          }
+          const g = this.containingGroup(z.id);
+          if (g?.snoozeUntil && Number(g.snoozeUntil) > startTs) {
+            warn(index, { code: 'group_paused', params: { zone: z.name, group: g.name } });
+            skipped.add(z.id);
+            continue;
+          }
+        }
+        if (!z.sourceId) warn(index, { code: 'zone_no_source', params: { zone: z.name } });
+        const minutes = this.onceMinutes(z, entry.minutes);
+        if (minutes < entry.minutes) warn(index, { code: 'zone_capped', params: { zone: z.name, max: z.maxRuntimeMin } });
+        const wallMin = Math.round(this.onceZoneWallMs(z, minutes) / 60_000);
+        if (wallMin > Math.round(minutes))
+          warn(index, { code: 'cycle_soak', params: { zone: z.name, minutes: Math.round(minutes), wall: wallMin } });
+      }
+    });
+
+    const sim = this.simulateOneTime(draft.steps ?? [], draft.interStepDelayS ?? 0, startTs, (id) => skipped.has(id));
+    let litersMin = 0;
+    let litersMax = 0;
+    const steps = sim.steps.map((s) => {
+      const zones = (draft.steps?.[s.index] ?? [])
+        .map((e) => this.zone(e.zoneId))
+        .filter((z): z is Zone => !!z && !skipped.has(z.id));
+      for (const z of s.zones) {
+        const f = this.zone(z.zoneId)?.flowLpm;
+        if (f === null || f === undefined) continue;
+        litersMin += (typeof f === 'number' ? f : f.min) * z.minutes;
+        litersMax += (typeof f === 'number' ? f : f.max) * z.minutes;
+      }
+      return { ...s, warnings: [...(stepWarnings.get(s.index) ?? []), ...this.stepHydraulicWarnings(zones)] };
+    });
+
+    if (startTs <= Date.now()) warnings.push({ code: 'start_in_past' });
+    const probe = {
+      id: 'preview',
+      name: draft.name ?? null,
+      startTs,
+      steps: draft.steps ?? [],
+      interStepDelayS: Math.max(0, draft.interStepDelayS ?? 0),
+      status: 'scheduled',
+      paused: false,
+      force: !!draft.force,
+      firedTs: null,
+      createdTs: Date.now(),
+    } as OneTimeRun;
+    const prediction = await this.predictOneTimeSkip(probe, settings);
+
+    const ctx = [...new Set((draft.steps ?? []).flat().map((e) => this.containingGroup(e.zoneId)?.id).filter((id): id is string => !!id))];
+    const conflicts = await this.oneTimeConflicts(startTs, sim.endTs, ctx);
+
+    // wall-clock length, the same measure upcoming() reports as durationMin
+    const totalMin = (sim.endTs - startTs) / 60_000;
+    return {
+      startTs,
+      endTs: sim.endTs,
+      totalMin,
+      litersMin,
+      litersMax,
+      steps,
+      warnings,
+      // same English bucket as the timeline's skip reasons
+      skipReasons: prediction.certain,
+      maybeSkip: prediction.uncertain,
+      conflicts,
+    };
+  }
+
+  // ------------------------------------------------------- one-off CRUD
+
+  /** sqlite hands bigints back as strings — normalize before anything reads them */
+  private oneTimeOut(o: OneTimeRun): OneTimeRun {
+    return {
+      ...o,
+      startTs: Number(o.startTs),
+      firedTs: o.firedTs === null || o.firedTs === undefined ? null : Number(o.firedTs),
+      createdTs: Number(o.createdTs),
+    };
+  }
+
+  async listOneTimeRuns(all = false): Promise<OneTimeRun[]> {
+    const pending = await this.onceRepo.find({ where: [{ status: 'scheduled' }, { status: 'running' }] });
+    const out = pending.map((o) => this.oneTimeOut(o)).sort((a, b) => a.startTs - b.startTs);
+    if (!all) return out;
+    // history is bounded: a season of evening one-offs is hundreds of rows, and
+    // the page renders every one it is given
+    const finished = await this.onceRepo
+      .createQueryBuilder('o')
+      .where('o.status NOT IN (:...live)', { live: ['scheduled', 'running'] })
+      .orderBy('o.startTs', 'DESC')
+      .take(50)
+      .getMany();
+    return [...out, ...finished.map((o) => this.oneTimeOut(o))];
+  }
+
+  async getOneTimeRun(id: string): Promise<OneTimeRun | null> {
+    const row = await this.onceRepo.findOneBy({ id });
+    return row ? this.oneTimeOut(row) : null;
+  }
+
+  async createOneTimeRun(draft: OneTimeDraft): Promise<OneTimeRun> {
+    const now = Date.now();
+    const startTs = this.resolveOneTimeStart(draft);
+    const row = await this.onceRepo.save({
+      id: `once:${now}:${Math.random().toString(36).slice(2, 8)}`,
+      name: draft.name?.trim() || null,
+      startTs,
+      steps: draft.steps,
+      interStepDelayS: Math.max(0, draft.interStepDelayS ?? 0),
+      status: 'scheduled' as const,
+      paused: false,
+      force: !!draft.force,
+      firedTs: null,
+      createdTs: now,
+    });
+    await this.journal.add('info', {
+      code: 'once_created',
+      detail: `${this.onceLabel(row)} scheduled for ${new Date(startTs).toLocaleString()}`,
+    });
+    this.broadcastState();
+    return this.oneTimeOut(row);
+  }
+
+  async updateOneTimeRun(id: string, draft: OneTimeDraft): Promise<OneTimeRun | null> {
+    const row = await this.onceRepo.findOneBy({ id });
+    if (!row) return null;
+    await this.onceRepo.update(id, {
+      name: draft.name?.trim() || null,
+      startTs: this.resolveOneTimeStart(draft),
+      steps: draft.steps,
+      interStepDelayS: Math.max(0, draft.interStepDelayS ?? 0),
+      force: !!draft.force,
+    });
+    this.broadcastState();
+    return this.getOneTimeRun(id);
+  }
+
+  /**
+   * Pausing means "let it expire instead of running", which only has meaning
+   * before it starts. A run that is already watering is stopped by cancelling it —
+   * silently accepting a pause there would report success while the valves stay open.
+   */
+  async setOneTimePause(id: string, paused: boolean): Promise<OneTimeRun | null | 'running'> {
+    const row = await this.onceRepo.findOneBy({ id });
+    if (!row) return null;
+    if (row.status !== 'scheduled') return 'running';
+    await this.onceRepo.update(id, { paused });
+    await this.journal.add('info', {
+      code: 'once_pause',
+      detail: `${this.onceLabel(row)} ${paused ? 'paused — it will expire instead of running' : 'resumed'}`,
+    });
+    this.broadcastState();
+    return this.getOneTimeRun(id);
+  }
+
+  /**
+   * Cancels a one-off that has not run yet (and stops it mid-flight); a one-off
+   * that is already over is simply deleted — there is nothing left to cancel.
+   */
+  async cancelOneTimeRun(id: string): Promise<{ deleted: boolean; status: string } | null> {
+    const row = await this.onceRepo.findOneBy({ id });
+    if (!row) return null;
+    if (row.status === 'scheduled' || row.status === 'running') {
+      this.onceRuns.delete(id);
+      this.queue = this.queue.filter((q) => q.onceId !== id);
+      for (const a of [...this.active]) if (a.onceId === id) await this.finishRun(a, 'manual_stop');
+      await this.onceRepo.update(id, { status: 'cancelled' });
+      await this.journal.add('info', { code: 'once_cancelled', detail: `${this.onceLabel(row)} cancelled` });
+      this.broadcastState();
+      return { deleted: false, status: 'cancelled' };
+    }
+    await this.onceRepo.delete(id);
+    return { deleted: true, status: row.status };
   }
 
   /** Human pause phrasing, e.g. "49 min (until 8:44 PM)" or "12h (until Tue 8:00 AM)". */

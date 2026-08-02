@@ -18,11 +18,27 @@ const SKIP_CERTAIN_FILL = '#f59f00';
 const SKIP_POSSIBLE_MIX = 38;
 const ghost = (hue: string) => `color-mix(in srgb, ${hue} ${SKIP_POSSIBLE_MIX}%, var(--mantine-color-body))`;
 const BAR_OPACITY = 0.95;
+/** A one-off run gets NO hue of its own: every fifth candidate collides with grape under
+ *  deuteranopia. It borrows the zone hue (it is zone-level watering) and is told apart by a
+ *  45° hatch, its own row, its own legend chip and the word "one-off" in the tooltip.
+ *  Dark and light stripes alternate so the texture survives the amber certain-skip fill and
+ *  the pale ghost of a possible skip alike, in both colour schemes. */
+const ONCE_HATCH =
+  'repeating-linear-gradient(45deg, rgba(0,0,0,.38) 0 3px, rgba(255,255,255,.30) 3px 6px, transparent 6px 10px)';
 /** The finish window must not shout about a run that will not happen. */
 const SKIPPED_ENVELOPE_OPACITY = 0.35;
 const MAX_SKIP_REASONS = 3;
 
 type SkipState = 'certain' | 'possible' | null | undefined;
+
+interface TimelineRow {
+  key: string;
+  label: string;
+  /** a row of one-off runs, drawn hatched and labelled as such */
+  once: boolean;
+  segs: PlanSegment[];
+  envs: PlanEnvelope[];
+}
 
 function dayLabel(offset: number): string {
   const d = new Date();
@@ -43,22 +59,37 @@ function skipStateLabel(skip: SkipState): string | null {
   return null;
 }
 
-function barFill(kind: 'group' | 'zone', skip: SkipState): string {
+type BarKind = PlanSegment['kind'];
+
+function barFill(kind: BarKind, skip: SkipState): string {
   if (skip === 'certain') {
     return SKIP_CERTAIN_FILL;
   }
 
-  const hue = kind === 'zone' ? 'var(--mantine-color-grape-5)' : 'var(--mantine-color-teal-6)';
+  const hue = kind === 'group' ? 'var(--mantine-color-teal-6)' : 'var(--mantine-color-grape-5)';
   return skip === 'possible' ? ghost(hue) : hue;
 }
 
+/** The hatch is a background layer ON TOP of whatever fill the skip state produced,
+ *  so the state keeps its colour and the one-off keeps its texture. */
+function barBackground(kind: BarKind, skip: SkipState): string {
+  const fill = barFill(kind, skip);
+  return kind === 'once' ? `${ONCE_HATCH}, ${fill}` : fill;
+}
+
 /** Mantine renders a ReactNode label, so the state and its reasons get their own lines. */
-function barTooltip(title: string, skip: SkipState, skipWhy?: string[]): ReactNode {
+function barTooltip(title: string, kind: BarKind, skip: SkipState, skipWhy?: string[]): ReactNode {
   const state = skipStateLabel(skip);
 
   return (
     <>
       {title}
+      {kind === 'once' && (
+        <>
+          <br />
+          {t('one-off')}
+        </>
+      )}
       {state !== null && (
         <>
           <br />
@@ -104,16 +135,22 @@ export default function TimelinePage() {
 
     const daySegs = (plan?.segments ?? []).filter((s) => s.start < to && s.worstEnd > from);
     const dayEnvs = (plan?.envelopes ?? []).filter((e) => e.start < to && e.worstEnd > from);
-    const byGroup = new Map<string, { segs: typeof daySegs; envs: PlanEnvelope[] }>();
+    const byGroup = new Map<string, TimelineRow>();
+    // A one-off keeps its own row even when it is named after a group: it is a
+    // different kind of run and the row label is half of how it is recognised.
+    const rowOf = (kind: BarKind, groupName: string): TimelineRow => {
+      // the backend sends an empty name for an unnamed one-off — the label is ours to translate
+      const label = kind === 'once' ? groupName || t('One-off watering') : groupName;
+      const key = `${kind === 'once' ? 'once' : 'plan'}|${label}`;
+      const row = byGroup.get(key) ?? { key, label, once: kind === 'once', segs: [], envs: [] };
+      byGroup.set(key, row);
+      return row;
+    };
     for (const s of daySegs) {
-      const row = byGroup.get(s.groupName) ?? { segs: [], envs: [] };
-      row.segs.push(s);
-      byGroup.set(s.groupName, row);
+      rowOf(s.kind, s.groupName).segs.push(s);
     }
     for (const e of dayEnvs) {
-      const row = byGroup.get(e.groupName) ?? { segs: [], envs: [] };
-      row.envs.push(e);
-      byGroup.set(e.groupName, row);
+      rowOf(e.kind, e.groupName).envs.push(e);
     }
     // busy fraction of the day (union of intervals)
     const intervals = daySegs
@@ -131,7 +168,7 @@ export default function TimelinePage() {
       }
     }
     return {
-      rows: [...byGroup.entries()],
+      rows: [...byGroup.values()],
       dayConflicts: daySegs.filter((s) => s.conflict).length,
       busyPct: Math.round((busy / (24 * 3600_000)) * 100),
       from,
@@ -178,10 +215,27 @@ export default function TimelinePage() {
           {/* fixed label column — never scrolls away */}
           <Box w={132} style={{ flexShrink: 0 }}>
             <Box h={20} />
-            {rows.map(([groupName]) => (
-              <Box key={groupName} h={32} style={{ display: 'flex', alignItems: 'center' }}>
-                <Text size="sm" truncate pr={8} title={groupName} style={{ width: '100%' }}>
-                  {groupName}
+            {rows.map((row) => (
+              <Box key={row.key} h={32} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {row.once && (
+                  <Box
+                    w={10}
+                    h={10}
+                    style={{
+                      flexShrink: 0,
+                      borderRadius: 2,
+                      background: `${ONCE_HATCH}, var(--mantine-color-grape-5)`,
+                    }}
+                  />
+                )}
+                <Text
+                  size="sm"
+                  truncate
+                  pr={8}
+                  title={row.once ? `${row.label} · ${t('one-off')}` : row.label}
+                  style={{ minWidth: 0 }}
+                >
+                  {row.label}
                 </Text>
               </Box>
             ))}
@@ -210,8 +264,8 @@ export default function TimelinePage() {
                 Nothing scheduled this day.
               </Text>
             )}
-            {rows.map(([groupName, row]) => (
-              <Group key={groupName} gap={0} wrap="nowrap" h={32} align="center">
+            {rows.map((row) => (
+              <Group key={row.key} gap={0} wrap="nowrap" h={32} align="center">
                 <Box pos="relative" h={26} style={{ flexGrow: 1, background: 'var(--mantine-color-default-hover)', borderRadius: 4 }}>
                   {/* hour gridlines */}
                   {Array.from({ length: 12 }, (_, i) => (
@@ -226,6 +280,7 @@ export default function TimelinePage() {
                       key={i}
                       label={barTooltip(
                         `${s.zoneName}: ${fmt(s.start)}–${fmt(s.end)}${s.conflict ? ' — CONFLICT' : ''}`,
+                        s.kind,
                         s.skip,
                         s.skipWhy,
                       )}
@@ -237,7 +292,7 @@ export default function TimelinePage() {
                         style={{
                           left: `${pct(s.start)}%`,
                           width: `${Math.max(0.5, pct(s.end) - pct(s.start))}%`,
-                          background: barFill(s.kind, s.skip),
+                          background: barBackground(s.kind, s.skip),
                           borderRadius: 4,
                           opacity: BAR_OPACITY,
                           // a conflict outlines whatever fill the skip rules produced, so a
@@ -259,9 +314,9 @@ export default function TimelinePage() {
                     const color =
                       e.skip === 'certain'
                         ? SKIP_CERTAIN_FILL
-                        : e.kind === 'zone'
-                          ? 'var(--mantine-color-grape-4)'
-                          : 'var(--mantine-color-teal-4)';
+                        : e.kind === 'group'
+                          ? 'var(--mantine-color-teal-4)'
+                          : 'var(--mantine-color-grape-4)';
                     const hatch = (c: string) => `repeating-linear-gradient(135deg, ${c} 0 3px, transparent 3px 7px)`;
                     const tailOpacity = e.skip ? SKIPPED_ENVELOPE_OPACITY : 1;
                     return (
@@ -307,6 +362,21 @@ export default function TimelinePage() {
         <Group gap="md" mt="xs">
           <Badge variant="light" color="teal">{t('group schedule')}</Badge>
           <Badge variant="light" color="grape">{t('zone schedule')}</Badge>
+          {/* the swatch carries the texture, the text stays on a readable background:
+              hatch strokes running through the glyphs drop them to ~2:1 contrast */}
+          <Badge
+            variant="light"
+            color="grape"
+            leftSection={
+              <Box
+                w={10}
+                h={10}
+                style={{ borderRadius: 2, background: `${ONCE_HATCH}, var(--mantine-color-grape-5)` }}
+              />
+            }
+          >
+            {t('one-off')}
+          </Badge>
           <Badge variant="light" color="red">{t('rule conflict')}</Badge>
           <Badge variant="light" style={{ background: `${SKIP_CERTAIN_FILL}33`, color: SKIP_CERTAIN_FILL }}>
             {t('will be skipped')}

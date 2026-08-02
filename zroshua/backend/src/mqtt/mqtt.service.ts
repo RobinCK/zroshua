@@ -314,7 +314,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       groupName: u.groupName,
       kind: u.kind ?? 'group',
       targetId: u.targetId ?? u.groupId,
-      paused: u.snoozeUntil != null && u.snoozeUntil > Date.now(),
+      // a one-off carries its own paused flag; groups/zones use their pause end
+      paused: u.paused ?? (u.snoozeUntil != null && u.snoozeUntil > Date.now()),
       ts: u.ts,
       minutes: Math.round(u.durationMin ?? u.zones.reduce((a: number, z: any) => a + z.minutes, 0)),
       zones: u.zones.map((z: any) => z.name),
@@ -331,7 +332,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       s: s.start,
       e: s.end,
       c: s.conflict ? 1 : 0,
-      k: s.kind === 'zone' ? 'z' : 'g',
+      k: s.kind === 'zone' ? 'z' : s.kind === 'once' ? 'o' : 'g',
       sk: s.skip === 'certain' ? 1 : s.skip === 'possible' ? 2 : 0,
       r: s.skipWhy?.[0] ?? null,
     }));
@@ -340,6 +341,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       s: e.start,
       e: e.end,
       w: e.worstEnd,
+      // same kind key the segments carry: a one-off keeps its own row on the card
+      k: e.kind === 'zone' ? 'z' : e.kind === 'once' ? 'o' : 'g',
       sk: e.skip === 'certain' ? 1 : e.skip === 'possible' ? 2 : 0,
     }));
 
@@ -450,6 +453,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         return void (await this.engine.setGroupPause(cmd.groupId, Number(cmd.hours) || 0));
       case 'pause_zone':
         return void (await this.engine.setZonePause(cmd.zoneId, Number(cmd.hours) || 0));
+      case 'pause_one_time':
+        return void (await this.engine.setOneTimePause(cmd.id, !!cmd.paused));
+      case 'cancel_one_time':
+        return void (await this.engine.cancelOneTimeRun(cmd.id));
       default:
         this.log.warn(`unknown command action: ${cmd?.action}`);
     }

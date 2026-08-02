@@ -13,6 +13,7 @@ import {
   IconAccessPoint,
   IconCategory,
   IconNotes,
+  IconCalendarPlus,
 } from '@tabler/icons-react';
 import { useEngineState } from './hooks';
 import { t } from './i18n';
@@ -26,6 +27,7 @@ import TimelinePage from './pages/TimelinePage';
 import StatsPage from './pages/StatsPage';
 import JournalPage from './pages/JournalPage';
 import SettingsPage from './pages/SettingsPage';
+import OneTimePage from './pages/OneTimePage';
 
 const sections = [
   {
@@ -41,6 +43,7 @@ const sections = [
     items: [
       { key: 'zones', label: 'Zones', icon: IconDroplet },
       { key: 'groups', label: 'Groups & schedules', icon: IconCategory },
+      { key: 'onetime', label: 'One-off watering', icon: IconCalendarPlus },
       { key: 'sources', label: 'Water sources', icon: IconAccessPoint },
       { key: 'sensors', label: 'Sensors', icon: IconListDetails },
     ],
@@ -147,6 +150,7 @@ export default function App() {
         {page === 'map' && <MapPage state={state} />}
         {page === 'zones' && <ZonesPage state={state} />}
         {page === 'groups' && <GroupsPage />}
+        {page === 'onetime' && <OneTimePage />}
         {page === 'sources' && <SourcesPage />}
         {page === 'sensors' && <SensorsPage />}
         {page === 'stats' && <StatsPage />}

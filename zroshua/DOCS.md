@@ -103,6 +103,38 @@ and applies instantly without restarts.
   schedules, each with a skip prediction. Every row has a pause menu — *skip this run*
   (pauses the group or zone only until that run is past), pause 6/12/24 h, or resume.
 
+## One-off watering
+
+A **one-off run** is a dated, one-shot request — "these zones, tonight at 19:00, once" — with an
+absolute start time instead of a recurrence. It lives on its own page (and behind a button on the
+dashboard), and it shows up in *Upcoming waterings*, on the timeline, in the journal and in the
+Lovelace card like any other run.
+
+- **Steps.** Zones are arranged into ordered steps. Zones inside one step open together; a step
+  starts only when the previous one has fully finished (cycle/soak segments included), plus an
+  optional delay between steps. Only the current step is ever queued, so a one-off that runs two
+  rule-bound groups in the "wrong" order cannot deadlock against its own later step.
+- **It is an automatic run, not a manual one** (`triggeredBy: once`, `manual: false`). It goes
+  through the normal queue: never-overlap and order rules, source dependencies, the source's "has
+  water" sensor and the flow budget all apply. A manual run bypasses every one of those — not what
+  you want from something scheduled hours ahead.
+- **It obeys** the global/group/zone pause, the rain sensor and its dry-out window, the
+  soil-moisture block, the source's low-level block and a zone's fault state. One switch —
+  *force* — overrides exactly the pauses, the rain and the wet soil, nothing else.
+- **It ignores** the weather multiplier, temperature scaling, per-schedule run conditions and the
+  minimum-duration rollover: the minutes are literal. A zone's cycle/soak split still applies, and
+  the soak is measured from when the previous segment really ended.
+- **Preview.** The wizard dry-runs the draft: per-step clock windows, the water estimate, and
+  warnings for everything that can bite — a zone that is disabled, faulted, paused at that time or
+  has no source; a duration capped by the zone failsafe; a step that does not fit on its source's
+  flow budget (the step is then *timed* as the partly serial run it will be); a zone whose own flow
+  exceeds the budget and can therefore never start; groups that may never run together.
+- **Endings.** Skipping a scheduled one-off lets it expire instead of running. A one-off that
+  misses its start by more than five minutes expires rather than watering in the middle of the
+  night. One that cannot start within 30 minutes of its slot is dropped with a reason. A restart
+  mid-run closes it as *cut short*, saying how many zones had watered. Every one of these is
+  journaled, notified, and shown on the run's history row. Finished rows are pruned after 30 days.
+
 ## Timeline
 
 The Timeline page renders each day (up to 7 ahead) as a 24-hour strip per group: bar

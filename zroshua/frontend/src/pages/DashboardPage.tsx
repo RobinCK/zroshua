@@ -28,6 +28,8 @@ import {
   IconBucketDroplet,
   IconClockHour4,
   IconCalendarClock,
+  IconCalendarPlus,
+  IconTrash,
 } from '@tabler/icons-react';
 import { ThemeIcon } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -35,6 +37,7 @@ import { api, EngineState, Group as ZGroup, Upcoming, WeatherNow, Zone } from '.
 import { fmtDur, fmtTime, useResource } from '../hooks';
 import { t, locale } from '../i18n';
 import { SliderInput } from '../components/common';
+import OneTimeWizard from '../components/OneTimeWizard';
 
 function InfoTile({
   label,
@@ -75,7 +78,7 @@ function InfoTile({
 
 export default function DashboardPage({ state }: { state: EngineState | null }) {
   const { data: weather } = useResource<WeatherNow>('/weather');
-  const { data: upcoming } = useResource<Upcoming[]>('/upcoming', [state?.active.length]);
+  const { data: upcoming, reload: reloadUpcoming } = useResource<Upcoming[]>('/upcoming', [state?.active.length]);
   const { data: zones } = useResource<Zone[]>('/zones');
   const { data: groups } = useResource<ZGroup[]>('/groups');
   const { data: today } = useResource<{ totals: { minutes: number; litersMin: number; litersMax: number } }>(
@@ -98,6 +101,7 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
   };
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [hours, setHours] = useState(24);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     try {
@@ -115,6 +119,15 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
     const path = kind === 'zone' ? `/zones/${id}/pause` : `/groups/${id}/pause`;
     return act(() => api.post(path, { hours }), hours > 0 ? t('paused') : t('Resume'));
   };
+
+  /** a one-off is not snoozed by hours: it is soft-skipped, or cancelled outright */
+  const pauseOneTime = (u: Upcoming, paused: boolean) =>
+    act(() => api.post(`/one-time/${u.targetId}/pause`, { paused }), paused ? t('Skipped') : t('Resumed')).then(
+      reloadUpcoming,
+    );
+
+  const cancelOneTime = (u: Upcoming) =>
+    act(() => api.del(`/one-time/${u.targetId}`), t('Cancelled')).then(reloadUpcoming);
 
   const next = (upcoming ?? []).filter((u) => u.ts > Date.now()).slice(0, 6);
   const litersToday = today
@@ -279,6 +292,9 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
               <Button variant="light" leftSection={<IconPlayerPause size={16} />} onClick={() => setSnoozeOpen(true)}>
                 {state?.snoozeUntil ? `${t('paused')} · ${fmtTime(state.snoozeUntil)}` : t('Pause all')}
               </Button>
+              <Button variant="light" leftSection={<IconCalendarPlus size={16} />} onClick={() => setWizardOpen(true)}>
+                {t('One-off watering')}
+              </Button>
             </Group>
             {state?.pumpStates.length ? (
               <Group mt="sm" gap="xs">
@@ -321,7 +337,8 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
         {next.length ? (
           <Stack gap="xs">
             {next.map((u, i) => {
-              const paused = u.snoozeUntil != null && u.snoozeUntil > Date.now();
+              const once = u.kind === 'once';
+              const paused = once ? !!u.paused : u.snoozeUntil != null && u.snoozeUntil > Date.now();
               const dim = u.willSkip || paused ? 0.55 : 1;
               return (
                 <Flex
@@ -332,15 +349,25 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                   gap={{ base: 4, sm: 'sm' }}
                   style={{ borderBottom: i < next.length - 1 ? '1px solid var(--mantine-color-default-border)' : undefined, paddingBottom: 6 }}
                 >
-                  <Text style={{ opacity: dim, minWidth: 0 }} truncate>
-                    <b>{u.groupName}</b>
-                    {u.kind === 'zone' ? '' : u.zones.length ? ` — ${u.zones.map((z) => z.name).join(', ')}` : ''}
+                  {/* the badges come first and never shrink: inside the truncating text
+                      they were the first thing a narrow phone cut off */}
+                  <Group gap={6} wrap="nowrap" style={{ opacity: dim, minWidth: 0 }}>
                     {u.kind === 'zone' && (
-                      <Badge size="xs" variant="light" color="blue" ml={6} style={{ verticalAlign: 'middle' }}>
+                      <Badge size="xs" variant="light" color="blue" style={{ flexShrink: 0 }}>
                         {t('zone')}
                       </Badge>
                     )}
-                  </Text>
+                    {once && (
+                      // grape, the same hue the timeline, the card and the one-off page use
+                      <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                        {t('one-off')}
+                      </Badge>
+                    )}
+                    <Text truncate style={{ minWidth: 0 }}>
+                      <b>{once ? u.groupName || t('One-off watering') : u.groupName}</b>
+                      {u.kind === 'zone' ? '' : u.zones.length ? ` — ${u.zones.map((z) => z.name).join(', ')}` : ''}
+                    </Text>
+                  </Group>
                   <Group gap="xs" wrap="wrap" justify="flex-end" style={{ flexShrink: 0 }}>
                     {paused && (
                       <Badge variant="light" color="gray" leftSection={<IconPlayerPause size={12} />}>
@@ -383,7 +410,23 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
                       </Menu.Target>
                       <Menu.Dropdown>
                         <Menu.Label>{u.kind === 'zone' ? t('{name} · zone', { name: u.groupName }) : u.groupName}</Menu.Label>
-                        {paused ? (
+                        {/* a one-off has nothing to snooze by hours: it is skipped once, or dropped */}
+                        {once ? (
+                          <>
+                            {paused ? (
+                              <Menu.Item leftSection={<IconPlayerPlay size={14} />} onClick={() => pauseOneTime(u, false)}>
+                                {t('Resume')}
+                              </Menu.Item>
+                            ) : (
+                              <Menu.Item leftSection={<IconPlayerPause size={14} />} onClick={() => pauseOneTime(u, true)}>
+                                {t('Skip this run')}
+                              </Menu.Item>
+                            )}
+                            <Menu.Item color="red" leftSection={<IconTrash size={14} />} onClick={() => cancelOneTime(u)}>
+                              {t('Cancel')}
+                            </Menu.Item>
+                          </>
+                        ) : paused ? (
                           <Menu.Item leftSection={<IconPlayerPlay size={14} />} onClick={() => pauseRow(u, 0)}>
                             {t('Resume')}
                           </Menu.Item>
@@ -426,6 +469,8 @@ export default function DashboardPage({ state }: { state: EngineState | null }) 
           </Group>
         </Stack>
       </Modal>
+
+      <OneTimeWizard opened={wizardOpen} onClose={() => setWizardOpen(false)} onSaved={reloadUpcoming} />
     </Stack>
   );
 }

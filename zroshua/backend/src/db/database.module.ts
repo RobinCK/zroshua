@@ -3,10 +3,10 @@ import { DataSource } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { env } from '../env';
-import { Group, GroupRule, JournalEntry, KV, Run, WaterSource, Zone } from './entities';
+import { Group, GroupRule, JournalEntry, KV, OneTimeRun, Run, WaterSource, Zone } from './entities';
 
 export const DATA_SOURCE = 'DATA_SOURCE';
-const entities = [Zone, Group, GroupRule, WaterSource, Run, JournalEntry, KV];
+const entities = [Zone, Group, GroupRule, WaterSource, Run, JournalEntry, KV, OneTimeRun];
 
 async function createDataSource(): Promise<DataSource> {
   let ds: DataSource;

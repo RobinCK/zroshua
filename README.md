@@ -115,6 +115,41 @@ stays in place either way — the time is still reserved until the run is actual
 
 ![Timeline](docs/screenshots/timeline.png)
 
+One-off runs share the strip with the schedules. They get their own row and the zone hue with a
+45° hatch — not a fifth colour, because no fifth hue stays distinguishable from the existing four
+for a colour-blind reader. The row label and the tooltip name them too, so the texture is never
+the only clue.
+
+### One-off watering
+
+Sometimes the answer is not a schedule: *water these five beds tonight at 19:00, once, and forget
+about it.* That is a **one-off run** — a dated, one-shot request with an absolute start time.
+
+A wizard builds it in four steps:
+
+1. **Zones** — pick them, each with its own minutes (prefilled from the zone's base duration).
+2. **Steps** — arrange the zones into ordered steps. Zones inside one step open **at the same
+   time**; steps run one after another. Each step is checked against reality while you build it:
+   if the zones do not fit on their water source, the wizard says so *and* re-times the step as
+   the partly serial run it will really be.
+3. **When** — today, tomorrow or a date, on the same occupancy strip the schedule editor uses,
+   built from the real plan for that day. "Start at" or "finish by" both work.
+4. **Confirm** — the summary, an optional name, and one switch: *run even if watering is paused,
+   it is raining or the soil is wet.*
+
+A one-off is an **automatic** run, not a manual one. It waits its turn in the queue and obeys
+never-overlap and order rules, source dependencies, the "source has water" sensor and the flow
+budget — a manual run bypasses all of those, which is exactly what you do not want from a run
+scheduled hours in advance. It obeys pauses, the rain sensor and the soil-moisture block unless
+the force switch is on. It ignores the weather multiplier, temperature scaling, per-schedule run
+conditions and the minimum-duration rollover: the minutes you typed are taken literally.
+
+It appears wherever a scheduled run appears — in *Upcoming waterings*, on the timeline, in the
+journal, and in both card views — and it can be skipped (it then quietly expires), edited or
+cancelled. A one-off that misses its start by more than five minutes, because the controller was
+busy or offline, **expires instead of watering at 03:00** what was meant for 19:00. Everything
+that stops it happening is named: in the run's history row, in the journal and as a notification.
+
 ### Groups, schedules and the time-slot picker
 
 A group is an ordered set of zones with schedules and an execution mode: **sequential**

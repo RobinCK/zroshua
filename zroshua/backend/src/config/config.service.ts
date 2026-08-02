@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { DATA_SOURCE } from '../db/database.module';
-import { Group, GroupRule, KV, WaterSource, Zone } from '../db/entities';
+import { Group, GroupRule, KV, OneTimeRun, WaterSource, Zone } from '../db/entities';
 
 export type SoilTrigger = {
   id: string;
@@ -129,6 +129,7 @@ export class ConfigService {
   rules: Repository<GroupRule>;
   sources: Repository<WaterSource>;
   kv: Repository<KV>;
+  oneTimeRuns: Repository<OneTimeRun>;
 
   constructor(@Inject(DATA_SOURCE) public readonly ds: DataSource) {
     this.zones = ds.getRepository(Zone);
@@ -136,6 +137,7 @@ export class ConfigService {
     this.rules = ds.getRepository(GroupRule);
     this.sources = ds.getRepository(WaterSource);
     this.kv = ds.getRepository(KV);
+    this.oneTimeRuns = ds.getRepository(OneTimeRun);
   }
 
   async getKV<T>(key: string, fallback: T): Promise<T> {

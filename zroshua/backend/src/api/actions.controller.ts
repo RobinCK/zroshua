@@ -40,6 +40,14 @@ export class ActionsController {
     return this.engine.busyWeek(excludeKind && excludeId ? { kind: excludeKind, id: excludeId } : undefined);
   }
 
+  /** Busy bands of one calendar date — the day view of /busy-week, from the real plan. */
+  @Get('day-bands')
+  dayBands(@Query('date') date?: string, @Query('zones') zones?: string, @Query('excludeOnce') excludeOnce?: string) {
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new BadRequestException('date=YYYY-MM-DD required');
+    const zoneIds = (zones ?? '').split(',').map((z) => z.trim()).filter(Boolean);
+    return this.engine.dayBands(date, zoneIds, excludeOnce || undefined);
+  }
+
   @Get('weather')
   weatherNow() {
     return this.weather.currentWeather();

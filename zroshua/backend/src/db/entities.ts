@@ -165,3 +165,35 @@ export class KV {
   @PrimaryColumn() key: string;
   @Column({ type: 'text' }) value: string;
 }
+
+/** One zone of one step of a one-off run: the minutes the user typed, verbatim. */
+export type OneTimeStepZone = { zoneId: string; minutes: number };
+export type OneTimeStatus = 'scheduled' | 'running' | 'done' | 'cancelled' | 'skipped' | 'expired';
+
+/**
+ * A dated, one-shot watering request ("these zones, tomorrow at 19:00, then
+ * forget it"). Not a schedule and not a manual run: it goes through the queue
+ * as an automatic run, but its durations are taken literally — no weather
+ * multiplier, no temperature scaling, no minimum-duration rollover.
+ */
+@Entity('one_time_runs')
+export class OneTimeRun {
+  @PrimaryColumn() id: string; // 'once:<createdTs>:<rand>'
+  @Column({ type: 'varchar', nullable: true }) name: string | null;
+  // absolute start; a 'finish' anchor is resolved to a start when the row is written
+  @Index() @Column({ type: 'bigint' }) startTs: number;
+  // ordered steps, zones inside one step run in parallel
+  @Column('simple-json') steps: OneTimeStepZone[][];
+  @Column('float', { default: 0 }) interStepDelayS: number;
+  @Index() @Column({ default: 'scheduled' }) status: OneTimeStatus;
+  // why it ended the way it did, so the history can say more than one word:
+  // a code the UI translates, plus the English specifics (a zone name, a time)
+  @Column({ type: 'varchar', nullable: true }) resultCode: string | null;
+  @Column({ type: 'text', nullable: true }) resultDetail: string | null;
+  // soft skip: keep the row but let it expire instead of watering
+  @Column({ default: false }) paused: boolean;
+  // ignore pauses, rain and wet soil — nothing else
+  @Column({ default: false }) force: boolean;
+  @Column({ type: 'bigint', nullable: true }) firedTs: number | null;
+  @Column({ type: 'bigint' }) createdTs: number;
+}

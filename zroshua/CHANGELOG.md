@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.5.0
+
+- **One-off watering.** A dated, one-shot request — "these five beds tonight at 19:00, once,
+  then forget it" — built in a four-step wizard: pick the zones, arrange them into ordered
+  steps (zones inside a step open together), pick the time on the same occupancy strip the
+  schedule editor uses, confirm. It has its own page, a button on the dashboard, and it shows
+  up wherever a scheduled run does: in *Upcoming waterings*, on the timeline, in the journal
+  and in both Lovelace card views, where it can be skipped or cancelled.
+- A one-off is an **automatic** run, not a manual one. It waits its turn in the queue and obeys
+  never-overlap and order rules, source dependencies, the "source has water" sensor and the
+  flow budget — a manual run bypasses all of those, which is the last thing you want from a run
+  scheduled hours in advance. It obeys pauses, the rain sensor and the soil-moisture block
+  unless the one *force* switch is on. It ignores the weather multiplier, temperature scaling,
+  run conditions and the minimum-duration rollover: the minutes are taken literally.
+- **The wizard's numbers match what will happen.** Zones that will certainly be skipped are
+  left out of the timing and the water estimate instead of being counted next to the warning
+  that says they will not run; a step whose zones do not fit on their water source is timed as
+  the partly serial run it will really be; a zone split by cycle/soak holds its slot for the
+  whole cycle, so "finish by 21:00" no longer misses by the soak time. Every warning is a code
+  the UI translates, not English text from the engine.
+- Only the current step is ever queued, so a one-off that runs two rule-bound groups in the
+  "wrong" order cannot deadlock against its own later step, and a cycle/soak gap is measured
+  from when the previous segment really ended rather than from when the run was planned.
+- Everything that stops a one-off is named: paused before its start, expired because the
+  controller was busy or offline across it, dropped after half an hour of not being able to
+  start, cut short by a restart, or every zone skipped. Each one is journaled, notified, and
+  shown on the run's own history row. Finished rows are pruned after 30 days.
+- Pausing a one-off that is already watering is refused instead of silently reporting success
+  while the valves stay open — a running one is stopped by cancelling it.
+- The timeline gained a third kind of run. It gets no new colour: every fifth hue collides with
+  an existing one under deuteranopia, so a one-off borrows the zone hue and is told apart by a
+  45° hatch, its own row and its own legend chip.
+- The soil-moisture block now appears on the timeline as a *may be skipped* reason for ordinary
+  scheduled runs too — it is a live sensor, so it is never a certainty.
+
 ## 0.4.0
 
 - **The timeline now says what will actually happen.** A reserved slot is not the

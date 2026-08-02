@@ -171,6 +171,12 @@ class ZroshuaCard extends HTMLElement {
       this._cmd('pause_zone', { zoneId: el.dataset.pauseZone, hours: Number(el.dataset.hours) });
       if (this._sel) { this._sel = null; this._render(); }
     });
+    // a one-off is neither a zone nor a group: pausing it through pause_zone/pause_group
+    // would pause the wrong thing, so it gets its own pair of commands
+    on('[data-once-pause]', (el) => {
+      this._cmd('pause_one_time', { id: el.dataset.oncePause, paused: el.dataset.paused === '1' });
+    });
+    on('[data-once-cancel]', (el) => this._cmd('cancel_one_time', { id: el.dataset.onceCancel }));
     on('[data-zone-sel]', (el) => {
       const next = this._sel === el.dataset.zoneSel ? null : el.dataset.zoneSel;
       this._openAnim = next !== null && this._sel === null; // animate only on open, not re-render
@@ -397,20 +403,37 @@ class ZroshuaCard extends HTMLElement {
             : u.maybeSkip
               ? `<div class="skiprow warn">may skip: ${this._esc(u.maybeSkip)}</div>`
               : '';
-        const tag = u.kind === 'zone' ? ' <span class="ztag">zone</span>' : '';
-        const target = u.kind === 'zone' ? u.targetId : u.groupId;
-        const kindAttr = u.kind === 'zone' ? 'data-pause-zone' : 'data-pause-group';
-        // skip just this run: pause the target until a minute past its start
-        const skipHours = Math.max(0.05, (u.ts + 60000 - Date.now()) / 3600000);
-        const pauseBtn = u.paused
-          ? this._btn({ cls: 'ghost icon', data: `${kindAttr}="${this._esc(target)}" data-hours="0"`, icon: I.play, title: 'Resume' })
-          : this._btn({ cls: 'ghost icon', data: `${kindAttr}="${this._esc(target)}" data-hours="${skipHours}"`, icon: I.pause, title: 'Skip this run' });
+        const once = u.kind === 'once';
+        const tag = once
+          ? ' <span class="ztag once">one-off</span>'
+          : u.kind === 'zone'
+            ? ' <span class="ztag">zone</span>'
+            : '';
+        let pauseBtn;
+        if (once) {
+          // a one-off is a dated one-shot: skipping it is a flag on the run itself
+          // (it then simply expires), and cancelling drops it for good
+          const id = this._esc(u.targetId);
+          pauseBtn =
+            (u.paused
+              ? this._btn({ cls: 'ghost icon', data: `data-once-pause="${id}" data-paused="0"`, icon: I.play, title: 'Resume this one-off' })
+              : this._btn({ cls: 'ghost icon', data: `data-once-pause="${id}" data-paused="1"`, icon: I.pause, title: 'Skip this one-off' })) +
+            this._btn({ cls: 'ghost icon', data: `data-once-cancel="${id}"`, icon: I.x, title: 'Cancel this one-off' });
+        } else {
+          const target = u.kind === 'zone' ? u.targetId : u.groupId;
+          const kindAttr = u.kind === 'zone' ? 'data-pause-zone' : 'data-pause-group';
+          // skip just this run: pause the target until a minute past its start
+          const skipHours = Math.max(0.05, (u.ts + 60000 - Date.now()) / 3600000);
+          pauseBtn = u.paused
+            ? this._btn({ cls: 'ghost icon', data: `${kindAttr}="${this._esc(target)}" data-hours="0"`, icon: I.play, title: 'Resume' })
+            : this._btn({ cls: 'ghost icon', data: `${kindAttr}="${this._esc(target)}" data-hours="${skipHours}"`, icon: I.pause, title: 'Skip this run' });
+        }
         const zones = (u.zones || []).join(', ');
         return `<div class="uprow ${u.willSkip || u.paused ? 'dim' : ''}">
           <div class="uptop">
             <span class="ci accent">${I.clock}</span>
             <div class="grow">
-              <div class="upname"><b>${this._esc(u.groupName)}</b>${tag}</div>
+              <div class="upname"><b>${this._esc(u.groupName || (once ? 'One-off watering' : ''))}</b>${tag}</div>
               ${zones ? `<div class="muted small">${this._esc(zones)}</div>` : ''}
             </div>
             <div class="upmeta">
@@ -435,18 +458,33 @@ class ZroshuaCard extends HTMLElement {
     const segs = (a.timeline || []).filter((s) => s.s < to && s.e > from);
     const envs = (a.timelineEnv || []).filter((e) => e.s < to && e.w > from);
     const byGroup = new Map();
-    for (const s of segs) byGroup.set(s.g, [...(byGroup.get(s.g) || []), s]);
-    for (const e of envs) if (!byGroup.has(e.g)) byGroup.set(e.g, []);
+    // a one-off keeps its own row even when it is named after a group: it is a different
+    // kind of run and the row label is half of how it is recognised
+    const rowKey = (x) => `${x.k === 'o' ? 'once' : 'plan'}|${x.g || 'One-off watering'}`;
+    const rowOf = (x) => {
+      const key = rowKey(x);
+      const row = byGroup.get(key) || { label: x.g || 'One-off watering', segs: [] };
+      byGroup.set(key, row);
+      return row;
+    };
+    for (const s of segs) rowOf(s).segs.push(s);
+    // only an envelope that actually draws a tail deserves a row of its own
+    for (const e of envs) if (e.w > e.e) rowOf(e);
     const pct = (ts) => Math.max(0, Math.min(100, ((ts - from) / 86400000) * 100));
     const nowPct = pct(Date.now());
     const rows = [...byGroup.entries()]
-      .map(([g, list]) => {
-        const bars = list
+      .map(([key, row]) => {
+        const bars = row.segs
           .map((s) => {
-            // skip state replaces / fades the identity hue; a conflict is drawn as an outline on top
-            const cls = `tlbar${s.k === 'z' ? ' zone' : ''}${this._skipCls(s.sk)}${s.c ? ' conflict' : ''}`;
+            // skip state replaces / fades the identity hue; a conflict is drawn as an outline on top.
+            // a one-off is zone-level watering, so it borrows the zone hue and adds the hatch on top
+            const once = s.k === 'o';
+            const cls =
+              `tlbar${s.k === 'z' || once ? ' zone' : ''}${once ? ' once' : ''}` +
+              `${this._skipCls(s.sk)}${s.c ? ' conflict' : ''}`;
             const title =
               `${s.z} ${this._fmtTime(s.s)}–${this._fmtTime(s.e)}` +
+              (once ? ' - one-off' : '') +
               this._skipNote(s.sk, s.r) +
               (s.c ? ' - conflict: overlaps another run' : '');
             return `<div class="${cls}" title="${this._esc(title)}" style="left:${pct(s.s)}%;width:${Math.max(0.6, pct(s.e) - pct(s.s))}%"></div>`;
@@ -454,7 +492,7 @@ class ZroshuaCard extends HTMLElement {
           .join('');
         // finish window: hatched worst-case tail + tick at the planned end
         const tails = envs
-          .filter((e) => e.g === g && e.w > e.e)
+          .filter((e) => rowKey(e) === key && e.w > e.e)
           .map((e) => {
             // a run that will not happen should not shout about its finish window
             const dim = e.sk === 1 || e.sk === 2 ? ' skipped' : '';
@@ -465,17 +503,17 @@ class ZroshuaCard extends HTMLElement {
             );
           })
           .join('');
-        return `<div class="tlrow"><span class="tllabel" title="${this._esc(g)}">${this._esc(g)}</span><div class="tltrack">${bars}${tails}<div class="tlnow" style="left:${nowPct}%"></div></div></div>`;
+        return `<div class="tlrow"><span class="tllabel" title="${this._esc(row.label)}">${this._esc(row.label)}</span><div class="tltrack">${bars}${tails}<div class="tlnow" style="left:${nowPct}%"></div></div></div>`;
       })
       .join('');
     const scale = [0, 4, 8, 12, 16, 20, 24].map((h) => `<span>${String(h).padStart(2, '0')}</span>`).join('');
     return `<div class="pad">
       <div class="tlscale"><span class="tllabel"></span><div class="tlticks">${scale}</div></div>
       ${rows || '<div class="muted">Nothing scheduled today.</div>'}
-      <div class="tllegend">${this._chip('group', 'ok')}${this._chip('zone', 'accent')}${this._chip('conflict', 'danger')}${this._chip(
-        'will be skipped',
-        'skip',
-      )}${this._chip('may be skipped', 'ghost')}</div>
+      <div class="tllegend">${this._chip('group', 'ok')}${this._chip('zone', 'accent')}${this._chip('one-off', 'once')}${this._chip(
+        'conflict',
+        'danger',
+      )}${this._chip('will be skipped', 'skip')}${this._chip('may be skipped', 'ghost')}</div>
     </div>`;
   }
 }
@@ -536,6 +574,12 @@ const STYLE = `
   .chip.skip { background: color-mix(in srgb, var(--z-skip) 18%, transparent); color: var(--z-skip); }
   /* neutral chip for the ghosted "might still be skipped" bars */
   .chip.ghost { background: color-mix(in srgb, var(--z-ok) 38%, var(--card-background-color, #1c1c1c)); color: var(--secondary-text-color); }
+  /* legend chip for one-offs: a hatched swatch carries the texture, the label keeps a
+     plain background — hatch strokes crossing the glyphs drop them to about 2:1 */
+  .chip.once { background-color: color-mix(in srgb, var(--z-accent) 18%, transparent); color: var(--z-accent); }
+  .chip.once::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+    margin-right: 5px; vertical-align: -1px; background-color: var(--z-accent);
+    background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.38) 0 2px, rgba(255,255,255,.30) 2px 4px, transparent 4px 7px); }
 
   .bar { height: 6px; border-radius: 4px; background: var(--divider-color); margin-top: 6px; overflow: hidden; }
   .bar div { height: 100%; background: linear-gradient(90deg, #14c08c, #0b9e74); }
@@ -650,6 +694,22 @@ const STYLE = `
   .tlbar.zone.skip-possible { background: color-mix(in srgb, var(--z-accent) 38%, var(--card-background-color, #1c1c1c)); }
   /* a conflict outlines whatever fill the rules above produced instead of replacing it */
   .tlbar.conflict { box-shadow: inset 0 0 0 2px var(--z-danger); }
+  /* A one-off gets no fifth hue: every candidate collides with grape under deuteranopia.
+     It is zone-level watering, so it reuses the zone hue and is told apart by a 45deg
+     hatch, its own row label and its own legend chip. Both gradient stops are opaque
+     pre-blended solids — like the ghost above, a hatch with see-through gaps would let
+     an overlapping bar bleed through and destroy the state read. The hatch outlives
+     every skip state; the state only decides which two solids the stripes are made of. */
+  .tlbar.once, .tlbar.zone.once {
+    background-image: repeating-linear-gradient(45deg,
+      color-mix(in srgb, var(--z-accent) 55%, #000) 0 4px, var(--z-accent) 4px 8px); }
+  .tlbar.once.skip-certain {
+    background-image: repeating-linear-gradient(45deg,
+      color-mix(in srgb, var(--z-skip) 55%, #000) 0 4px, var(--z-skip) 4px 8px); }
+  .tlbar.once.skip-possible {
+    background-image: repeating-linear-gradient(45deg,
+      color-mix(in srgb, var(--z-accent) 72%, var(--card-background-color, #1c1c1c)) 0 4px,
+      color-mix(in srgb, var(--z-accent) 38%, var(--card-background-color, #1c1c1c)) 4px 8px); }
   .tlnow { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--z-info); border-radius: 2px; }
   .tlboost { position: absolute; top: 3px; height: 16px; border-radius: 0 4px 4px 0;
     background: repeating-linear-gradient(135deg, var(--z-ok) 0 3px, transparent 3px 6px); opacity: .8; }
@@ -670,8 +730,13 @@ const STYLE = `
     .upmeta { flex-wrap: nowrap; margin-left: auto; }
     .upmeta .btn.icon { margin-left: 4px; }
   }
+  /* a one-off carries two buttons; only the first one absorbs the free space, otherwise
+     the auto margins split it and the pair drifts apart */
+  .upmeta .btn.icon + .btn.icon { margin-left: 4px; }
   .ztag { display: inline-block; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
     padding: 1px 5px; border-radius: 5px; background: color-mix(in srgb, var(--z-info) 22%, transparent); color: var(--z-info); vertical-align: middle; }
+  /* one-off tag echoes the hue it gets on the timeline, so the two views agree */
+  .ztag.once { background: color-mix(in srgb, var(--z-accent) 22%, transparent); color: var(--z-accent); }
   .skiprow { font-size: .74rem; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
   .skiprow.danger { color: var(--z-danger); }
   .skiprow.warn { color: var(--z-warn); }
