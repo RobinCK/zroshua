@@ -149,7 +149,7 @@ export default function App() {
         {page === 'timeline' && <TimelinePage />}
         {page === 'map' && <MapPage state={state} />}
         {page === 'zones' && <ZonesPage state={state} />}
-        {page === 'groups' && <GroupsPage />}
+        {page === 'groups' && <GroupsPage state={state} />}
         {page === 'onetime' && <OneTimePage />}
         {page === 'sources' && <SourcesPage />}
         {page === 'sensors' && <SensorsPage />}

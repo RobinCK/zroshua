@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.3
+
+- **Pressing play on a group did nothing visible.** The Groups page never received the engine
+  state at all, so a started group looked exactly like an idle one: no running mark, no way to
+  stop it, and a toast that said "started" even when every zone had been skipped. A group card
+  now shows how many of its zones are watering, a progress bar with the time left and the zone
+  names, and the play button turns into stop while it runs. If a run is waiting — a
+  never-overlap rule, a flow budget, a sequential group still busy — the card says so and names
+  the reason instead of looking idle, which is what "I pressed play and nothing happened"
+  usually is. The toast now only claims a start when something was really queued.
+- **Zone cards say the same.** A running zone gained a progress bar and the time left, and a
+  queued zone is no longer indistinguishable from an idle one — it shows what it is waiting for.
+- New `POST /api/groups/:id/stop`, so a group run can be stopped from the web UI the way the
+  Lovelace card already could over MQTT.
+
 ## 0.5.2
 
 - **The light theme no longer looks washed out.** It was white cards on a near-white page with

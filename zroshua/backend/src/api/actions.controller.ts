@@ -105,6 +105,12 @@ export class ActionsController {
     return { ok: true, enqueued };
   }
 
+  @Post('groups/:id/stop')
+  async stopGroup(@Param('id') id: string) {
+    await this.engine.stopGroup(id);
+    return { ok: true };
+  }
+
   @Post('stop-all')
   async stopAll() {
     await this.engine.stopAll('manual_stop');

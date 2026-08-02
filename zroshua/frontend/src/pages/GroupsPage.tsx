@@ -11,15 +11,17 @@ import {
   Select,
   Stack,
   Switch,
+  Progress,
   Table,
   Text,
   TextInput,
   Title,
+  Tooltip,
 } from '@mantine/core';
-import { IconEdit, IconPlayerPlay, IconTrash } from '@tabler/icons-react';
+import { IconEdit, IconPlayerPlay, IconPlayerStop, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { api, Group as ZGroup, GroupRule, Settings, Zone } from '../api';
-import { useResource, fmtAgo } from '../hooks';
+import { api, EngineState, Group as ZGroup, GroupRule, Settings, Zone } from '../api';
+import { useResource, fmtAgo, fmtDur } from '../hooks';
 import { t } from '../i18n';
 import { SliderInput, PauseControl } from '../components/common';
 
@@ -28,7 +30,21 @@ import ScheduleEditor, { emptySchedule, estimateRunMinutes, ZoneInfo } from '../
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
 import { HintLabel } from '../components/Hint';
 
-export default function GroupsPage() {
+/**
+ * What the engine is doing with one group right now. Pressing play used to give
+ * nothing back but a toast: the run can sit in the queue for minutes behind a
+ * never-overlap rule or a flow budget, and the page said the same either way.
+ */
+function groupActivity(state: EngineState | null, groupId: string) {
+  const active = (state?.active ?? []).filter((a) => a.groupId === groupId);
+  const queued = (state?.queue ?? []).filter((q) => q.groupId === groupId);
+  const progress = active.length ? (active.reduce((sum, a) => sum + a.progress, 0) / active.length) * 100 : 0;
+  const endsAt = active.reduce((max, a) => Math.max(max, a.endsAt), 0);
+
+  return { active, queued, progress, endsAt, busy: active.length > 0 || queued.length > 0 };
+}
+
+export default function GroupsPage({ state }: { state: EngineState | null }) {
   const { data: groups, reload } = useResource<ZGroup[]>('/groups');
   const { data: zones } = useResource<Zone[]>('/zones');
   const { data: rules, reload: reloadRules } = useResource<GroupRule[]>('/rules');
@@ -122,12 +138,27 @@ export default function GroupsPage() {
         </Button>
       </Group>
 
-      {(groups ?? []).map((g) => (
+      {(groups ?? []).map((g) => {
+        const run = groupActivity(state, g.id);
+
+        return (
         <Card key={g.id} withBorder>
           <Group justify="space-between">
             <Group gap="xs">
               <Text fw={600}>{g.name}</Text>
               <Badge variant="light">{g.mode}</Badge>
+              {run.active.length > 0 && (
+                <Badge color="teal" leftSection="●">
+                  {t('watering {n} of {m} zones', { n: run.active.length, m: g.zoneIds.length })}
+                </Badge>
+              )}
+              {run.queued.length > 0 && (
+                <Tooltip label={run.queued[0].waitReason} multiline maw={320}>
+                  <Badge color="yellow" variant="light">
+                    {t('{count} queued', { count: run.queued.length })}
+                  </Badge>
+                </Tooltip>
+              )}
               {!g.enabled && <Badge color="gray">{t('disabled')}</Badge>}
               {!!g.snoozeUntil && g.snoozeUntil > Date.now() && (
                 <Badge color="orange" variant="light">
@@ -139,19 +170,38 @@ export default function GroupsPage() {
               </Badge>
             </Group>
             <Group gap={4}>
-              <ActionIcon
-                variant="light"
-                color="teal"
-                title={t('Run group now')}
-                onClick={() =>
-                  api
-                    .post(`/groups/${g.id}/run`)
-                    .then(() => notifications.show({ message: t('Group "{name}" started', { name: g.name }), color: 'teal' }))
-                    .catch(notifyErr)
-                }
-              >
-                <IconPlayerPlay size={18} />
-              </ActionIcon>
+              {run.busy ? (
+                <ActionIcon
+                  variant="light"
+                  color="red"
+                  title={t('Stop')}
+                  onClick={() => api.post(`/groups/${g.id}/stop`).catch(notifyErr)}
+                >
+                  <IconPlayerStop size={18} />
+                </ActionIcon>
+              ) : (
+                <ActionIcon
+                  variant="light"
+                  color="teal"
+                  title={t('Run group now')}
+                  onClick={() =>
+                    api
+                      .post<{ enqueued: number }>(`/groups/${g.id}/run`)
+                      .then((r) =>
+                        // "started" is only true when something was actually queued:
+                        // every zone can be skipped by rain, a pause or a fault
+                        notifications.show(
+                          r.enqueued
+                            ? { message: t('Group "{name}" started', { name: g.name }), color: 'teal' }
+                            : { message: t('Nothing to water in "{name}" — see the journal for why', { name: g.name }), color: 'yellow' },
+                        ),
+                      )
+                      .catch(notifyErr)
+                  }
+                >
+                  <IconPlayerPlay size={18} />
+                </ActionIcon>
+              )}
               <PauseControl path={`/groups/${g.id}`} pausedUntil={g.snoozeUntil} onChange={reload} />
               <ActionIcon variant="subtle" onClick={() => openEditor(g)}>
                 <IconEdit size={18} />
@@ -168,8 +218,25 @@ export default function GroupsPage() {
             {t('{count} active schedules', { count: g.schedules.filter((s) => s.enabled).length })} ·{' '}
             {t('last watered:')} {fmtAgo(lastRuns?.groups[g.id])}
           </Text>
+
+          {run.active.length > 0 && (
+            <>
+              <Progress value={run.progress} animated mt="sm" />
+              <Text size="xs" c="dimmed" mt={4}>
+                {run.active.map((a) => a.zoneName).join(', ')}
+                {run.endsAt > Date.now() &&
+                  ` · ${t('{dur} left', { dur: fmtDur((run.endsAt - Date.now()) / 60_000) })}`}
+              </Text>
+            </>
+          )}
+          {run.active.length === 0 && run.queued.length > 0 && (
+            <Text size="xs" c="yellow.7" mt="sm">
+              {t('waiting: {reason}', { reason: run.queued[0].waitReason })}
+            </Text>
+          )}
         </Card>
-      ))}
+        );
+      })}
 
       <Card withBorder>
         <Title order={4} mb="sm">

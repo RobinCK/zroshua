@@ -6,6 +6,7 @@ import {
   Group,
   Modal,
   NumberInput,
+  Progress,
   Select,
   SimpleGrid,
   Stack,
@@ -13,6 +14,7 @@ import {
   Text,
   TextInput,
   Title,
+  Tooltip,
   ActionIcon,
 } from '@mantine/core';
 import { IconDroplet, IconEdit, IconPlayerStop, IconTrash } from '@tabler/icons-react';
@@ -54,6 +56,8 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
   const [busy, setBusy] = useState<BusyBand[]>([]);
 
   const running = new Set(state?.active.map((a) => a.zoneId));
+  const activeOf = new Map((state?.active ?? []).map((a) => [a.zoneId, a]));
+  const queued = new Map((state?.queue ?? []).map((q) => [q.zoneId, q.waitReason]));
   const faults = new Set(state?.faults ?? []);
 
   const notifyErr = (e: any) => notifications.show({ message: e.message, color: 'red' });
@@ -135,7 +139,16 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             <Group justify="space-between" mb="xs">
               <Group gap="xs">
                 <Text fw={600}>{z.name}</Text>
-                {running.has(z.id) && <Badge color="teal">{t('watering')}</Badge>}
+                {running.has(z.id) && <Badge color="teal" leftSection="●">{t('watering')}</Badge>}
+                {/* a queued zone looked exactly like an idle one, which is what
+                    "I pressed play and nothing happened" really is */}
+                {queued.has(z.id) && (
+                  <Tooltip label={queued.get(z.id)} multiline maw={320}>
+                    <Badge color="yellow" variant="light">
+                      {t('queued')}
+                    </Badge>
+                  </Tooltip>
+                )}
                 {!!z.snoozeUntil && z.snoozeUntil > Date.now() && (
                   <Badge color="orange" variant="light">
                     {t('paused')}
@@ -175,9 +188,22 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             <Text size="xs" c="dimmed" lineClamp={1} style={{ wordBreak: 'break-all' }}>
               {z.entities.join(', ') || t('no entities')}
             </Text>
-            <Text size="xs" c="dimmed" mb="sm">
+            <Text size="xs" c="dimmed" mb={running.has(z.id) || queued.has(z.id) ? 4 : 'sm'}>
               {t('Last watered:')} {fmtAgo(lastRuns?.zones[z.id])}
             </Text>
+            {running.has(z.id) && (
+              <>
+                <Progress value={(activeOf.get(z.id)?.progress ?? 0) * 100} animated />
+                <Text size="xs" c="dimmed" mt={4} mb="sm">
+                  {t('{dur} left', { dur: fmtDur(Math.max(0, ((activeOf.get(z.id)?.endsAt ?? 0) - Date.now()) / 60_000)) })}
+                </Text>
+              </>
+            )}
+            {!running.has(z.id) && queued.has(z.id) && (
+              <Text size="xs" c="yellow.7" mb="sm">
+                {t('waiting: {reason}', { reason: queued.get(z.id) ?? '' })}
+              </Text>
+            )}
             {running.has(z.id) ? (
               <Button
                 fullWidth
