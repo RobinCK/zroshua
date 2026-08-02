@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.4
+
+- **Zone cards keep their button on the bottom line.** A watering card is taller than the rest,
+  and a grid row is as tall as its tallest card — so the buttons in the other cards of that row
+  used to sit high up with empty space under them. The card is a column now and its footer is
+  pinned to the bottom, so every button in a row shares one baseline whatever is happening
+  inside the cards.
+
 ## 0.5.3
 
 - **Pressing play on a group did nothing visible.** The Groups page never received the engine

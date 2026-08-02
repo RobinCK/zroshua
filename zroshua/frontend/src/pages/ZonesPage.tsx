@@ -135,7 +135,11 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
         {(zones ?? []).map((z) => (
-          <Card key={z.id} withBorder opacity={z.enabled ? 1 : 0.5}>
+          // A grid row is as tall as its tallest card, and a watering card grows by
+          // its progress block. Without a column layout every other card kept its
+          // button right under the text, so the buttons in one row sat at different
+          // heights — the footer is pinned to the bottom instead.
+          <Card key={z.id} withBorder opacity={z.enabled ? 1 : 0.5} style={{ display: 'flex', flexDirection: 'column' }}>
             <Group justify="space-between" mb="xs">
               <Group gap="xs">
                 <Text fw={600}>{z.name}</Text>
@@ -188,45 +192,49 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
             <Text size="xs" c="dimmed" lineClamp={1} style={{ wordBreak: 'break-all' }}>
               {z.entities.join(', ') || t('no entities')}
             </Text>
-            <Text size="xs" c="dimmed" mb={running.has(z.id) || queued.has(z.id) ? 4 : 'sm'}>
+            <Text size="xs" c="dimmed">
               {t('Last watered:')} {fmtAgo(lastRuns?.zones[z.id])}
             </Text>
-            {running.has(z.id) && (
-              <>
-                <Progress value={(activeOf.get(z.id)?.progress ?? 0) * 100} animated />
-                <Text size="xs" c="dimmed" mt={4} mb="sm">
-                  {t('{dur} left', { dur: fmtDur(Math.max(0, ((activeOf.get(z.id)?.endsAt ?? 0) - Date.now()) / 60_000)) })}
+
+            {/* mt="auto" is what keeps every button on the same line across a row */}
+            <Stack gap={4} mt="auto" pt="sm">
+              {running.has(z.id) && (
+                <>
+                  <Progress value={(activeOf.get(z.id)?.progress ?? 0) * 100} animated />
+                  <Text size="xs" c="dimmed">
+                    {t('{dur} left', { dur: fmtDur(Math.max(0, ((activeOf.get(z.id)?.endsAt ?? 0) - Date.now()) / 60_000)) })}
+                  </Text>
+                </>
+              )}
+              {!running.has(z.id) && queued.has(z.id) && (
+                <Text size="xs" c="yellow.7">
+                  {t('waiting: {reason}', { reason: queued.get(z.id) ?? '' })}
                 </Text>
-              </>
-            )}
-            {!running.has(z.id) && queued.has(z.id) && (
-              <Text size="xs" c="yellow.7" mb="sm">
-                {t('waiting: {reason}', { reason: queued.get(z.id) ?? '' })}
-              </Text>
-            )}
-            {running.has(z.id) ? (
-              <Button
-                fullWidth
-                color="red"
-                variant="light"
-                leftSection={<IconPlayerStop size={16} />}
-                onClick={() => api.post(`/zones/${z.id}/stop`).catch(notifyErr)}
-              >
-                {t('Stop')}
-              </Button>
-            ) : (
-              <Button
-                fullWidth
-                variant="light"
-                leftSection={<IconDroplet size={16} />}
-                onClick={() => {
-                  setRunZone(z);
-                  setRunMinutes(Math.round(z.baseDurationMin));
-                }}
-              >
-                {t('Water now')}
-              </Button>
-            )}
+              )}
+              {running.has(z.id) ? (
+                <Button
+                  fullWidth
+                  color="red"
+                  variant="light"
+                  leftSection={<IconPlayerStop size={16} />}
+                  onClick={() => api.post(`/zones/${z.id}/stop`).catch(notifyErr)}
+                >
+                  {t('Stop')}
+                </Button>
+              ) : (
+                <Button
+                  fullWidth
+                  variant="light"
+                  leftSection={<IconDroplet size={16} />}
+                  onClick={() => {
+                    setRunZone(z);
+                    setRunMinutes(Math.round(z.baseDurationMin));
+                  }}
+                >
+                  {t('Water now')}
+                </Button>
+              )}
+            </Stack>
           </Card>
         ))}
       </SimpleGrid>
