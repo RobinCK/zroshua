@@ -4,6 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Zroshua</title>
+    <!--
+      Paint the right shade before the bundle runs. Without this the panel starts
+      out white and only turns dark once React mounts, which inside a dark Home
+      Assistant is a white flash on every open. The colours mirror Mantine's
+      --mantine-color-body for the two schemes.
+    -->
+    <meta name="color-scheme" content="light dark" />
+    <style>
+      html { background: #ffffff; }
+      @media (prefers-color-scheme: dark) { html { background: #121315; } }
+    </style>
+    <script>
+      // Mantine resolves its scheme from this attribute; set it synchronously so
+      // the first painted frame already uses the right one.
+      try {
+        var stored = localStorage.getItem('mantine-color-scheme-value');
+        document.documentElement.setAttribute(
+          'data-mantine-color-scheme',
+          stored === 'light' || stored === 'dark'
+            ? stored
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light',
+        );
+      } catch (e) {
+        /* private mode: fall back to Mantine's own runtime detection */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

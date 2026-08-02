@@ -510,10 +510,16 @@ class ZroshuaCard extends HTMLElement {
     return `<div class="pad">
       <div class="tlscale"><span class="tllabel"></span><div class="tlticks">${scale}</div></div>
       ${rows || '<div class="muted">Nothing scheduled today.</div>'}
-      <div class="tllegend">${this._chip('group', 'ok')}${this._chip('zone', 'accent')}${this._chip('one-off', 'once')}${this._chip(
-        'conflict',
-        'danger',
-      )}${this._chip('will be skipped', 'skip')}${this._chip('may be skipped', 'ghost')}</div>
+      <div class="tllegend">${[
+        ['group', 'ok'],
+        ['zone', 'accent'],
+        ['one-off', 'once'],
+        ['conflict', 'conflict'],
+        ['will be skipped', 'skip'],
+        ['may be skipped', 'ghost'],
+      ]
+        .map(([label, kind]) => `<span class="lg"><i class="sw ${kind}"></i>${label}</span>`)
+        .join('')}</div>
     </div>`;
   }
 }
@@ -571,15 +577,7 @@ const STYLE = `
   .chip.warn { background: color-mix(in srgb, var(--z-warn) 18%, transparent); color: var(--z-warn); }
   .chip.danger { background: color-mix(in srgb, var(--z-danger) 18%, transparent); color: var(--z-danger); }
   .chip.accent { background: color-mix(in srgb, var(--z-accent) 18%, transparent); color: var(--z-accent); }
-  .chip.skip { background: color-mix(in srgb, var(--z-skip) 18%, transparent); color: var(--z-skip); }
-  /* neutral chip for the ghosted "might still be skipped" bars */
-  .chip.ghost { background: color-mix(in srgb, var(--z-ok) 38%, var(--card-background-color, #1c1c1c)); color: var(--secondary-text-color); }
-  /* legend chip for one-offs: a hatched swatch carries the texture, the label keeps a
-     plain background — hatch strokes crossing the glyphs drop them to about 2:1 */
-  .chip.once { background-color: color-mix(in srgb, var(--z-accent) 18%, transparent); color: var(--z-accent); }
-  .chip.once::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px;
-    margin-right: 5px; vertical-align: -1px; background-color: var(--z-accent);
-    background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.38) 0 2px, rgba(255,255,255,.30) 2px 4px, transparent 4px 7px); }
+
 
   .bar { height: 6px; border-radius: 4px; background: var(--divider-color); margin-top: 6px; overflow: hidden; }
   .bar div { height: 100%; background: linear-gradient(90deg, #14c08c, #0b9e74); }
@@ -742,7 +740,19 @@ const STYLE = `
   .skiprow.warn { color: var(--z-warn); }
   .skiprow .ci svg { width: 12px; height: 12px; }
   .row.dim > .ci, .row.dim > .grow > b, .row.dim > .muted { opacity: .6; }
-  .tllegend { margin-top: 8px; }
+  /* A legend entry is a swatch of the exact bar fill plus ordinary label text.
+     Tinting the label itself is what breaks in a light Home Assistant theme:
+     amber on 18% amber measures about 1.8:1. */
+  .tllegend { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .lg { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; color: var(--primary-text-color); }
+  .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgba(128,128,128,.35); }
+  .sw.ok { background: var(--z-ok); }
+  .sw.accent { background: var(--z-accent); }
+  .sw.once { background-color: var(--z-accent);
+    background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.38) 0 2px, rgba(255,255,255,.30) 2px 4px, transparent 4px 7px); }
+  .sw.conflict { background: transparent; box-shadow: inset 0 0 0 2px var(--z-danger); }
+  .sw.skip { background: var(--z-skip); }
+  .sw.ghost { background: color-mix(in srgb, var(--z-ok) 38%, var(--card-background-color, #1c1c1c)); }
 `;
 
 // simple config editor: a view selector + title

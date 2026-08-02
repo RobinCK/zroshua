@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1
+
+- **No more white flash on a dark Home Assistant.** The panel had no colour scheme until
+  React mounted, so every open started white and turned dark a moment later. The scheme is
+  now resolved before the first painted frame.
+- **Readable timeline legend in both schemes.** The legend used the state colour as the text
+  colour on a tinted background of the same hue: *will be skipped* measured 1.8:1 and *may be
+  skipped* 1.4:1 in the light scheme. Each entry is now a swatch of the exact bar fill next to
+  plain label text — 8:1 dark, 21:1 light — and the swatch shows the one-off hatch and the
+  pre-blended ghost as they really look. Same change in the Lovelace card, which inherits
+  whatever theme Home Assistant is using.
+
 ## 0.5.0
 
 - **One-off watering.** A dated, one-shot request — "these five beds tonight at 19:00, once,

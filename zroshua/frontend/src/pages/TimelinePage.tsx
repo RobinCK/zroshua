@@ -40,6 +40,27 @@ interface TimelineRow {
   envs: PlanEnvelope[];
 }
 
+/** One legend entry: the exact fill a bar uses, plus the label in ordinary text. */
+function LegendChip({ fill, label, outline }: { fill: string; label: string; outline?: boolean }) {
+  return (
+    <Group gap={6} wrap="nowrap">
+      <Box
+        w={12}
+        h={12}
+        style={{
+          flexShrink: 0,
+          borderRadius: 3,
+          background: fill,
+          boxShadow: outline ? 'inset 0 0 0 2px var(--mantine-color-red-6)' : 'inset 0 0 0 1px rgba(128,128,128,.35)',
+        }}
+      />
+      {/* not dimmed: a legend is the key to the chart, and dimmed ink measures
+          about 3.3:1 in both schemes — below the 4.5:1 small-text floor */}
+      <Text size="xs">{label}</Text>
+    </Group>
+  );
+}
+
 function dayLabel(offset: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offset);
@@ -359,31 +380,17 @@ export default function TimelinePage() {
           </Box>
           </ScrollArea>
         </Group>
+        {/* Every chip is a swatch of the exact bar fill next to plain label text.
+            Colouring the text itself is what breaks: amber on pale amber measures
+            1.8:1 in the light scheme, and a swatch also lets the hatch and the
+            pre-blended ghost show their real texture instead of tinting glyphs. */}
         <Group gap="md" mt="xs">
-          <Badge variant="light" color="teal">{t('group schedule')}</Badge>
-          <Badge variant="light" color="grape">{t('zone schedule')}</Badge>
-          {/* the swatch carries the texture, the text stays on a readable background:
-              hatch strokes running through the glyphs drop them to ~2:1 contrast */}
-          <Badge
-            variant="light"
-            color="grape"
-            leftSection={
-              <Box
-                w={10}
-                h={10}
-                style={{ borderRadius: 2, background: `${ONCE_HATCH}, var(--mantine-color-grape-5)` }}
-              />
-            }
-          >
-            {t('one-off')}
-          </Badge>
-          <Badge variant="light" color="red">{t('rule conflict')}</Badge>
-          <Badge variant="light" style={{ background: `${SKIP_CERTAIN_FILL}33`, color: SKIP_CERTAIN_FILL }}>
-            {t('will be skipped')}
-          </Badge>
-          <Badge variant="light" style={{ background: ghost('var(--mantine-color-teal-6)'), color: 'var(--mantine-color-teal-4)' }}>
-            {t('may be skipped')}
-          </Badge>
+          <LegendChip fill="var(--mantine-color-teal-6)" label={t('group schedule')} />
+          <LegendChip fill="var(--mantine-color-grape-5)" label={t('zone schedule')} />
+          <LegendChip fill={`${ONCE_HATCH}, var(--mantine-color-grape-5)`} label={t('one-off')} />
+          <LegendChip fill="transparent" outline label={t('rule conflict')} />
+          <LegendChip fill={SKIP_CERTAIN_FILL} label={t('will be skipped')} />
+          <LegendChip fill={ghost('var(--mantine-color-teal-6)')} label={t('may be skipped')} />
         </Group>
       </Card>
     </Stack>
