@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.11
+
+- **Troubleshooting section in the README** for the case where the Lovelace card keeps
+  waiting for the hub entity. The usual cause is not MQTT at all: the entities were
+  discovered but are *disabled* in Home Assistant, and a disabled entity has no state,
+  so the card cannot see it. Also corrects the hub entity id in the docs — Home Assistant
+  derives it from the device name, so it is `sensor.zroshua_zroshua_state`, not
+  `sensor.zroshua_state` as previously documented. The card never depended on the name;
+  it identifies the hub by its attributes.
+
 ## 0.3.10
 
 - **The dry-out delay now starts when the sensor goes dry.** It was measured

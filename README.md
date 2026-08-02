@@ -345,14 +345,16 @@ title: Irrigation # optional
 | `upcoming` | The next scheduled runs with countdowns — runs that will be skipped under the current state (rain dry-out, pause…) are dimmed with a red reason line, uncertain ones get a yellow *may skip*. |
 | `timeline` | Today's 24-hour occupancy strip per group (conflicts in red), with the worst-case temperature boost of each run drawn as a hatched tail. |
 
-The card reads a single `sensor.zroshua_state` entity (published over MQTT) and sends actions
-back through the `mqtt.publish` service — so it stays live and needs no per-entity wiring.
+The card reads a single hub sensor (published over MQTT) and sends actions back through the
+`mqtt.publish` service — so it stays live and needs no per-entity wiring. It locates that
+sensor by its attributes, so there is nothing to configure.
 
 > **Requires MQTT.** The cards and the native entities below need a broker. Install the
 > **Mosquitto broker** add-on and the **MQTT** integration — credentials are then picked up
 > automatically. For an external broker, set `mqtt.host` (and port/username/password) in the
 > add-on options. The add-on's **Settings** page shows a live MQTT status banner; if it says
-> *MQTT off*, the card will display "Waiting for sensor.zroshua_state".
+> *MQTT off*, the card will say it is waiting for the hub entity — see
+> [Troubleshooting](#the-lovelace-card-says-it-is-waiting-for-the-hub-entity).
 
 ![Card: groups](docs/screenshots/card-groups.png)
 
@@ -436,6 +438,44 @@ rules, so pass `count`: `t('{count} days ago', { count: 3 })`.
 
 Roadmap: ET/bucket-based suggested durations, volume-based watering, Telegram inline
 actions.
+
+## Troubleshooting
+
+### The Lovelace card says it is waiting for the hub entity
+
+The card looks for the Zroshua sensor among Home Assistant's *states*. Two different
+situations look identical to it, so check them in this order.
+
+**1. Do the entities exist, and are they enabled?**
+
+Settings → Devices & Services → **MQTT** → the **Zroshua** device. If the page says
+something like *"+72 entities not shown"*, they were discovered but are **disabled** —
+a disabled entity is not loaded at all, so it has no state and the card cannot see it.
+Enable them and the card fills in immediately.
+
+Entities land disabled when *Enable newly added entities* is turned off for the MQTT
+integration (Integration → ⋮ → System options), which is easy to forget on a setup with
+many devices.
+
+**2. Do they exist at all?**
+
+Developer Tools → States, filter for `zroshua`. Search for the word, not for an exact
+id: Home Assistant builds entity ids from the device name, so the hub arrives as
+`sensor.zroshua_zroshua_state` on a fresh install, and older installs may carry a
+different id. The card finds it either way — it identifies the hub by its attributes,
+not by its name — so you never need to set `entity:` in the card config.
+
+If nothing matches, discovery has not reached Home Assistant. Check that HA's MQTT
+integration points at the same broker as the add-on (the add-on's **Settings** page shows
+which broker it uses), and use *Listen to a topic* on that integration page to subscribe
+to `homeassistant/#`. That listener uses Home Assistant's own connection, so if MQTT
+Explorer shows the topics but the listener stays empty, the broker is refusing HA access
+to `homeassistant/#` — grant the account HA logs in with read and write there.
+
+Note that the add-on's green *MQTT connected* banner only proves its own connection and
+login succeeded. It cannot tell whether Home Assistant reads the same broker, and MQTT
+3.1.1 does not report a refused publish, so a broker ACL can drop the discovery messages
+without either side noticing.
 
 ## License
 

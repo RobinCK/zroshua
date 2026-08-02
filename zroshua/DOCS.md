@@ -15,8 +15,12 @@ weather adjustments, rain & soil sensors, fault control, statistics and notifica
 | `mqtt_host/mqtt_port/mqtt_username/mqtt_password` | Optional. Only needed for an **external** MQTT broker; with the Mosquitto add-on credentials are auto-detected. Required for the Lovelace cards and native entities. |
 
 **MQTT status:** the Settings page shows whether the MQTT bridge is connected. If the
-Lovelace card shows "Waiting for sensor.zroshua_state", MQTT is not connected — install the
-Mosquitto add-on + MQTT integration, or set `mqtt_host` in the options.
+Lovelace card says it is waiting for the hub entity, first check that the entities exist
+**and are enabled** under Settings → Devices & Services → MQTT → Zroshua — a disabled entity
+has no state, so the card cannot see it. If they are missing entirely, MQTT is not reaching
+Home Assistant: install the Mosquitto add-on + MQTT integration, or set `mqtt_host` in the
+options. Search Developer Tools → States for `zroshua` rather than an exact id; Home Assistant
+derives ids from the device name, so the hub appears as `sensor.zroshua_zroshua_state`.
 
 Changing options restarts the add-on. All irrigation configuration lives in the web UI
 and applies instantly without restarts.
@@ -202,7 +206,8 @@ upcoming runs and today's timeline straight from a Home Assistant dashboard. Wit
 Mosquitto add-on installed the add-on deploys the card to `/config/www` and registers the
 Lovelace resource automatically (YAML-mode dashboards: add `/local/zroshua-card.js` as a
 module resource yourself). Add it to a view with `type: custom:zroshua-card`, `view: groups`.
-The card reads `sensor.zroshua_state` and sends commands via the `mqtt.publish` service.
+The card finds the hub sensor by its attributes — no `entity:` to configure — and sends
+commands via the `mqtt.publish` service.
 
 ## MQTT discovery (native HA entities)
 
