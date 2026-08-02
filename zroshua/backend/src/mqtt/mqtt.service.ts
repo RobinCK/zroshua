@@ -332,12 +332,15 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       e: s.end,
       c: s.conflict ? 1 : 0,
       k: s.kind === 'zone' ? 'z' : 'g',
+      sk: s.skip === 'certain' ? 1 : s.skip === 'possible' ? 2 : 0,
+      r: s.skipWhy?.[0] ?? null,
     }));
     const timelineEnv = ((plan as any).envelopes ?? []).slice(0, 100).map((e: any) => ({
       g: e.groupName,
       s: e.start,
       e: e.end,
       w: e.worstEnd,
+      sk: e.skip === 'certain' ? 1 : e.skip === 'possible' ? 2 : 0,
     }));
 
     const attrs = {

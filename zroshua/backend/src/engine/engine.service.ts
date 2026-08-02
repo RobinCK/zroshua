@@ -74,6 +74,37 @@ interface TailTracker {
   lastSampleTs: number;
 }
 
+/**
+ * How sure we are that a scheduled run will be skipped.
+ * `certain` — already decided (pauses, rain dry-out window).
+ * `possible` — re-evaluated at start time from data that can still change
+ * (forecast, temperature scaling, run conditions, live sensors).
+ * A forecast is never treated as a fact, so it can only ever be `possible`.
+ */
+type SkipState = 'certain' | 'possible' | null;
+
+/** at most this many reasons travel with a segment/envelope */
+const MAX_SKIP_REASONS = 3;
+
+interface SkipPrediction {
+  /** legacy shape: true when a skip is already decided */
+  willSkip: boolean;
+  /** legacy shape: the certain list */
+  reasons: string[];
+  /** legacy shape: the uncertain list */
+  maybe: string[];
+  /** decided now and it will not change on its own before the start time */
+  certain: string[];
+  /** re-checked at start time against data that can still change */
+  uncertain: string[];
+}
+
+/** what gets stamped on every segment/envelope of one occurrence */
+interface SkipStamp {
+  skip: SkipState;
+  skipWhy: string[];
+}
+
 @Injectable()
 export class EngineService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger('Engine');
@@ -1690,8 +1721,15 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   /**
    * Predicts whether an occurrence would be skipped if it fired under the
    * CURRENT conditions (pauses, rain sensor incl. its dry-out window, weather
-   * triggers, forecast-based run conditions). `sure` reasons will definitely
-   * skip unless the state changes; `maybe` reasons depend on a live sensor.
+   * triggers, forecast-based run conditions).
+   *
+   * `certain` — the skip is already decided: watering is paused globally, the
+   * group is paused, every zone is paused, or the rain dry-out window still
+   * covers the start time.
+   * `uncertain` — everything re-evaluated at start time from data that can
+   * still change: the weather forecast, temperature-scaling skip steps,
+   * forecast-based run conditions, live sensor conditions and "rain sensor is
+   * wet now". A forecast is never treated as a fact.
    */
   private async predictSkip(
     group: Group | null,
@@ -1699,25 +1737,28 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     ts: number,
     zones: Zone[],
     settings: Awaited<ReturnType<ConfigService['getSettings']>>,
-  ): Promise<{ willSkip: boolean; reasons: string[]; maybe: string[] }> {
-    const reasons: string[] = [];
-    const maybe: string[] = [];
+  ): Promise<SkipPrediction> {
+    const certain: string[] = [];
+    const uncertain: string[] = [];
     const fmt = (t: number) => new Date(t).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
 
-    if (this.snoozeUntil > ts) reasons.push(`all watering paused until ${fmt(this.snoozeUntil)}`);
-    if (group?.snoozeUntil && Number(group.snoozeUntil) > ts) reasons.push(`group paused until ${fmt(Number(group.snoozeUntil))}`);
+    if (this.snoozeUntil > ts) certain.push(`all watering paused until ${fmt(this.snoozeUntil)}`);
+    if (group?.snoozeUntil && Number(group.snoozeUntil) > ts) certain.push(`group paused until ${fmt(Number(group.snoozeUntil))}`);
     if (zones.length && zones.every((z) => z.snoozeUntil && Number(z.snoozeUntil) > ts))
-      reasons.push('all zones paused');
+      certain.push('all zones paused');
 
-    // rain sensor: currently wet, or inside the dry-out window
+    // rain sensor: currently wet (can dry by start time), or inside the dry-out window (decided)
     if (settings.rainSensor.enabled && !zones.every((z) => z.ignore?.rain_sensor)) {
       const wetNow = settings.rainSensor.entities.filter((e) => this.ha.isOn(e)).length >= Math.max(1, settings.rainSensor.quorum);
       const dryOutUntil = this.lastWetTs + settings.rainSensor.dryOutHours * 3600_000;
-      if (wetNow) maybe.push('rain sensor is wet now');
-      else if (dryOutUntil > ts) reasons.push(`rain dry-out until ${fmt(dryOutUntil)}`);
+      if (wetNow) uncertain.push('rain sensor is wet now');
+      // the window only covers runs that start after the rain — a run that already
+      // happened before it started raining was never blocked by it
+      else if (ts >= this.lastWetTs && dryOutUntil > ts) certain.push(`rain dry-out until ${fmt(dryOutUntil)}`);
     }
 
-    // weather triggers + forecast conditions for the occurrence's day
+    // weather triggers + forecast conditions for the occurrence's day — the
+    // forecast is re-read at start time, so none of this is ever decided yet
     const dayOffset = Math.max(0, Math.floor((ts - new Date().setHours(0, 0, 0, 0)) / (24 * 3600_000)));
     const fc = (await this.weather.forecastDay(dayOffset).catch(() => null)) as any;
     if (fc) {
@@ -1729,31 +1770,45 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         fc.precipitationProbability >= wt.rainProbPct &&
         fc.precipitationMm >= wt.rainAmountMm
       )
-        reasons.push(`rain forecast ${fc.precipitationProbability}% / ${fc.precipitationMm}mm`);
+        uncertain.push(`rain forecast ${fc.precipitationProbability}% / ${fc.precipitationMm}mm`);
       if (wt.enabled && wt.freezeC != null && fc.tempMaxC != null && fc.tempMaxC <= wt.freezeC)
-        reasons.push(`freeze forecast ${fc.tempMaxC}°`);
+        uncertain.push(`freeze forecast ${fc.tempMaxC}°`);
       const ts_ = settings.tempScale;
       if (ts_.enabled && (!group || ts_.groups.length === 0 || ts_.groups.includes(group.id)) && fc.tempMaxC != null) {
         for (const step of ts_.steps) {
           if (step.action === 'skip' && step.belowC != null && fc.tempMaxC < step.belowC)
-            reasons.push(`forecast max ${fc.tempMaxC}° below ${step.belowC}° (temp scaling: skip)`);
+            uncertain.push(`forecast max ${fc.tempMaxC}° below ${step.belowC}° (temp scaling: skip)`);
         }
       }
       for (const c of schedule?.conditions ?? []) {
         if (c.action === 'scale') continue; // scales the duration, never skips
         const actual = c.kind === 'forecast_max' ? fc.tempMaxC : c.kind === 'forecast_rain_prob' ? fc.precipitationProbability : null;
         if (actual != null && !(c.op === 'gte' ? actual >= c.value : actual <= c.value))
-          reasons.push(`condition: forecast ${c.kind === 'forecast_max' ? `${actual}°` : `${actual}%`} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);
+          uncertain.push(`condition: forecast ${c.kind === 'forecast_max' ? `${actual}°` : `${actual}%`} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);
       }
     }
-    // live-sensor conditions can change by start time — mark as "maybe"
+    // live-sensor conditions are read again at start time
     for (const c of schedule?.conditions ?? []) {
       if (c.kind !== 'sensor' || c.action === 'scale') continue;
       const { value: v, label } = this.sensorCondValue(c);
       if (v != null && !(c.op === 'gte' ? v >= c.value : v <= c.value))
-        maybe.push(`${label} now ${v.toFixed(1)} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);
+        uncertain.push(`${label} now ${v.toFixed(1)} not ${c.op === 'gte' ? '≥' : '≤'} ${c.value}`);
     }
-    return { willSkip: reasons.length > 0, reasons, maybe };
+
+    return { willSkip: certain.length > 0, reasons: certain, maybe: uncertain, certain, uncertain };
+  }
+
+  /** Collapses a prediction into what a segment/envelope carries on the timeline. */
+  private skipStamp(prediction: SkipPrediction): SkipStamp {
+    if (prediction.certain.length) {
+      return { skip: 'certain', skipWhy: prediction.certain.slice(0, MAX_SKIP_REASONS) };
+    }
+
+    if (prediction.uncertain.length) {
+      return { skip: 'possible', skipWhy: prediction.uncertain.slice(0, MAX_SKIP_REASONS) };
+    }
+
+    return { skip: null, skipWhy: [] };
   }
 
   async upcoming(days = 7) {
@@ -1855,6 +1910,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     const to = now + days * 24 * 3600_000;
     const maxBoost = (await this.weather.maxBoostPct()) / 100;
     const minBoost = (await this.weather.minBoostPct()) / 100;
+    const settings = await this.config.getSettings();
 
     type Segment = {
       groupId: string | null;
@@ -1868,6 +1924,10 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       worstEnd: number;
       conflict: boolean;
       kind: 'group' | 'zone';
+      /** predicted skip of the whole occurrence — same on every segment of it */
+      skip: SkipState;
+      /** why, at most MAX_SKIP_REASONS entries */
+      skipWhy: string[];
     };
     /** finish window of one scheduled run: may end anywhere in [minEnd..worstEnd] */
     type Envelope = {
@@ -1879,6 +1939,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       end: number;
       worstEnd: number;
       kind: 'group' | 'zone';
+      skip: SkipState;
+      skipWhy: string[];
     };
     const segments: Segment[] = [];
     const envelopes: Envelope[] = [];
@@ -1893,6 +1955,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
             z.maxRuntimeMin || 1e9,
           );
         const occKey = `${group.id}:${occ.ts}`;
+        // one prediction per occurrence — never per zone
+        const { skip, skipWhy } = this.skipStamp(await this.predictSkip(group, schedule, occ.ts, zones, settings));
         let cursor = occ.ts;
         let worstCursor = occ.ts;
         let minCursor = occ.ts;
@@ -1915,6 +1979,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
               worstEnd: worstCursor + d * maxBoost,
               conflict: false,
               kind: 'group',
+              skip,
+              skipWhy,
             });
             batchEnd = Math.max(batchEnd, cursor + d);
             worstBatchEnd = Math.max(worstBatchEnd, worstCursor + d * maxBoost);
@@ -1935,6 +2001,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
             end: cursor - delay,
             worstEnd: worstCursor - delay,
             kind: 'group',
+            skip,
+            skipWhy,
           });
         }
       }
@@ -1946,6 +2014,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         const sch = (zone.schedules ?? []).find((sc) => sc.id === occ.scheduleId);
         const d = Math.min(sch?.zoneDurations?.[zone.id] ?? zone.baseDurationMin, zone.maxRuntimeMin || 1e9) * 60_000;
         const occKey = `zone:${zone.id}:${occ.ts}`;
+        // a zone's own schedule has no group of its own; the containing group's
+        // pause still blocks it at runtime, so it is passed when there is one
+        const { skip, skipWhy } = this.skipStamp(await this.predictSkip(containing ?? null, sch, occ.ts, [zone], settings));
         segments.push({
           groupId: containing?.id ?? null,
           groupName: containing ? `${containing.name} (zone)` : 'Zone schedule',
@@ -1957,6 +2028,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           worstEnd: occ.ts + d * maxBoost,
           conflict: false,
           kind: 'zone',
+          skip,
+          skipWhy,
         });
         envelopes.push({
           occ: occKey,
@@ -1967,6 +2040,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           end: occ.ts + d,
           worstEnd: occ.ts + d * maxBoost,
           kind: 'zone',
+          skip,
+          skipWhy,
         });
       }
     }

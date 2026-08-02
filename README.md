@@ -97,7 +97,21 @@ Zones are drawn at their planned (unscaled) times — temperature scaling shifts
 zone of the group, so bars never overlap. Each run then shows its **finish window** as a
 translucent tail: medium = may finish earlier (negative scaling), faint = the worst-case
 temperature boost. Gaps after the faint tail are guaranteed free time. Runs that violate a
-*never-overlap / order* rule are highlighted red with an alert (checked against the worst case).
+*never-overlap / order* rule are outlined red with an alert (checked against the worst case).
+
+The strip also says **what will actually happen**, because a slot that is reserved is not the
+same as a slot that will be watered:
+
+| Look | Meaning |
+|---|---|
+| Normal colour | Nothing suggests this run will be skipped. |
+| **Amber** | It **will** be skipped, and that is already decided — watering is paused globally, the group is paused, all of its zones are paused, or the rain dry-out window covers the start. |
+| **Muted colour** | It **may** be skipped: every reason that is re-read at start time — the forecast, temperature scaling, forecast-based run conditions, live soil sensors, "rain sensor is wet now". |
+
+A forecast is deliberately never treated as a fact. "The forecast says 20 °C and the condition
+wants ≥ 30 °C" makes a run *uncertain*, never *certain*, because the temperature at start time
+is not known yet. Hovering (or tapping) a bar names the state and lists the reasons. The bar
+stays in place either way — the time is still reserved until the run is actually skipped.
 
 ![Timeline](docs/screenshots/timeline.png)
 

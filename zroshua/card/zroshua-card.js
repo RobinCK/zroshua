@@ -191,6 +191,18 @@ class ZroshuaCard extends HTMLElement {
     return `<span class="chip ${cls}">${icon ? `<span class="ci">${icon}</span>` : ''}${this._esc(txt)}</span>`;
   }
 
+  // compact skip state on timeline entries: 0/undefined none, 1 certain, 2 possible
+  _skipCls(sk) {
+    return sk === 1 ? ' skip-certain' : sk === 2 ? ' skip-possible' : '';
+  }
+
+  // tooltips must name the state and the reason — colour alone never carries meaning
+  _skipNote(sk, reason) {
+    if (sk !== 1 && sk !== 2) return '';
+    const state = sk === 1 ? 'will be skipped' : 'may be skipped';
+    return ` - ${state}${reason ? `: ${reason}` : ''}`;
+  }
+
   // ---- views -------------------------------------------------------------
 
   _view_dashboard(a) {
@@ -430,19 +442,28 @@ class ZroshuaCard extends HTMLElement {
     const rows = [...byGroup.entries()]
       .map(([g, list]) => {
         const bars = list
-          .map(
-            (s) =>
-              `<div class="tlbar ${s.c ? 'conflict' : s.k === 'z' ? 'zone' : ''}" title="${this._esc(s.z)} ${this._fmtTime(s.s)}–${this._fmtTime(s.e)}" style="left:${pct(s.s)}%;width:${Math.max(0.6, pct(s.e) - pct(s.s))}%"></div>`,
-          )
+          .map((s) => {
+            // skip state replaces / fades the identity hue; a conflict is drawn as an outline on top
+            const cls = `tlbar${s.k === 'z' ? ' zone' : ''}${this._skipCls(s.sk)}${s.c ? ' conflict' : ''}`;
+            const title =
+              `${s.z} ${this._fmtTime(s.s)}–${this._fmtTime(s.e)}` +
+              this._skipNote(s.sk, s.r) +
+              (s.c ? ' - conflict: overlaps another run' : '');
+            return `<div class="${cls}" title="${this._esc(title)}" style="left:${pct(s.s)}%;width:${Math.max(0.6, pct(s.e) - pct(s.s))}%"></div>`;
+          })
           .join('');
         // finish window: hatched worst-case tail + tick at the planned end
         const tails = envs
           .filter((e) => e.g === g && e.w > e.e)
-          .map(
-            (e) =>
-              `<div class="tlboost" title="up to ${this._fmtTime(e.w)} with temp boost" style="left:${pct(e.e)}%;width:${Math.max(0.4, pct(e.w) - pct(e.e))}%"></div>` +
-              `<div class="tltick" style="left:${pct(e.e)}%"></div>`,
-          )
+          .map((e) => {
+            // a run that will not happen should not shout about its finish window
+            const dim = e.sk === 1 || e.sk === 2 ? ' skipped' : '';
+            const title = `up to ${this._fmtTime(e.w)} with temp boost${this._skipNote(e.sk, null)}`;
+            return (
+              `<div class="tlboost${dim}" title="${this._esc(title)}" style="left:${pct(e.e)}%;width:${Math.max(0.4, pct(e.w) - pct(e.e))}%"></div>` +
+              `<div class="tltick${dim}" style="left:${pct(e.e)}%"></div>`
+            );
+          })
           .join('');
         return `<div class="tlrow"><span class="tllabel" title="${this._esc(g)}">${this._esc(g)}</span><div class="tltrack">${bars}${tails}<div class="tlnow" style="left:${nowPct}%"></div></div></div>`;
       })
@@ -451,13 +472,18 @@ class ZroshuaCard extends HTMLElement {
     return `<div class="pad">
       <div class="tlscale"><span class="tllabel"></span><div class="tlticks">${scale}</div></div>
       ${rows || '<div class="muted">Nothing scheduled today.</div>'}
-      <div class="tllegend">${this._chip('group', 'ok')}${this._chip('zone', 'accent')}${this._chip('conflict', 'danger')}</div>
+      <div class="tllegend">${this._chip('group', 'ok')}${this._chip('zone', 'accent')}${this._chip('conflict', 'danger')}${this._chip(
+        'will be skipped',
+        'skip',
+      )}${this._chip('may be skipped', 'ghost')}</div>
     </div>`;
   }
 }
 
 const STYLE = `
   :host { --z-ok:#12b886; --z-warn:#f0a105; --z-danger:#fa5252; --z-accent:#9775fa; --z-info:#4dabf7;
+    /* skip amber: the only step that stays colour-blind-safe against --z-danger. Do not darken. */
+    --z-skip:#f59f00;
     -webkit-tap-highlight-color: transparent; }
   button { -webkit-tap-highlight-color: transparent; }
   ha-card { overflow: hidden; container-type: inline-size; }
@@ -507,6 +533,9 @@ const STYLE = `
   .chip.warn { background: color-mix(in srgb, var(--z-warn) 18%, transparent); color: var(--z-warn); }
   .chip.danger { background: color-mix(in srgb, var(--z-danger) 18%, transparent); color: var(--z-danger); }
   .chip.accent { background: color-mix(in srgb, var(--z-accent) 18%, transparent); color: var(--z-accent); }
+  .chip.skip { background: color-mix(in srgb, var(--z-skip) 18%, transparent); color: var(--z-skip); }
+  /* neutral chip for the ghosted "might still be skipped" bars */
+  .chip.ghost { background: color-mix(in srgb, var(--z-ok) 38%, var(--card-background-color, #1c1c1c)); color: var(--secondary-text-color); }
 
   .bar { height: 6px; border-radius: 4px; background: var(--divider-color); margin-top: 6px; overflow: hidden; }
   .bar div { height: 100%; background: linear-gradient(90deg, #14c08c, #0b9e74); }
@@ -609,13 +638,23 @@ const STYLE = `
   .tllabel { width: 96px; flex-shrink: 0; font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tltrack { position: relative; flex: 1; height: 22px; background: var(--secondary-background-color); border-radius: 6px; }
   .tlticks { position: relative; flex: 1; display: flex; justify-content: space-between; font-size: .7rem; color: var(--secondary-text-color); }
-  .tlbar { position: absolute; top: 3px; height: 16px; border-radius: 4px; background: var(--z-ok); opacity: .92; }
+  .tlbar { position: absolute; top: 3px; height: 16px; border-radius: 4px; background: var(--z-ok); opacity: .95; }
   .tlbar.zone { background: var(--z-accent); }
-  .tlbar.conflict { background: var(--z-danger); }
+  /* certain skip replaces the identity hue outright */
+  .tlbar.skip-certain, .tlbar.zone.skip-certain { background: var(--z-skip); opacity: .95; }
+  /* possible skip keeps the identity hue and ghosts it. The ghost is a pre-blended
+     solid rather than a translucent layer: a parallel group draws one bar per zone at
+     the same instant, and stacked translucent copies composite into an almost solid
+     colour, wiping the state out. */
+  .tlbar.skip-possible { background: color-mix(in srgb, var(--z-ok) 38%, var(--card-background-color, #1c1c1c)); }
+  .tlbar.zone.skip-possible { background: color-mix(in srgb, var(--z-accent) 38%, var(--card-background-color, #1c1c1c)); }
+  /* a conflict outlines whatever fill the rules above produced instead of replacing it */
+  .tlbar.conflict { box-shadow: inset 0 0 0 2px var(--z-danger); }
   .tlnow { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--z-info); border-radius: 2px; }
   .tlboost { position: absolute; top: 3px; height: 16px; border-radius: 0 4px 4px 0;
     background: repeating-linear-gradient(135deg, var(--z-ok) 0 3px, transparent 3px 6px); opacity: .8; }
   .tltick { position: absolute; top: 1px; height: 20px; width: 2px; background: rgba(255,255,255,.85); border-radius: 1px; }
+  .tlboost.skipped, .tltick.skipped { opacity: .35; }
   /* upcoming rows: stacked on narrow cards, single-line when wide enough */
   .uprow { padding: 10px 0; border-bottom: 1px solid var(--divider-color); }
   .uprow:last-of-type { border-bottom: 0; }

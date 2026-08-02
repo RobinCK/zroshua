@@ -260,6 +260,10 @@ export interface PlanSegment {
   worstEnd: number;
   conflict: boolean;
   kind: 'group' | 'zone';
+  /** 'certain' = already decided (paused / rain dry-out), 'possible' = re-evaluated at start time. */
+  skip?: 'certain' | 'possible' | null;
+  /** Human-readable reasons for the skip state, at most 3. */
+  skipWhy?: string[];
 }
 
 /** Finish window of one scheduled run: temperature scaling can end it anywhere in [minEnd..worstEnd]. */
@@ -272,6 +276,10 @@ export interface PlanEnvelope {
   end: number;
   worstEnd: number;
   kind: 'group' | 'zone';
+  /** 'certain' = already decided (paused / rain dry-out), 'possible' = re-evaluated at start time. */
+  skip?: 'certain' | 'possible' | null;
+  /** Human-readable reasons for the skip state, at most 3. */
+  skipWhy?: string[];
 }
 
 export interface PlanResponse {

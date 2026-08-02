@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0
+
+- **The timeline now says what will actually happen.** A reserved slot is not the
+  same as a slot that will be watered, and until now both looked identical. A run
+  that will certainly be skipped — watering paused, its group paused, all of its
+  zones paused, or the rain dry-out window covering the start — is drawn in amber.
+  A run that might still be skipped is drawn in a muted version of its own colour.
+  Hovering or tapping a bar names the state and lists the reasons. The bar keeps
+  its place either way: the time stays reserved until the run is really skipped.
+  The Lovelace card's `timeline` view shows the same three states.
+- **A forecast is no longer treated as a fact.** Anything re-read at start time —
+  the weather forecast, temperature scaling, forecast-based run conditions, live
+  soil sensors — now marks a run *uncertain* rather than *certainly skipped*, so a
+  condition wanting ≥ 30 °C against a 20 °C forecast no longer claims to know what
+  the temperature will be. The same applies to the dashboard's upcoming list,
+  where those reasons move from the red *will skip* badge to the yellow *may skip*.
+- A rule conflict is now an outline on the bar instead of replacing its colour, so
+  a run can show that it both collides and will be skipped.
+- Fixed the dry-out window marking runs that had already finished *before* it
+  started raining as "will be skipped".
+
 ## 0.3.11
 
 - **Troubleshooting section in the README** for the case where the Lovelace card keeps
