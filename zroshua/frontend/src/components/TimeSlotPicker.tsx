@@ -175,7 +175,7 @@ export default function TimeSlotPicker({
           <Box
             pos="relative"
             h={38}
-            style={{ background: 'var(--mantine-color-default-hover)', borderRadius: 6, overflow: 'hidden', cursor: 'crosshair' }}
+            style={{ background: 'var(--z-track)', borderRadius: 6, overflow: 'hidden', cursor: 'crosshair' }}
             onClick={(e) => {
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
               set(((e.clientX - rect.left) / rect.width) * 1440);

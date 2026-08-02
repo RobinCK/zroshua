@@ -1,10 +1,72 @@
 /* App-level polish on top of the Mantine theme. */
 
+/*
+ * Mantine's light scheme is white cards on a near-white page, 10 % colour tints
+ * and #868e96 secondary ink. On a screen that is mostly cards it reads washed
+ * out: the card has nothing to sit on, and a tint that faint next to its own hue
+ * as label ink measures under 3:1. So the page goes deeper (the cards stay
+ * white and lift off it), the secondary ink goes darker, and every light-variant
+ * tint is given enough body to be a surface rather than a suggestion.
+ * The dark scheme already has real contrast between its surfaces — left alone.
+ *
+ * The doubled :root is deliberate: MantineProvider regenerates the colour
+ * variables at runtime into a style tag appended after this file, at the same
+ * specificity, so a single :root loses the tie.
+ */
+:root:root[data-mantine-color-scheme='light'] {
+  --mantine-color-dimmed: #5b6570;
+  --mantine-color-default-border: #d2d9e0;
+  /* track colour for the timeline strips and the occupancy picker */
+  --z-track: #dee4ec;
+  --z-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 6px rgba(16, 24, 40, 0.06);
+}
+:root:root[data-mantine-color-scheme='dark'] {
+  --z-track: var(--mantine-color-default-hover);
+  --z-card-shadow: none;
+}
+
 [data-mantine-color-scheme='light'] body {
-  background: #f4f6f6;
+  background: #e8ecf1;
 }
 [data-mantine-color-scheme='dark'] body {
   background: #121315;
+}
+
+/*
+ * Light-variant surfaces: 16 % of the hue instead of 10 %, and the label takes
+ * shade 9 instead of the same shade as the fill. Measured on real pixels this
+ * moves a badge from 2.8:1 to at least 4.6:1 while keeping the pastel feel.
+ * The warm hues need more than shade 9 to get there — yellow 9 is still bright
+ * orange — so each ink is darkened by the measured amount and no more.
+ */
+:root:root[data-mantine-color-scheme='light'] {
+  --mantine-color-teal-light: color-mix(in srgb, var(--mantine-color-teal-6) 16%, transparent);
+  --mantine-color-teal-light-hover: color-mix(in srgb, var(--mantine-color-teal-6) 24%, transparent);
+  --mantine-color-teal-light-color: color-mix(in srgb, var(--mantine-color-teal-9) 85%, #000);
+  --mantine-color-green-light: color-mix(in srgb, var(--mantine-color-green-6) 16%, transparent);
+  --mantine-color-green-light-hover: color-mix(in srgb, var(--mantine-color-green-6) 24%, transparent);
+  --mantine-color-green-light-color: color-mix(in srgb, var(--mantine-color-green-9) 80%, #000);
+  --mantine-color-grape-light: color-mix(in srgb, var(--mantine-color-grape-6) 16%, transparent);
+  --mantine-color-grape-light-hover: color-mix(in srgb, var(--mantine-color-grape-6) 24%, transparent);
+  --mantine-color-grape-light-color: var(--mantine-color-grape-9);
+  --mantine-color-violet-light: color-mix(in srgb, var(--mantine-color-violet-6) 16%, transparent);
+  --mantine-color-violet-light-hover: color-mix(in srgb, var(--mantine-color-violet-6) 24%, transparent);
+  --mantine-color-violet-light-color: var(--mantine-color-violet-9);
+  --mantine-color-blue-light: color-mix(in srgb, var(--mantine-color-blue-6) 16%, transparent);
+  --mantine-color-blue-light-hover: color-mix(in srgb, var(--mantine-color-blue-6) 24%, transparent);
+  --mantine-color-blue-light-color: color-mix(in srgb, var(--mantine-color-blue-9) 95%, #000);
+  --mantine-color-red-light: color-mix(in srgb, var(--mantine-color-red-6) 16%, transparent);
+  --mantine-color-red-light-hover: color-mix(in srgb, var(--mantine-color-red-6) 24%, transparent);
+  --mantine-color-red-light-color: color-mix(in srgb, var(--mantine-color-red-9) 85%, #000);
+  --mantine-color-orange-light: color-mix(in srgb, var(--mantine-color-orange-6) 16%, transparent);
+  --mantine-color-orange-light-hover: color-mix(in srgb, var(--mantine-color-orange-6) 24%, transparent);
+  --mantine-color-orange-light-color: color-mix(in srgb, var(--mantine-color-orange-9) 75%, #000);
+  --mantine-color-yellow-light: color-mix(in srgb, var(--mantine-color-yellow-6) 20%, transparent);
+  --mantine-color-yellow-light-hover: color-mix(in srgb, var(--mantine-color-yellow-6) 28%, transparent);
+  --mantine-color-yellow-light-color: color-mix(in srgb, var(--mantine-color-yellow-9) 65%, #000);
+  --mantine-color-gray-light: color-mix(in srgb, var(--mantine-color-gray-6) 16%, transparent);
+  --mantine-color-gray-light-hover: color-mix(in srgb, var(--mantine-color-gray-6) 24%, transparent);
+  --mantine-color-gray-light-color: var(--mantine-color-gray-9);
 }
 
 /* Softer card borders in dark mode (default gray.3/dark.4 is quite loud). */
@@ -12,9 +74,26 @@
 [data-mantine-color-scheme='dark'] .mantine-Paper-root[data-with-border] {
   border-color: rgba(255, 255, 255, 0.07);
 }
+/* In light the card is white on a grey page: a visible edge plus a soft shadow
+   is what makes it a card rather than a patch of the background. */
 [data-mantine-color-scheme='light'] .mantine-Card-root,
 [data-mantine-color-scheme='light'] .mantine-Paper-root[data-with-border] {
-  border-color: rgba(0, 0, 0, 0.07);
+  border-color: rgba(16, 24, 40, 0.1);
+  box-shadow: var(--z-card-shadow);
+}
+/* Popovers and modals float above the page, so they carry a deeper shadow. */
+[data-mantine-color-scheme='light'] .mantine-Modal-content,
+[data-mantine-color-scheme='light'] .mantine-Popover-dropdown {
+  box-shadow: 0 8px 28px rgba(16, 24, 40, 0.14), 0 2px 6px rgba(16, 24, 40, 0.08);
+}
+/* The shell is a surface of its own — without an edge it melts into the page. */
+[data-mantine-color-scheme='light'] .mantine-AppShell-navbar {
+  border-right-color: rgba(16, 24, 40, 0.1);
+}
+/* An empty progress track on a white card was almost invisible, so a half-full
+   bar read as a short bar floating in nothing. */
+[data-mantine-color-scheme='light'] .mantine-Progress-root {
+  background-color: var(--mantine-color-gray-3);
 }
 
 /* Header: subtle translucency over the page background. */

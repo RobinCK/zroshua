@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.2
+
+- **The light theme no longer looks washed out.** It was white cards on a near-white page with
+  10 % colour tints and grey secondary text — nothing had an edge and nothing had weight.
+  Now the page sits a shade deeper so the white cards lift off it with a visible border and a
+  soft shadow, modals and popovers float on a stronger one, and the navbar has an edge of its
+  own. Secondary text went from 3.3:1 to 5.9:1, and every light-variant badge, button and icon
+  chip carries a 16 % tint with ink dark enough to read: measured per hue on real pixels, the
+  worst case moved from 2.6:1 to 4.6:1 (teal badges 2.8 → 5.6). The timeline strip and the
+  occupancy picker got a track colour that is actually visible under the bars, and an empty
+  progress track no longer disappears into the card. The dark theme is untouched — its
+  surfaces already had real contrast.
+
 ## 0.5.1
 
 - **No more white flash on a dark Home Assistant.** The panel had no colour scheme until

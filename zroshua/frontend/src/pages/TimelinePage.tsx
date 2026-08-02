@@ -287,7 +287,7 @@ export default function TimelinePage() {
             )}
             {rows.map((row) => (
               <Group key={row.key} gap={0} wrap="nowrap" h={32} align="center">
-                <Box pos="relative" h={26} style={{ flexGrow: 1, background: 'var(--mantine-color-default-hover)', borderRadius: 4 }}>
+                <Box pos="relative" h={26} style={{ flexGrow: 1, background: 'var(--z-track)', borderRadius: 4 }}>
                   {/* hour gridlines */}
                   {Array.from({ length: 12 }, (_, i) => (
                     <Box key={i} pos="absolute" top={0} bottom={0} style={{ left: `${(i + 1) * 2 * HOUR_W}%`, width: 1, background: 'var(--mantine-color-default-border)' }} />
