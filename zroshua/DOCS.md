@@ -181,6 +181,9 @@ export/import.
 
 Providers are configured in Settings → Notifications:
 
+Select a notification language explicitly. The backend uses it for message text, skip
+reasons, dates and numbers even when no browser is open.
+
 - **Telegram** — set `telegram_bot_token` in the add-on options, then add a provider with
   your chat ID(s).
 - **Home Assistant notify** — any `notify.*` service, including mobile push.

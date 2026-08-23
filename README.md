@@ -311,7 +311,9 @@ trigger, updates the zone but leaves the group as it was.
   notification naming the exact entity.
 - **Notifications**: Telegram (several chat IDs) and/or any HA `notify.*` service, each with
   its own event filter — started, finished (duration + time to next run), skipped (with
-  reason), stopped by rain, faults, system. **Group-level mode** collapses a sequential run
+  reason), stopped by rain, faults, system. Choose the notification language independently
+  of the browser language; message text, reasons, dates and numbers are localized.
+  **Group-level mode** collapses a sequential run
   of 13 beds into two messages (started / finished with totals) instead of 26; a **daily
   digest** at a chosen time sums up runs, liters, energy, cost and skips; **quiet hours**
   hold everything except faults during the night.
