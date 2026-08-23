@@ -567,11 +567,11 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     const containing = this.groups.find((g) => g.zoneIds.includes(zone.id));
     const groupId = containing?.id ?? null;
-    if (this.snoozeUntil > now) return this.skip(groupId, zone.id, 'paused', 'all watering is paused');
+    if (this.snoozeUntil > now) return this.skip(groupId, zone.id, 'paused', 'all watering is paused', undefined, { untilTs: this.snoozeUntil });
     if (containing?.snoozeUntil && Number(containing.snoozeUntil) > now)
-      return this.skip(groupId, zone.id, 'group_paused', 'group is paused');
+      return this.skip(groupId, zone.id, 'group_paused', 'group is paused', undefined, { untilTs: Number(containing.snoozeUntil) });
     if (zone.snoozeUntil && Number(zone.snoozeUntil) > now)
-      return this.skip(groupId, zone.id, 'zone_paused', 'zone is paused');
+      return this.skip(groupId, zone.id, 'zone_paused', 'zone is paused', undefined, { untilTs: Number(zone.snoozeUntil) });
     const settings = await this.config.getSettings();
     if ((await this.rainIsWet(settings)) && !zone.ignore?.rain_sensor)
       return this.skip(groupId, zone.id, 'rain_sensor', 'rain sensor is wet (or in dry-out window)');
@@ -700,9 +700,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
     if (!manual) {
       if (this.snoozeUntil > now)
-        return this.skip(group.id, null, 'paused', `all watering paused until ${new Date(this.snoozeUntil).toLocaleString()}`);
+        return this.skip(group.id, null, 'paused', `all watering paused until ${new Date(this.snoozeUntil).toLocaleString()}`, undefined, { untilTs: this.snoozeUntil });
       if (group.snoozeUntil && Number(group.snoozeUntil) > now)
-        return this.skip(group.id, null, 'group_paused', `group paused until ${new Date(Number(group.snoozeUntil)).toLocaleString()}`);
+        return this.skip(group.id, null, 'group_paused', `group paused until ${new Date(Number(group.snoozeUntil)).toLocaleString()}`, undefined, { untilTs: Number(group.snoozeUntil) });
     }
 
     let condScale = 1;
@@ -739,7 +739,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
       if (!manual && zone.snoozeUntil && Number(zone.snoozeUntil) > now) {
-        await this.skip(group.id, zone.id, 'zone_paused', `zone paused until ${new Date(Number(zone.snoozeUntil)).toLocaleString()}`);
+        await this.skip(group.id, zone.id, 'zone_paused', `zone paused until ${new Date(Number(zone.snoozeUntil)).toLocaleString()}`, undefined, { untilTs: Number(zone.snoozeUntil) });
         continue;
       }
       if (!manual) {
@@ -907,7 +907,17 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           now - q.enqueuedAt > 60_000
         ) {
           this.queue = this.queue.filter((x) => x.key !== q.key);
-          await this.skip(q.groupId, q.zoneId, 'conflict_skip', `could not start on time (${q.waitReason}); conflict policy is "skip"`);
+          const mutexPrefix = 'mutex with group ';
+          const reasonKey = q.waitReason.startsWith(mutexPrefix) ? 'reasonConflictMutex' : 'reasonConflictOrder';
+          const group = q.waitReason.slice(q.waitReason.startsWith(mutexPrefix) ? mutexPrefix.length : 'waiting for group '.length);
+          await this.skip(
+            q.groupId,
+            q.zoneId,
+            'conflict_skip',
+            `could not start on time (${q.waitReason}); conflict policy is "skip"`,
+            reasonKey,
+            { group },
+          );
           this.broadcastState();
         }
         continue;
@@ -1707,7 +1717,6 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       targetKind: zoneId ? 'zone' : groupId ? 'group' : null,
       targetName: zoneId ? this.zone(zoneId)?.name ?? zoneId : groupId ? this.group(groupId)?.name ?? groupId : null,
       reasonKey: reasonKey ?? reasonByCode[code] ?? 'reasonWeather',
-      detail,
       ...reasonVars,
     });
     return 0;

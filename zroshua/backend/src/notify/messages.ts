@@ -20,6 +20,7 @@ export type NotificationMessageKey =
   | 'wateringSkipped'
   | 'forZone'
   | 'forGroup'
+  | 'groupLiters'
   | 'reasonPaused'
   | 'reasonGroupPaused'
   | 'reasonZonePaused'
@@ -33,7 +34,9 @@ export type NotificationMessageKey =
   | 'reasonFault'
   | 'reasonSourceLow'
   | 'reasonBelowMin'
-  | 'reasonConflict';
+  | 'reasonConflict'
+  | 'reasonConflictMutex'
+  | 'reasonConflictOrder';
 
 export type NotificationVars = Record<string, string | number | null | undefined>;
 
@@ -128,9 +131,10 @@ const messages: Record<NotificationMessageKey, Row> = {
   ],
   forZone: [' for zone "{name}"', ' для зони «{name}»', ' dla strefy „{name}”', ' für Zone „{name}“', ' pre zónu „{name}“', ' pentru zona „{name}”', ' per la zona “{name}”', ' para la zona «{name}»', ' pro zónu „{name}“', ' pour la zone « {name} »'],
   forGroup: [' for group "{name}"', ' для групи «{name}»', ' dla grupy „{name}”', ' für Gruppe „{name}“', ' pre skupinu „{name}“', ' pentru grupul „{name}”', ' per il gruppo “{name}”', ' para el grupo «{name}»', ' pro skupinu „{name}“', ' pour le groupe « {name} »'],
-  reasonPaused: ['all watering is paused', 'усі поливи призупинено', 'wszystkie podlewania są wstrzymane', 'alle Bewässerungen sind pausiert', 'všetko zavlažovanie je pozastavené', 'toate udările sunt întrerupte', 'tutte le irrigazioni sono in pausa', 'todos los riegos están en pausa', 'veškeré zavlažování je pozastaveno', 'tous les arrosages sont en pause'],
-  reasonGroupPaused: ['group is paused', 'групу призупинено', 'grupa jest wstrzymana', 'Gruppe ist pausiert', 'skupina je pozastavená', 'grupul este întrerupt', 'il gruppo è in pausa', 'el grupo está en pausa', 'skupina je pozastavena', 'le groupe est en pause'],
-  reasonZonePaused: ['zone is paused', 'зону призупинено', 'strefa jest wstrzymana', 'Zone ist pausiert', 'zóna je pozastavená', 'zona este întreruptă', 'la zona è in pausa', 'la zona está en pausa', 'zóna je pozastavena', 'la zone est en pause'],
+  groupLiters: [' · ~{liters} L', ' · ~{liters} л', ' · ~{liters} l', ' · ~{liters} L', ' · ~{liters} l', ' · ~{liters} l', ' · ~{liters} l', ' · ~{liters} l', ' · ~{liters} l', ' · ~{liters} l'],
+  reasonPaused: ['all watering is paused until {until}', 'усі поливи призупинено до {until}', 'wszystkie podlewania są wstrzymane do {until}', 'alle Bewässerungen sind bis {until} pausiert', 'všetko zavlažovanie je pozastavené do {until}', 'toate udările sunt întrerupte până la {until}', 'tutte le irrigazioni sono in pausa fino al {until}', 'todos los riegos están en pausa hasta {until}', 'veškeré zavlažování je pozastaveno do {until}', 'tous les arrosages sont en pause jusqu’au {until}'],
+  reasonGroupPaused: ['group is paused until {until}', 'групу призупинено до {until}', 'grupa jest wstrzymana do {until}', 'Gruppe ist bis {until} pausiert', 'skupina je pozastavená do {until}', 'grupul este întrerupt până la {until}', 'il gruppo è in pausa fino al {until}', 'el grupo está en pausa hasta {until}', 'skupina je pozastavena do {until}', 'le groupe est en pause jusqu’au {until}'],
+  reasonZonePaused: ['zone is paused until {until}', 'зону призупинено до {until}', 'strefa jest wstrzymana do {until}', 'Zone ist bis {until} pausiert', 'zóna je pozastavená do {until}', 'zona este întreruptă până la {until}', 'la zona è in pausa fino al {until}', 'la zona está en pausa hasta {until}', 'zóna je pozastavena do {until}', 'la zone est en pause jusqu’au {until}'],
   reasonRain: ['rain sensor is wet or inside its dry-out window', 'датчик дощу мокрий або діє час висихання', 'czujnik deszczu jest mokry lub trwa okres schnięcia', 'Regensensor ist nass oder in der Abtrocknungszeit', 'dažďový senzor je mokrý alebo v čase vysychania', 'senzorul de ploaie este ud sau în perioada de uscare', 'il sensore pioggia è bagnato o nel periodo di asciugatura', 'el sensor de lluvia está mojado o en el periodo de secado', 'dešťový senzor je mokrý nebo v době vysychání', 'le capteur de pluie est mouillé ou en période de séchage'],
   reasonSoilWet: ['soil moisture is above the blocking threshold', 'вологість ґрунту перевищує поріг блокування', 'wilgotność gleby przekracza próg blokady', 'Bodenfeuchte liegt über dem Sperrwert', 'vlhkosť pôdy je nad blokovacou hranicou', 'umiditatea solului depășește pragul de blocare', 'l’umidità del suolo supera la soglia di blocco', 'la humedad del suelo supera el umbral de bloqueo', 'vlhkost půdy je nad blokovací hranicí', 'l’humidité du sol dépasse le seuil de blocage'],
   reasonCondition: ['run condition not met ({actual} {compare} {expected})', 'умову запуску не виконано ({actual} {compare} {expected})', 'warunek uruchomienia niespełniony ({actual} {compare} {expected})', 'Laufbedingung nicht erfüllt ({actual} {compare} {expected})', 'podmienka spustenia nebola splnená ({actual} {compare} {expected})', 'condiția de pornire nu este îndeplinită ({actual} {compare} {expected})', 'condizione di avvio non soddisfatta ({actual} {compare} {expected})', 'condición de inicio no cumplida ({actual} {compare} {expected})', 'podmínka spuštění nebyla splněna ({actual} {compare} {expected})', 'condition de démarrage non remplie ({actual} {compare} {expected})'],
@@ -142,6 +146,8 @@ const messages: Record<NotificationMessageKey, Row> = {
   reasonSourceLow: ['source "{source}" is below {percent}% (~{liters} L)', 'джерело «{source}» нижче {percent}% (~{liters} л)', 'źródło „{source}” jest poniżej {percent}% (~{liters} l)', 'Quelle „{source}“ liegt unter {percent} % (~{liters} L)', 'zdroj „{source}“ je pod {percent} % (~{liters} l)', 'sursa „{source}” este sub {percent}% (~{liters} l)', 'la fonte “{source}” è sotto il {percent}% (~{liters} l)', 'la fuente «{source}» está por debajo del {percent} % (~{liters} l)', 'zdroj „{source}“ je pod {percent} % (~{liters} l)', 'la source « {source} » est sous {percent} % (~{liters} l)'],
   reasonBelowMin: ['{minutes} min is below the minimum and was rolled over to the next run', '{minutes} хв менше мінімуму й перенесено до наступного запуску', '{minutes} min jest poniżej minimum i przeniesiono je do następnego uruchomienia', '{minutes} Min. liegen unter dem Minimum und wurden auf den nächsten Lauf übertragen', '{minutes} min je pod minimom a prenieslo sa do ďalšieho spustenia', '{minutes} min este sub minim și a fost reportat la următoarea pornire', '{minutes} min è sotto il minimo ed è stato riportato al prossimo avvio', '{minutes} min está por debajo del mínimo y se acumuló para el próximo riego', '{minutes} min je pod minimem a bylo převedeno do dalšího spuštění', '{minutes} min est sous le minimum et a été reporté au prochain arrosage'],
   reasonConflict: ['could not start on time because of a conflict', 'не вдалося запустити вчасно через конфлікт', 'nie można było uruchomić na czas z powodu konfliktu', 'konnte wegen eines Konflikts nicht rechtzeitig starten', 'nepodarilo sa spustiť načas pre konflikt', 'nu a putut porni la timp din cauza unui conflict', 'impossibile avviare in tempo a causa di un conflitto', 'no se pudo iniciar a tiempo debido a un conflicto', 'nepodařilo se spustit včas kvůli konfliktu', 'impossible de démarrer à temps en raison d’un conflit'],
+  reasonConflictMutex: ['could not start on time because group "{group}" is running', 'не вдалося запустити вчасно, оскільки працює група «{group}»', 'nie można było uruchomić na czas, ponieważ działa grupa „{group}”', 'konnte nicht rechtzeitig starten, weil Gruppe „{group}“ läuft', 'nepodarilo sa spustiť načas, pretože beží skupina „{group}“', 'nu a putut porni la timp deoarece rulează grupul „{group}”', 'impossibile avviare in tempo perché è in esecuzione il gruppo “{group}”', 'no se pudo iniciar a tiempo porque se está ejecutando el grupo «{group}»', 'nepodařilo se spustit včas, protože běží skupina „{group}“', 'impossible de démarrer à temps car le groupe « {group} » est actif'],
+  reasonConflictOrder: ['could not start on time while waiting for group "{group}"', 'не вдалося запустити вчасно під час очікування групи «{group}»', 'nie można było uruchomić na czas podczas oczekiwania na grupę „{group}”', 'konnte während des Wartens auf Gruppe „{group}“ nicht rechtzeitig starten', 'nepodarilo sa spustiť načas počas čakania na skupinu „{group}“', 'nu a putut porni la timp în așteptarea grupului „{group}”', 'impossibile avviare in tempo durante l’attesa del gruppo “{group}”', 'no se pudo iniciar a tiempo mientras se esperaba al grupo «{group}»', 'nepodařilo se spustit včas při čekání na skupinu „{group}“', 'impossible de démarrer à temps en attendant le groupe « {group} »'],
 };
 
 const zhMessages: Record<NotificationMessageKey, string> = {
@@ -164,9 +170,10 @@ const zhMessages: Record<NotificationMessageKey, string> = {
   wateringSkipped: '⏭ 已跳过浇水{target}：{reason}',
   forZone: '，区域“{name}”',
   forGroup: '，组“{name}”',
-  reasonPaused: '所有浇水均已暂停',
-  reasonGroupPaused: '该组已暂停',
-  reasonZonePaused: '该区域已暂停',
+  groupLiters: '，约 {liters} 升',
+  reasonPaused: '所有浇水均已暂停至 {until}',
+  reasonGroupPaused: '该组已暂停至 {until}',
+  reasonZonePaused: '该区域已暂停至 {until}',
   reasonRain: '雨水传感器处于湿润状态或仍在干燥等待期内',
   reasonSoilWet: '土壤湿度高于阻止浇水的阈值',
   reasonCondition: '未满足运行条件（{actual} {compare} {expected}）',
@@ -178,6 +185,8 @@ const zhMessages: Record<NotificationMessageKey, string> = {
   reasonSourceLow: '水源“{source}”低于 {percent}%（约 {liters} 升）',
   reasonBelowMin: '{minutes} 分钟低于最短时长，已累积至下次运行',
   reasonConflict: '由于冲突，无法按时启动',
+  reasonConflictMutex: '由于组“{group}”正在运行，无法按时启动',
+  reasonConflictOrder: '等待组“{group}”时无法按时启动',
 };
 
 function template(language: SupportedLanguage, key: NotificationMessageKey): string {
@@ -208,18 +217,20 @@ export function formatNotificationMessage(
   }
   if (typeof vars.dateTs === 'number') vars.date = formatNotificationDate(language, vars.dateTs, { dateStyle: 'medium' });
   if (typeof vars.timeTs === 'number') vars.time = formatNotificationDate(language, vars.timeTs, { hour: '2-digit', minute: '2-digit' });
+  if (typeof vars.untilTs === 'number') vars.until = formatNotificationDate(language, vars.untilTs);
   for (const [name, digits] of [['actual', 1], ['expected', 1], ['energy', 2], ['temperature', 1], ['amount', 1], ['flow', 1], ['minutes', 1]] as const) {
     if (typeof vars[name] === 'number') vars[name] = formatNotificationNumber(language, vars[name], digits);
   }
   if (typeof vars.liters === 'number') {
     const liters = formatNotificationNumber(language, vars.liters, 0);
-    vars.liters = key === 'groupFinished' ? ` · ~${liters} L` : liters;
+    vars.liters = key === 'groupFinished' ? formatNotification(language, 'groupLiters', { liters }) : liters;
   }
   if (typeof vars.direction === 'string') {
     vars.direction = formatNotification(language, vars.direction === 'high' ? 'directionHigh' : 'directionLow');
   }
   if (typeof vars.cost === 'number') {
-    vars.cost = ` (~${formatNotificationNumber(language, vars.cost, 2)} ${vars.currency ?? ''})`;
+    const currency = String(vars.currency ?? '').trim();
+    vars.cost = ` (~${formatNotificationNumber(language, vars.cost, 2)}${currency ? ` ${currency}` : ''})`;
   }
   if (key === 'wateringSkipped') {
     const reasonKey = String(vars.reasonKey ?? 'reasonWeather') as NotificationMessageKey;

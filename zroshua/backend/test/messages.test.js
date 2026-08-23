@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { formatNotificationMessage } = require('../dist/notify/messages');
+const { formatNotificationDate, formatNotificationMessage } = require('../dist/notify/messages');
 
 test('formats a German run notification', () => {
   assert.equal(
@@ -39,6 +39,35 @@ test('formats a Simplified Chinese notification', () => {
   );
 });
 
+test('localizes Simplified Chinese group-finish liters', () => {
+  assert.equal(
+    formatNotificationMessage('zh', 'groupFinished', { group: '前院', zones: 2, minutes: 15, liters: 42 }),
+    '✅ 组“前院”已完成：2 个区域，15 分钟，约 42 升。',
+  );
+});
+
+test('keeps structured skip context localized', () => {
+  const untilTs = Date.UTC(2026, 7, 23, 12);
+  assert.equal(
+    formatNotificationMessage('de', 'wateringSkipped', {
+      targetKind: 'group',
+      targetName: 'Rasen',
+      reasonKey: 'reasonGroupPaused',
+      untilTs,
+    }),
+    `⏭ Bewässerung übersprungen für Gruppe „Rasen“: Gruppe ist bis ${formatNotificationDate('de', untilTs)} pausiert`,
+  );
+  assert.equal(
+    formatNotificationMessage('de', 'wateringSkipped', {
+      targetKind: 'zone',
+      targetName: 'Beet',
+      reasonKey: 'reasonConflictMutex',
+      group: 'Vorgarten',
+    }),
+    '⏭ Bewässerung übersprungen für Zone „Beet“: konnte nicht rechtzeitig starten, weil Gruppe „Vorgarten“ läuft',
+  );
+});
+
 test('localizes digest numbers and optional cost', () => {
   const message = formatNotificationMessage('de', 'dailyDigest', {
     dateTs: Date.UTC(2026, 7, 23),
@@ -53,4 +82,16 @@ test('localizes digest numbers and optional cost', () => {
   });
   assert.match(message, /Wasser: ~42 L/);
   assert.match(message, /Energie: 1,25 kWh \(~0,38 EUR\)/);
+
+  const withoutCurrency = formatNotificationMessage('en', 'dailyDigest', {
+    dateTs: Date.UTC(2026, 7, 23),
+    runs: 1,
+    minutes: 2,
+    liters: 3,
+    energy: 0.5,
+    cost: 0.375,
+    skips: 0,
+    faults: 0,
+  });
+  assert.match(withoutCurrency, /Energy: 0.5 kWh \(~0.38\)\n/);
 });
