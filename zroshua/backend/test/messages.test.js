@@ -21,7 +21,7 @@ test('localizes a structured skip reason without English fragments', () => {
 });
 
 test('all supported languages format the same message', () => {
-  for (const language of ['en', 'uk', 'pl', 'de', 'sk', 'ro', 'it', 'es', 'cs', 'fr']) {
+  for (const language of ['en', 'uk', 'pl', 'de', 'sk', 'ro', 'it', 'es', 'cs', 'fr', 'zh']) {
     const message = formatNotificationMessage(language, 'wateringFinished', {
       zone: 'A',
       minutes: 5,
@@ -30,6 +30,13 @@ test('all supported languages format the same message', () => {
     assert.match(message, /A/);
     assert.doesNotMatch(message, /\{\w+\}/);
   }
+});
+
+test('formats a Simplified Chinese notification', () => {
+  assert.equal(
+    formatNotificationMessage('zh', 'wateringStarted', { zone: '前院', minutes: 8 }),
+    '💧 已开始浇水：“前院”，持续 8 分钟。',
+  );
 });
 
 test('localizes digest numbers and optional cost', () => {

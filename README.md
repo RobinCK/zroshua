@@ -5,7 +5,8 @@ Zones on top of your existing `switch`/`valve` entities, watering groups with co
 concurrency, a conflict-aware scheduler, weather intelligence, rain & soil sensors,
 stuck-valve protection, water & energy statistics, a live site map and Telegram notifications.
 The interface follows your Home Assistant language automatically — English, Українська,
-Polski, Deutsch, Slovenčina, Română, Italiano, Español, Čeština, Français (English fallback).
+Polski, Deutsch, Slovenčina, Română, Italiano, Español, Čeština, Français, 简体中文
+(English fallback).
 
 ![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5)
 ![Arch](https://img.shields.io/badge/arch-aarch64%20%7C%20amd64-blue)

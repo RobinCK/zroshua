@@ -144,7 +144,44 @@ const messages: Record<NotificationMessageKey, Row> = {
   reasonConflict: ['could not start on time because of a conflict', 'не вдалося запустити вчасно через конфлікт', 'nie można było uruchomić na czas z powodu konfliktu', 'konnte wegen eines Konflikts nicht rechtzeitig starten', 'nepodarilo sa spustiť načas pre konflikt', 'nu a putut porni la timp din cauza unui conflict', 'impossibile avviare in tempo a causa di un conflitto', 'no se pudo iniciar a tiempo debido a un conflicto', 'nepodařilo se spustit včas kvůli konfliktu', 'impossible de démarrer à temps en raison d’un conflit'],
 };
 
+const zhMessages: Record<NotificationMessageKey, string> = {
+  sourceLow: '🪣 水源“{source}”水位偏低：约 {liters} 升（{percent}%）。',
+  flowDeviation: '💦 “{source}”的流量{direction} {percent}%：实测 {actual} 升/分钟，预期 {expected} 升/分钟（{zones} 个区域正在浇水）。',
+  directionHigh: '偏高',
+  directionLow: '偏低',
+  dailyDigest: '📊 Zroshua 每日摘要 {date}\n运行：{runs} 次 · {minutes} 分钟\n用水：约 {liters} 升\n能耗：{energy} 千瓦时{cost}\n跳过：{skips} 次 · 故障：{faults} 次',
+  preStartUnavailable: '⚠️ 区域“{zone}”计划于 {time} 启动，但 {entities} 不可用——请检查控制器。',
+  zoneOnFailed: '⚠️ 区域“{zone}”无法开启——已跳过；其余计划继续执行。',
+  groupStarted: '💧 组“{group}”已启动：计划浇水 {zones} 个区域。',
+  wateringStarted: '💧 已开始浇水：“{zone}”，持续 {minutes} 分钟。',
+  stuckValve: '🚨 严重故障：区域“{zone}”未能关闭（阀门卡住）。正在关闭水源泵。',
+  rainStopped: '🌧 已停止区域“{zone}”的浇水：检测到降雨。',
+  groupFinished: '✅ 组“{group}”已完成：{zones} 个区域，{minutes} 分钟{liters}。{next}',
+  wateringFinished: '✅ 浇水已完成：“{zone}”，{minutes} 分钟。{next}',
+  nextWatering: ' 下次浇水：{date}。',
+  pumpUnavailable: '⚠️ 水源“{source}”的水泵“{entity}”不可用——仍将启动；请检查控制器。',
+  leak: '🚨 水源“{source}”：没有区域运行时仍有水流（{flow} 升/分钟）——可能漏水或阀门卡住。',
+  wateringSkipped: '⏭ 已跳过浇水{target}：{reason}',
+  forZone: '，区域“{name}”',
+  forGroup: '，组“{name}”',
+  reasonPaused: '所有浇水均已暂停',
+  reasonGroupPaused: '该组已暂停',
+  reasonZonePaused: '该区域已暂停',
+  reasonRain: '雨水传感器处于湿润状态或仍在干燥等待期内',
+  reasonSoilWet: '土壤湿度高于阻止浇水的阈值',
+  reasonCondition: '未满足运行条件（{actual} {compare} {expected}）',
+  reasonWeatherRain: '降雨预报超过阈值（{probability}% / {amount} 毫米）',
+  reasonWeatherFreeze: '防冻保护（{temperature} °C）',
+  reasonWeatherTemp: '温度 {temperature} °C 低于跳过阈值',
+  reasonWeather: '天气规则阻止浇水',
+  reasonFault: '区域处于故障状态',
+  reasonSourceLow: '水源“{source}”低于 {percent}%（约 {liters} 升）',
+  reasonBelowMin: '{minutes} 分钟低于最短时长，已累积至下次运行',
+  reasonConflict: '由于冲突，无法按时启动',
+};
+
 function template(language: SupportedLanguage, key: NotificationMessageKey): string {
+  if (language === 'zh') return zhMessages[key];
   return messages[key][Math.max(0, languages.indexOf(language))];
 }
 

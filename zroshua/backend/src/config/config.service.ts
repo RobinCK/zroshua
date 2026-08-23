@@ -38,7 +38,7 @@ export type NotificationProvider =
   | { type: 'telegram'; chatIds: string[]; events: string[] }
   | { type: 'ha_notify'; service: string; events: string[] };
 
-export type SupportedLanguage = 'en' | 'uk' | 'pl' | 'de' | 'sk' | 'ro' | 'it' | 'es' | 'cs' | 'fr';
+export type SupportedLanguage = 'en' | 'uk' | 'pl' | 'de' | 'sk' | 'ro' | 'it' | 'es' | 'cs' | 'fr' | 'zh';
 
 export interface Settings {
   maxTotalFlowLpm: number | null;
