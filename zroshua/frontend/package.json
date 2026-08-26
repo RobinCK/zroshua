@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "node --test --experimental-test-isolation=none test/*.test.js",
     "i18n": "i18next",
     "i18n:check": "i18next --fail-on-update"
   },

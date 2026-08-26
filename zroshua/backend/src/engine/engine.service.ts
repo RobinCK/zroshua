@@ -9,7 +9,7 @@ import { NotifyService } from '../notify/notify.service';
 import { NotificationMessageKey, NotificationVars } from '../notify/messages';
 import { WeatherService } from '../weather/weather.service';
 import { EventsService } from '../events/events.service';
-import { inSeason, occurrences } from './planner';
+import { inSeason, intervalWeekdays, occurrences } from './planner';
 
 const TICK_MS = 1000;
 const CHECKBACK_WAIT_MS = 6000;
@@ -2923,6 +2923,10 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         DAY_KEYS.forEach((key, dow) => {
           for (const s of schedule.perDay?.[key] ?? []) push(dow, s);
         });
+      } else if (schedule.mode === 'interval') {
+        for (const dow of intervalWeekdays(schedule)) {
+          for (const s of schedule.starts ?? []) push(dow, s);
+        }
       } else {
         // mirror planner semantics: undefined = every day (legacy), empty array = no days
         for (const dow of schedule.weekdays ?? [0, 1, 2, 3, 4, 5, 6]) {

@@ -47,11 +47,13 @@ export type ScheduleCondition = {
 };
 export type Schedule = {
   id: string;
-  mode: 'week' | 'per_day';
+  mode: 'week' | 'per_day' | 'interval';
   // mode=week: starts apply to all enabled weekdays; mode=per_day: per weekday
   weekdays: number[]; // 0=Sun..6=Sat, used in week mode
-  starts: ScheduleDayStarts; // week mode
+  starts: ScheduleDayStarts; // week and interval modes
   perDay: Record<string, ScheduleDayStarts>; // per_day mode, keys mon..sun
+  intervalDays?: number; // interval mode: run every N calendar days
+  anchorDate?: string; // interval mode: first run, YYYY-MM-DD in local time
   season?: { from: string; to: string } | null; // MM-DD
   zoneDurations?: Record<string, number>; // per-schedule zone duration overrides (min)
   /** subset of the group's zones this schedule waters; null/undefined = all zones */

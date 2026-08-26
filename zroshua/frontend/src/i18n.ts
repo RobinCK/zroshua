@@ -6,6 +6,7 @@ import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import cs from './locales/cs.json';
 import de from './locales/de.json';
+import en from './locales/en.json';
 import es from './locales/es.json';
 import fr from './locales/fr.json';
 import it from './locales/it.json';
@@ -90,6 +91,7 @@ void i18next.use(initReactI18next).init({
   resources: {
     cs: { translation: cs },
     de: { translation: de },
+    en: { translation: en },
     es: { translation: es },
     fr: { translation: fr },
     it: { translation: it },
