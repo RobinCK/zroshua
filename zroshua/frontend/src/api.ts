@@ -84,10 +84,12 @@ export interface ScheduleCondition {
 
 export interface Schedule {
   id: string;
-  mode: 'week' | 'per_day';
+  mode: 'week' | 'per_day' | 'interval';
   weekdays: number[];
   starts: ScheduleStart[];
   perDay: Record<string, ScheduleStart[]>;
+  intervalDays?: number;
+  anchorDate?: string;
   season?: { from: string; to: string } | null;
   zoneDurations?: Record<string, number>;
   /** subset of the group's zones this schedule waters; null/undefined = all */

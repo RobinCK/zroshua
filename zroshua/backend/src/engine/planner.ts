@@ -8,6 +8,26 @@ export interface Schedulable {
 }
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const DAY_MS = 24 * 3600_000;
+
+function intervalAnchor(schedule: Schedule): { day: number; dow: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(schedule.anchorDate ?? '');
+  if (!match) return null;
+  const [year, month, day] = match.slice(1).map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return { day: date.getTime() / DAY_MS, dow: date.getUTCDay() };
+}
+
+/** Weekdays an endless interval can reach; used by the weekly conflict preview. */
+export function intervalWeekdays(schedule: Schedule): number[] {
+  const anchor = intervalAnchor(schedule);
+  const every = Math.floor(schedule.intervalDays ?? 0);
+  if (!anchor || every < 1) return [];
+  const out: number[] = [];
+  for (let dow = anchor.dow; !out.includes(dow); dow = (dow + every) % 7) out.push(dow);
+  return out;
+}
 
 export interface Occurrence {
   groupId: string;
@@ -28,6 +48,15 @@ function startsForDay(schedule: Schedule, d: Date) {
   if (!inSeason(schedule.season ?? null, d)) return [];
   if (schedule.mode === 'per_day') {
     return schedule.perDay?.[DAY_KEYS[d.getDay()]] ?? [];
+  }
+  if (schedule.mode === 'interval') {
+    const anchor = intervalAnchor(schedule);
+    const every = Math.floor(schedule.intervalDays ?? 0);
+    if (!anchor || every < 1) return [];
+    // UTC calendar ordinals avoid 23/25-hour DST days changing the rhythm.
+    const currentDay = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS;
+    const elapsed = currentDay - anchor.day;
+    return elapsed >= 0 && elapsed % every === 0 ? schedule.starts ?? [] : [];
   }
   // empty array = no days (schedule off); undefined (legacy) = every day
   if (schedule.weekdays && !schedule.weekdays.includes(d.getDay())) return [];

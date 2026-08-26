@@ -26,7 +26,7 @@ import { t } from '../i18n';
 import { SliderInput, PauseControl } from '../components/common';
 
 type LastRuns = { zones: Record<string, number>; groups: Record<string, number> };
-import ScheduleEditor, { emptySchedule, estimateRunMinutes, ZoneInfo } from '../components/ScheduleEditor';
+import ScheduleEditor, { emptySchedule, estimateRunMinutes, scheduleActiveWeekdays, ZoneInfo } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
 import { HintLabel } from '../components/Hint';
 
@@ -77,7 +77,7 @@ export default function GroupsPage({ state }: { state: EngineState | null }) {
           ? Object.entries(sch.perDay ?? {}).flatMap(([d, list]) =>
               (list ?? []).map((x) => ({ dows: [{ sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }[d] ?? 0], start: x.start })),
             )
-          : (sch.starts ?? []).map((x) => ({ dows: sch.weekdays ?? [], start: x.start }));
+          : (sch.starts ?? []).map((x) => ({ dows: scheduleActiveWeekdays(sch), start: x.start }));
       for (const e of entries) {
         const hit = overlapsConflict(toMin(e.start), dur, busy.filter((b) => e.dows.includes(b.dow)));
         if (hit) out.push(t('{start} overlaps "{label}"', { start: e.start, label: hit.label }));

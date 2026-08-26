@@ -64,8 +64,8 @@ and applies instantly without restarts.
 
 ## Scheduler
 
-- Whole-week template or individual per-day start times; several start times per day;
-  seasonal window (`MM-DD`…`MM-DD`).
+- Whole-week template, individual per-day start times or every N calendar days from a
+  fixed first watering date; several start times per day; seasonal window (`MM-DD`…`MM-DD`).
 - Every start time is a **start at** or a **finish by** anchor. With *finish by*, the start
   is computed from the worst-case run length (temperature boost, group batching and
   max-runtime clamps included), so the run is done by the configured time even on the

@@ -16,6 +16,23 @@ const CONDITION_KINDS = [
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_NUM: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
+const localDate = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Weekdays on which an interval can occur, for the recurring conflict strip. */
+export function scheduleActiveWeekdays(schedule: Schedule): number[] {
+  if (schedule.mode !== 'interval') return schedule.weekdays ?? [];
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(schedule.anchorDate ?? '');
+  const every = Math.floor(schedule.intervalDays ?? 0);
+  if (!match || every < 1) return [];
+  const [year, month, day] = match.slice(1).map(Number);
+  const anchor = new Date(Date.UTC(year, month - 1, day));
+  if (anchor.getUTCFullYear() !== year || anchor.getUTCMonth() !== month - 1 || anchor.getUTCDate() !== day) return [];
+  const out: number[] = [];
+  for (let dow = anchor.getUTCDay(); !out.includes(dow); dow = (dow + every) % 7) out.push(dow);
+  return out;
+}
+
 export function emptySchedule(): Schedule {
   return {
     id: `s${Date.now()}`,
@@ -23,6 +40,8 @@ export function emptySchedule(): Schedule {
     weekdays: [1, 2, 3, 4, 5, 6, 0],
     starts: [{ start: '06:00' }],
     perDay: Object.fromEntries(DAY_KEYS.map((d) => [d, []])),
+    intervalDays: 2,
+    anchorDate: localDate(),
     season: null,
     zoneDurations: {},
     conditions: [],
@@ -133,6 +152,7 @@ export default function ScheduleEditor({
           data={[
             { value: 'week', label: t('Whole week') },
             { value: 'per_day', label: t('Per day') },
+            { value: 'interval', label: t('Every N days') },
           ]}
           value={schedule.mode}
           onChange={(v) => onChange({ ...schedule, mode: v as Schedule['mode'] })}
@@ -161,6 +181,30 @@ export default function ScheduleEditor({
           )}
           <Text size="sm">{t('Start times (several = several waterings a day) — tap to pick on the day strip')}</Text>
           {starts(schedule.starts, (v) => onChange({ ...schedule, starts: v }), schedule.weekdays)}
+        </Stack>
+      ) : schedule.mode === 'interval' ? (
+        <Stack gap="xs">
+          <Group grow align="flex-start">
+            <NumberInput
+              label={t('Repeat every')}
+              suffix={` ${t('days')}`}
+              min={1}
+              max={365}
+              value={schedule.intervalDays ?? 2}
+              onChange={(v) => onChange({ ...schedule, intervalDays: Math.max(1, Math.floor(Number(v) || 1)) })}
+            />
+            <TextInput
+              type="date"
+              label={t('First watering day')}
+              value={schedule.anchorDate ?? localDate()}
+              onChange={(e) => onChange({ ...schedule, anchorDate: e.currentTarget.value })}
+            />
+          </Group>
+          <Text size="xs" c="dimmed">
+            {t('The selected date fixes the rhythm, including after restarts.')}
+          </Text>
+          <Text size="sm">{t('Start times (several = several waterings a day) — tap to pick on the day strip')}</Text>
+          {starts(schedule.starts, (v) => onChange({ ...schedule, starts: v }), scheduleActiveWeekdays(schedule))}
         </Stack>
       ) : (
         <Stack gap={4}>

@@ -157,8 +157,8 @@ A group is an ordered set of zones with schedules and an execution mode: **seque
 (one zone at a time), **parallel** (all together) or **parallel with a limit**. Add an
 inter-zone delay for pressure recovery, a 0–200 % duration multiplier and a priority.
 
-Schedules support a whole-week template or **per-day start times**, several waterings per
-day, a seasonal window (`MM-DD`…`MM-DD`), **per-schedule zone durations** (defaults come
+Schedules support a whole-week template, **per-day start times** or an **every N days**
+rhythm anchored to a calendar date, several waterings per day, a seasonal window (`MM-DD`…`MM-DD`), **per-schedule zone durations** (defaults come
 from the zone), a **zone selection** (tick which of the group's zones this start waters —
 so the midday refresh can hit only the two thirsty beds while the evening run does the
 whole group) and **run conditions**.
