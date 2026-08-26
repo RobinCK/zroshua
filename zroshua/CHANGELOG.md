@@ -1,15 +1,19 @@
 # Changelog
 
-## 0.5.4
+## 0.6.0
 
+- **Simplified Chinese** for the web UI, and **notifications in the language you pick**
+  under Settings → Notifications — message text, skip reasons, dates and numbers. Backend
+  notifications fire when no browser is open, so they cannot follow a browser locale.
+  (Contributed by @Diddlik in #7.)
+- One-off runs speak that language too: started, finished, did not run with the reason,
+  cut short by a restart. A skip whose code has no message of its own now points at the
+  journal instead of claiming the weather stopped it.
 - **Zone cards keep their button on the bottom line.** A watering card is taller than the rest,
   and a grid row is as tall as its tallest card — so the buttons in the other cards of that row
   used to sit high up with empty space under them. The card is a column now and its footer is
   pinned to the bottom, so every button in a row shares one baseline whatever is happening
   inside the cards.
-
-## 0.5.3
-
 - **Pressing play on a group did nothing visible.** The Groups page never received the engine
   state at all, so a started group looked exactly like an idle one: no running mark, no way to
   stop it, and a toast that said "started" even when every zone had been skipped. A group card
@@ -22,9 +26,6 @@
   queued zone is no longer indistinguishable from an idle one — it shows what it is waiting for.
 - New `POST /api/groups/:id/stop`, so a group run can be stopped from the web UI the way the
   Lovelace card already could over MQTT.
-
-## 0.5.2
-
 - **The light theme no longer looks washed out.** It was white cards on a near-white page with
   10 % colour tints and grey secondary text — nothing had an edge and nothing had weight.
   Now the page sits a shade deeper so the white cards lift off it with a visible border and a
@@ -35,9 +36,6 @@
   occupancy picker got a track colour that is actually visible under the bars, and an empty
   progress track no longer disappears into the card. The dark theme is untouched — its
   surfaces already had real contrast.
-
-## 0.5.1
-
 - **No more white flash on a dark Home Assistant.** The panel had no colour scheme until
   React mounted, so every open started white and turned dark a moment later. The scheme is
   now resolved before the first painted frame.
@@ -47,9 +45,6 @@
   plain label text — 8:1 dark, 21:1 light — and the swatch shows the one-off hatch and the
   pre-blended ghost as they really look. Same change in the Lovelace card, which inherits
   whatever theme Home Assistant is using.
-
-## 0.5.0
-
 - **One-off watering.** A dated, one-shot request — "these five beds tonight at 19:00, once,
   then forget it" — built in a four-step wizard: pick the zones, arrange them into ordered
   steps (zones inside a step open together), pick the time on the same occupancy strip the
@@ -85,9 +80,6 @@
 
 ## 0.4.0
 
-- Added Simplified Chinese for the web UI and external notifications.
-- Telegram and Home Assistant notifications now use the language selected under
-  Settings → Notifications, including skip reasons, dates and numbers.
 - **The timeline now says what will actually happen.** A reserved slot is not the
   same as a slot that will be watered, and until now both looked identical. A run
   that will certainly be skipped — watering paused, its group paused, all of its
