@@ -38,6 +38,8 @@ export type NotificationProvider =
   | { type: 'telegram'; chatIds: string[]; events: string[] }
   | { type: 'ha_notify'; service: string; events: string[] };
 
+export type SupportedLanguage = 'en' | 'uk' | 'pl' | 'de' | 'sk' | 'ro' | 'it' | 'es' | 'cs' | 'fr' | 'zh';
+
 export interface Settings {
   maxTotalFlowLpm: number | null;
   energyTariffPerKwh: number | null;
@@ -70,6 +72,8 @@ export interface Settings {
   soilTriggers: SoilTrigger[];
   tempTriggers: TempTrigger[];
   notifications: {
+    /** Explicit because scheduled backend notifications have no browser locale. */
+    language: SupportedLanguage;
     providers: NotificationProvider[];
     /** one message per group run instead of one per zone */
     groupLevel: boolean;
@@ -113,6 +117,7 @@ export const defaultSettings: Settings = {
   soilTriggers: [],
   tempTriggers: [],
   notifications: {
+    language: 'en',
     providers: [],
     groupLevel: true,
     digest: { enabled: false, time: '21:00' },

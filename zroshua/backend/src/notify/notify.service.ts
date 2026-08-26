@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '../config/config.service';
 import { HaService } from '../ha/ha.service';
 import { env } from '../env';
+import {
+  formatNotificationMessage,
+  NotificationMessageKey,
+  NotificationVars,
+} from './messages';
 
 export type NotifyEvent =
   | 'run_start'
@@ -24,7 +29,7 @@ export class NotifyService {
     private readonly ha: HaService,
   ) {}
 
-  async emit(event: NotifyEvent, message: string) {
+  async emit(event: NotifyEvent, key: NotificationMessageKey, vars: NotificationVars = {}) {
     const settings = await this.config.getSettings();
     // quiet hours: suppress everything except faults (the daily digest still summarizes)
     const quiet = settings.notifications.quiet;
@@ -36,6 +41,7 @@ export class NotifyService {
     for (const provider of settings.notifications.providers) {
       if (provider.events.length && !provider.events.includes(event)) continue;
       try {
+        const message = formatNotificationMessage(settings.notifications.language, key, vars);
         await this.deliver(provider, message);
       } catch (e: any) {
         this.log.warn(`Provider ${provider.type} failed: ${e.message}`);

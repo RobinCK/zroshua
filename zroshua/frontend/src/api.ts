@@ -180,6 +180,7 @@ export interface Settings {
   soilTriggers: SoilTrigger[];
   tempTriggers: TempTrigger[];
   notifications: {
+    language: 'en' | 'uk' | 'pl' | 'de' | 'sk' | 'ro' | 'it' | 'es' | 'cs' | 'fr' | 'zh';
     providers: NotificationProvider[];
     groupLevel: boolean;
     digest: { enabled: boolean; time: string };

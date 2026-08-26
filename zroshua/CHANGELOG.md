@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+- Added Simplified Chinese for the web UI and external notifications.
+- Telegram and Home Assistant notifications now use the language selected under
+  Settings → Notifications, including skip reasons, dates and numbers.
 - **The timeline now says what will actually happen.** A reserved slot is not the
   same as a slot that will be watered, and until now both looked identical. A run
   that will certainly be skipped — watering paused, its group paused, all of its
