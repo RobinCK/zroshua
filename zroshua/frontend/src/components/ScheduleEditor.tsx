@@ -110,6 +110,7 @@ export default function ScheduleEditor({
     ? estimateRunMinutes(schedule, zones, mode, parallelLimit, interZoneDelayS, multiplierPct)
     : 0;
   const worstMinutes = Math.max(1, runMinutes * worstFactor);
+  const intervalDays = schedule.intervalDays ?? 2;
 
   type StartEntry = { start: string; anchor?: 'start' | 'finish' };
   const starts = (list: StartEntry[], set: (v: StartEntry[]) => void, dows: number[]) => (
@@ -187,10 +188,10 @@ export default function ScheduleEditor({
           <Group grow align="flex-start">
             <NumberInput
               label={t('Repeat every')}
-              suffix={` ${t('days')}`}
+              suffix={` ${t('day', { count: intervalDays })}`}
               min={1}
               max={365}
-              value={schedule.intervalDays ?? 2}
+              value={intervalDays}
               onChange={(v) => onChange({ ...schedule, intervalDays: Math.max(1, Math.floor(Number(v) || 1)) })}
             />
             <TextInput
