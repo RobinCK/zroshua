@@ -306,6 +306,7 @@
   "no zones": "žiadne zóny",
   "Nothing is watering right now.": "Momentálne sa nič nezavlažuje.",
   "Nothing to water in \"{name}\" — see the journal for why": "Niet čo zavlažovať v skupine „{name}“ — dôvod je v denníku",
+  "Notification language": "Jazyk oznámení",
   "Notifications": "Oznámenia",
   "Notify service": "Služba notify",
   "Now": "Teraz",

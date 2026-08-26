@@ -283,6 +283,15 @@ export default function SettingsPage() {
           {t('Notifications')}
         </Title>
         <Stack>
+          <Select
+            label={t('Notification language')}
+            data={LANG_OPTIONS.filter((option) => option.value !== 'system')}
+            value={s.notifications.language ?? 'en'}
+            onChange={(language) =>
+              language && setS({ ...s, notifications: { ...s.notifications, language: language as Settings['notifications']['language'] } })
+            }
+            w={280}
+          />
           <Switch
             label={<HintLabel label={t('One message per group run')} hint={t('A group start/finish summary (zones, time, liters) instead of a message per zone')} />}
             checked={s.notifications.groupLevel ?? true}

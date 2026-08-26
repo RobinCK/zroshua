@@ -306,6 +306,7 @@
   "no zones": "brak stref",
   "Nothing is watering right now.": "W tej chwili nic nie jest podlewane.",
   "Nothing to water in \"{name}\" — see the journal for why": "Nie ma czego podlewać w „{name}” — powód jest w dzienniku",
+  "Notification language": "Język powiadomień",
   "Notifications": "Powiadomienia",
   "Notify service": "Usługa notify",
   "Now": "Teraz",

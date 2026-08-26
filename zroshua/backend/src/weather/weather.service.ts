@@ -12,6 +12,8 @@ export interface DayWeather {
 export interface WeatherDecision {
   skip: boolean;
   skipReason: string | null;
+  skipReasonKey?: 'reasonWeatherRain' | 'reasonWeatherFreeze' | 'reasonWeatherTemp';
+  skipReasonVars?: Record<string, number>;
   multiplierPct: number; // 100 = no change
   detail: string[];
 }
@@ -109,12 +111,21 @@ export class WeatherService {
         return {
           skip: true,
           skipReason: `rain forecast ${prob}% / ${amount}mm exceeds thresholds`,
+          skipReasonKey: 'reasonWeatherRain',
+          skipReasonVars: { probability: prob, amount },
           multiplierPct: 0,
           detail,
         };
       }
       if (s.weatherTriggers.freezeC !== null && today.tempMaxC !== null && today.tempMaxC <= s.weatherTriggers.freezeC) {
-        return { skip: true, skipReason: `freeze protect (${today.tempMaxC}°C)`, multiplierPct: 0, detail };
+        return {
+          skip: true,
+          skipReason: `freeze protect (${today.tempMaxC}°C)`,
+          skipReasonKey: 'reasonWeatherFreeze',
+          skipReasonVars: { temperature: today.tempMaxC },
+          multiplierPct: 0,
+          detail,
+        };
       }
     }
 
@@ -138,7 +149,14 @@ export class WeatherService {
             (step.aboveC !== undefined && t > step.aboveC);
           if (!hit) continue;
           if (step.action === 'skip')
-            return { skip: true, skipReason: `temperature ${t.toFixed(1)}°C below skip threshold`, multiplierPct: 0, detail };
+            return {
+              skip: true,
+              skipReason: `temperature ${t.toFixed(1)}°C below skip threshold`,
+              skipReasonKey: 'reasonWeatherTemp',
+              skipReasonVars: { temperature: t },
+              multiplierPct: 0,
+              detail,
+            };
           if (step.pct) {
             multiplierPct += step.pct;
             detail.push(`temp ${t.toFixed(1)}°C → ${step.pct > 0 ? '+' : ''}${step.pct}%`);

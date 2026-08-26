@@ -1,0 +1,97 @@
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const { formatNotificationDate, formatNotificationMessage } = require('../dist/notify/messages');
+
+test('formats a German run notification', () => {
+  assert.equal(
+    formatNotificationMessage('de', 'wateringStarted', { zone: 'Rasen', minutes: 12 }),
+    '💧 Bewässerung gestartet: „Rasen“ für 12 Min.',
+  );
+});
+
+test('localizes a structured skip reason without English fragments', () => {
+  assert.equal(
+    formatNotificationMessage('de', 'wateringSkipped', {
+      targetKind: 'zone',
+      targetName: 'Beet',
+      reasonKey: 'reasonRain',
+    }),
+    '⏭ Bewässerung übersprungen für Zone „Beet“: Regensensor ist nass oder in der Abtrocknungszeit',
+  );
+});
+
+test('all supported languages format the same message', () => {
+  for (const language of ['en', 'uk', 'pl', 'de', 'sk', 'ro', 'it', 'es', 'cs', 'fr', 'zh']) {
+    const message = formatNotificationMessage(language, 'wateringFinished', {
+      zone: 'A',
+      minutes: 5,
+      nextTs: Date.UTC(2026, 7, 23, 12),
+    });
+    assert.match(message, /A/);
+    assert.doesNotMatch(message, /\{\w+\}/);
+  }
+});
+
+test('formats a Simplified Chinese notification', () => {
+  assert.equal(
+    formatNotificationMessage('zh', 'wateringStarted', { zone: '前院', minutes: 8 }),
+    '💧 已开始浇水：“前院”，持续 8 分钟。',
+  );
+});
+
+test('localizes Simplified Chinese group-finish liters', () => {
+  assert.equal(
+    formatNotificationMessage('zh', 'groupFinished', { group: '前院', zones: 2, minutes: 15, liters: 42 }),
+    '✅ 组“前院”已完成：2 个区域，15 分钟，约 42 升。',
+  );
+});
+
+test('keeps structured skip context localized', () => {
+  const untilTs = Date.UTC(2026, 7, 23, 12);
+  assert.equal(
+    formatNotificationMessage('de', 'wateringSkipped', {
+      targetKind: 'group',
+      targetName: 'Rasen',
+      reasonKey: 'reasonGroupPaused',
+      untilTs,
+    }),
+    `⏭ Bewässerung übersprungen für Gruppe „Rasen“: Gruppe ist bis ${formatNotificationDate('de', untilTs)} pausiert`,
+  );
+  assert.equal(
+    formatNotificationMessage('de', 'wateringSkipped', {
+      targetKind: 'zone',
+      targetName: 'Beet',
+      reasonKey: 'reasonConflictMutex',
+      group: 'Vorgarten',
+    }),
+    '⏭ Bewässerung übersprungen für Zone „Beet“: konnte nicht rechtzeitig starten, weil Gruppe „Vorgarten“ läuft',
+  );
+});
+
+test('localizes digest numbers and optional cost', () => {
+  const message = formatNotificationMessage('de', 'dailyDigest', {
+    dateTs: Date.UTC(2026, 7, 23),
+    runs: 3,
+    minutes: 20,
+    liters: 42,
+    energy: 1.25,
+    cost: 0.375,
+    currency: 'EUR',
+    skips: 1,
+    faults: 0,
+  });
+  assert.match(message, /Wasser: ~42 L/);
+  assert.match(message, /Energie: 1,25 kWh \(~0,38 EUR\)/);
+
+  const withoutCurrency = formatNotificationMessage('en', 'dailyDigest', {
+    dateTs: Date.UTC(2026, 7, 23),
+    runs: 1,
+    minutes: 2,
+    liters: 3,
+    energy: 0.5,
+    cost: 0.375,
+    skips: 0,
+    faults: 0,
+  });
+  assert.match(withoutCurrency, /Energy: 0.5 kWh \(~0.38\)\n/);
+});

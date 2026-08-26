@@ -298,6 +298,7 @@
   "no zones": "aucune zone",
   "Nothing is watering right now.": "Aucun arrosage en cours.",
   "Nothing to water in \"{name}\" — see the journal for why": "Rien à arroser dans « {name} » — la raison est dans le journal",
+  "Notification language": "Langue des notifications",
   "Notifications": "Notifications",
   "Notify service": "Service notify",
   "Now": "Maintenant",

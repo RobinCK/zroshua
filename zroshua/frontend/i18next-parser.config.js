@@ -9,7 +9,7 @@
  * and a language file only needs the keys it actually translates.
  */
 export default {
-  locales: ['en', 'uk', 'pl', 'de', 'sk', 'ro', 'it', 'es', 'cs', 'fr'],
+  locales: ['en', 'uk', 'pl', 'de', 'sk', 'ro', 'it', 'es', 'cs', 'fr', 'zh'],
   input: ['src/**/*.{ts,tsx}'],
   output: 'src/locales/$LOCALE.json',
 

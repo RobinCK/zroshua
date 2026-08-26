@@ -5,7 +5,8 @@ Zones on top of your existing `switch`/`valve` entities, watering groups with co
 concurrency, a conflict-aware scheduler, weather intelligence, rain & soil sensors,
 stuck-valve protection, water & energy statistics, a live site map and Telegram notifications.
 The interface follows your Home Assistant language automatically — English, Українська,
-Polski, Deutsch, Slovenčina, Română, Italiano, Español, Čeština, Français (English fallback).
+Polski, Deutsch, Slovenčina, Română, Italiano, Español, Čeština, Français, 简体中文
+(English fallback).
 
 ![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5)
 ![Arch](https://img.shields.io/badge/arch-aarch64%20%7C%20amd64-blue)
@@ -346,7 +347,9 @@ trigger, updates the zone but leaves the group as it was.
   notification naming the exact entity.
 - **Notifications**: Telegram (several chat IDs) and/or any HA `notify.*` service, each with
   its own event filter — started, finished (duration + time to next run), skipped (with
-  reason), stopped by rain, faults, system. **Group-level mode** collapses a sequential run
+  reason), stopped by rain, faults, system. Choose the notification language independently
+  of the browser language; message text, reasons, dates and numbers are localized.
+  **Group-level mode** collapses a sequential run
   of 13 beds into two messages (started / finished with totals) instead of 26; a **daily
   digest** at a chosen time sums up runs, liters, energy, cost and skips; **quiet hours**
   hold everything except faults during the night.

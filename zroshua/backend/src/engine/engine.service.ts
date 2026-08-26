@@ -6,6 +6,7 @@ import { ConfigService } from '../config/config.service';
 import { HaService } from '../ha/ha.service';
 import { JournalService } from '../journal/journal.service';
 import { NotifyService } from '../notify/notify.service';
+import { NotificationMessageKey, NotificationVars } from '../notify/messages';
 import { WeatherService } from '../weather/weather.service';
 import { EventsService } from '../events/events.service';
 import { inSeason, occurrences } from './planner';
@@ -83,7 +84,10 @@ const ONCE_RETENTION_MS = 30 * 24 * 3600_000;
 /** Live state of one firing one-off run (dropped once every step has finished). */
 interface OneTimeRunState {
   id: string;
+  /** English, for journal details */
   label: string;
+  /** the user's own name (may be empty) — notifications localize the label from it */
+  name: string;
   interStepDelayS: number;
   force: boolean;
   /** the whole plan; only the current step is ever in the queue */
@@ -413,7 +417,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (pctOf(level) < lowPct && !this.lowLevelAlerted.has(src.id)) {
         this.lowLevelAlerted.add(src.id);
         await this.journal.add('fault', { code: 'source_low', detail: `${src.name} at ${Math.round(pctOf(level))}% (${Math.round(level)} L)` });
-        await this.notify.emit('fault', `🪣 Water source "${src.name}" is low: ~${Math.round(level)} L (${Math.round(pctOf(level))}%).`);
+        await this.notify.emit('fault', 'sourceLow', { source: src.name, liters: Math.round(level), percent: Math.round(pctOf(level)) });
       } else if (pctOf(level) > lowPct + 10) {
         this.lowLevelAlerted.delete(src.id); // re-arm after refill
       }
@@ -510,14 +514,14 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (now - this.flowDevSince.get(src.id)! < 120_000) continue; // sustained for 2 min
       if (now - (this.flowDevAlertedAt.get(src.id) ?? 0) < 3600_000) continue; // 1 alert/hour
       this.flowDevAlertedAt.set(src.id, now);
-      const dir = actual > expected ? 'HIGHER (possible burst pipe)' : 'LOWER (clogged emitters / low pressure?)';
       await this.journal.add('fault', {
         code: 'flow_deviation',
         detail: `${src.name}: measured ${actual.toFixed(1)} l/min vs expected ${expected.toFixed(1)} l/min`,
       });
       await this.notify.emit(
         'fault',
-        `💦 Flow on "${src.name}" is ${Math.round(devPct)}% ${dir}: measured ${actual.toFixed(1)} l/min, expected ${expected.toFixed(1)} l/min (${running.length} zone(s) running).`,
+        'flowDeviation',
+        { source: src.name, percent: Math.round(devPct), direction: actual > expected ? 'high' : 'low', actual, expected, zones: running.length },
       );
     }
   }
@@ -548,15 +552,20 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     const minutes = runs.reduce((acc, r) => acc + (r.endTs && r.startTs ? (r.endTs - r.startTs) / 60_000 : 0), 0);
     const skips = await this.journal.countToday('skip');
     const faults = await this.journal.countToday('fault');
-    const cost =
-      settings.energyTariffPerKwh != null ? ` (~${(kwh * settings.energyTariffPerKwh).toFixed(2)} ${settings.energyCurrency ?? ''})` : '';
     await this.notify.emit(
       'system',
-      `📊 Zroshua daily digest ${today}\n` +
-        `Runs: ${runs.length} · ${Math.round(minutes)} min\n` +
-        `Water: ~${Math.round(liters)} L\n` +
-        `Pump energy: ${kwh.toFixed(2)} kWh${cost}\n` +
-        `Skips: ${skips} · Faults: ${faults}`,
+      'dailyDigest',
+      {
+        dateTs: now,
+        runs: runs.length,
+        minutes: Math.round(minutes),
+        liters: Math.round(liters),
+        energy: kwh,
+        cost: settings.energyTariffPerKwh != null ? kwh * settings.energyTariffPerKwh : null,
+        currency: settings.energyCurrency,
+        skips,
+        faults,
+      },
     );
   }
 
@@ -588,7 +597,8 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       });
       await this.notify.emit(
         'fault',
-        `⚠️ Zone "${zone.name}" is scheduled at ${when} but ${problems.join(', ')} is UNAVAILABLE — check the controller.`,
+        'preStartUnavailable',
+        { zone: zone.name, timeTs: startTs, entities: problems.join(', ') },
       );
     };
 
@@ -799,7 +809,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (o.paused) {
         await this.finishOneTimeRow(o, 'skipped', 'once_paused', null);
         await this.journal.add('skip', { code: 'once_paused', detail: `${label} was paused — not started` });
-        await this.notify.emit('skip', `⏭ ${label} did not run: it was paused.`);
+        await this.notify.emit('skip', 'onceNotRun', { onceName: o.name ?? '', reasonKey: 'onceReasonPaused' });
         this.broadcastState();
         continue;
       }
@@ -809,7 +819,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         const when = new Date(startTs).toLocaleString();
         await this.finishOneTimeRow(o, 'expired', 'once_expired', when);
         await this.journal.add('skip', { code: 'once_expired', detail: `${label} missed its start at ${when} — expired` });
-        await this.notify.emit('skip', `⏭ ${label} did not run: it missed its ${when} start.`);
+        await this.notify.emit('skip', 'onceNotRun', { onceName: o.name ?? '', reasonKey: 'onceReasonExpired', timeTs: startTs });
         this.broadcastState();
         continue;
       }
@@ -846,21 +856,35 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
     // `specifics` is what the code alone cannot say (a group name, a time); the UI
     // translates the code and appends this, so repeating the code here reads double
-    const skipWholeRun = async (code: string, detail: string, specifics: string | null = null, groupId?: string) => {
+    const skipWholeRun = async (
+      code: string,
+      detail: string,
+      reason: { key: NotificationMessageKey; vars?: NotificationVars },
+      specifics: string | null = null,
+      groupId?: string,
+    ) => {
       await this.onceRepo.update(o.id, { status: 'skipped', firedTs: now, resultCode: code, resultDetail: specifics });
       await this.journal.add('skip', { groupId, code, detail: `${label}: ${detail}` });
-      await this.notify.emit('skip', `⏭ ${label} skipped: ${detail}.`);
+      await this.notify.emit('skip', 'onceNotRun', { onceName: o.name ?? '', reasonKey: reason.key, ...reason.vars });
       this.broadcastState();
     };
 
-    if (!force && this.snoozeUntil > now) return skipWholeRun('once_paused_global', 'all watering is paused');
+    if (!force && this.snoozeUntil > now)
+      return skipWholeRun('once_paused_global', 'all watering is paused', { key: 'reasonPaused', vars: { untilTs: this.snoozeUntil } });
     const containing = this.onceGroup(o);
     if (!force && containing?.snoozeUntil && Number(containing.snoozeUntil) > now)
-      return skipWholeRun('once_group_paused', `group "${containing.name}" is paused`, containing.name, containing.id);
+      return skipWholeRun(
+        'once_group_paused',
+        `group "${containing.name}" is paused`,
+        { key: 'reasonGroupPaused', vars: { untilTs: Number(containing.snoozeUntil) } },
+        containing.name,
+        containing.id,
+      );
 
     const state: OneTimeRunState = {
       id: o.id,
       label,
+      name: o.name ?? '',
       interStepDelayS: Math.max(0, o.interStepDelayS ?? 0),
       force,
       steps: (o.steps ?? []).filter((s) => s?.length),
@@ -874,7 +898,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     };
 
     if (!(await this.enqueueOneTimeStep(state, now))) {
-      return skipWholeRun('once_skipped', 'nothing left to water');
+      return skipWholeRun('once_skipped', 'nothing left to water', { key: 'onceReasonNothing' });
     }
 
     this.onceRuns.set(o.id, state);
@@ -1015,14 +1039,19 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           code: 'once_done',
           detail: `${state.label} finished: ${count} zone(s), ${Math.round(wall)} min`,
         });
-        await this.notify.emit('run_end', `✅ ${state.label} finished: ${count} zone(s), ${Math.round(wall)} min${liters}.`);
+        await this.notify.emit('run_end', 'onceFinished', {
+          onceName: state.name ?? '',
+          zones: count,
+          minutes: Math.round(wall),
+          liters: state.liters ? Math.round(state.liters) : null,
+        });
       } else {
         await this.onceRepo.update(
           { id, status: 'running' },
           { status: 'skipped', resultCode: 'once_skipped', resultDetail: null },
         );
         await this.journal.add('skip', { code: 'once_skipped', detail: `${state.label}: nothing was watered` });
-        await this.notify.emit('skip', `⏭ ${state.label}: nothing was watered — every zone was skipped.`);
+        await this.notify.emit('skip', 'onceNotRun', { onceName: state.name ?? '', reasonKey: 'onceReasonNothing' });
       }
       this.broadcastState();
     }
@@ -1052,7 +1081,11 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       const detail = `${watered.size} of ${planned.size} zone(s) watered before the restart`;
       await this.onceRepo.update(o.id, { status: 'skipped', resultCode: 'once_interrupted', resultDetail: detail });
       await this.journal.add('skip', { code: 'once_interrupted', detail: `${label} was cut short by a restart — ${detail}` });
-      await this.notify.emit('skip', `⏭ ${label} was cut short by a restart: ${detail}.`);
+      await this.notify.emit('skip', 'onceInterrupted', {
+        onceName: o.name ?? '',
+        watered: watered.size,
+        planned: planned.size,
+      });
     }
   }
 
@@ -1061,23 +1094,25 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     const containing = this.groups.find((g) => g.zoneIds.includes(zone.id));
     const groupId = containing?.id ?? null;
-    if (this.snoozeUntil > now) return this.skip(groupId, zone.id, 'paused', 'all watering is paused');
+    if (this.snoozeUntil > now) return this.skip(groupId, zone.id, 'paused', 'all watering is paused', undefined, { untilTs: this.snoozeUntil });
     if (containing?.snoozeUntil && Number(containing.snoozeUntil) > now)
-      return this.skip(groupId, zone.id, 'group_paused', 'group is paused');
+      return this.skip(groupId, zone.id, 'group_paused', 'group is paused', undefined, { untilTs: Number(containing.snoozeUntil) });
     if (zone.snoozeUntil && Number(zone.snoozeUntil) > now)
-      return this.skip(groupId, zone.id, 'zone_paused', 'zone is paused');
+      return this.skip(groupId, zone.id, 'zone_paused', 'zone is paused', undefined, { untilTs: Number(zone.snoozeUntil) });
     const settings = await this.config.getSettings();
     if ((await this.rainIsWet(settings)) && !zone.ignore?.rain_sensor)
       return this.skip(groupId, zone.id, 'rain_sensor', 'rain sensor is wet (or in dry-out window)');
     if (await this.soilBlocks(zone))
       return this.skip(groupId, zone.id, 'soil_wet', 'soil moisture above block threshold');
     const cond = await this.evaluateConditions(schedule, groupId);
-    if (!cond.pass) return this.skip(groupId, zone.id, 'condition', cond.reason ?? 'run condition not met');
+    if (!cond.pass)
+      return this.skip(groupId, zone.id, 'condition', cond.reason ?? 'run condition not met', 'reasonCondition', cond.notificationVars);
 
     let duration = schedule?.zoneDurations?.[zone.id] ?? zone.baseDurationMin;
     if (!zone.ignore?.weather && groupId) {
       const decision = await this.weather.evaluate(groupId);
-      if (decision.skip) return this.skip(groupId, zone.id, 'weather', decision.skipReason ?? 'weather');
+      if (decision.skip)
+        return this.skip(groupId, zone.id, 'weather', decision.skipReason ?? 'weather', decision.skipReasonKey, decision.skipReasonVars);
       duration = (duration * decision.multiplierPct) / 100;
     }
     duration *= cond.scale; // soil/sensor "water less" conditions (only reduce)
@@ -1106,7 +1141,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   private async evaluateConditions(
     schedule: import('../db/entities').Schedule | undefined,
     groupId: string | null,
-  ): Promise<{ pass: boolean; reason?: string; scale: number }> {
+  ): Promise<{ pass: boolean; reason?: string; notificationVars?: NotificationVars; scale: number }> {
     if (!schedule?.conditions?.length) return { pass: true, scale: 1 };
     const forecast = await this.weather.getForecast().catch(() => []);
     const today = forecast[0];
@@ -1155,6 +1190,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         return {
           pass: false,
           reason: `${label} ${actual.toFixed(1)} ${c.op === 'gte' ? '<' : '>'} ${c.value} (condition ${c.op === 'gte' ? '≥' : '≤'} ${c.value})`,
+          notificationVars: { actual, compare: c.op === 'gte' ? '<' : '>', expected: c.value },
           scale,
         };
       }
@@ -1191,22 +1227,24 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
     if (!manual) {
       if (this.snoozeUntil > now)
-        return this.skip(group.id, null, 'paused', `all watering paused until ${new Date(this.snoozeUntil).toLocaleString()}`);
+        return this.skip(group.id, null, 'paused', `all watering paused until ${new Date(this.snoozeUntil).toLocaleString()}`, undefined, { untilTs: this.snoozeUntil });
       if (group.snoozeUntil && Number(group.snoozeUntil) > now)
-        return this.skip(group.id, null, 'group_paused', `group paused until ${new Date(Number(group.snoozeUntil)).toLocaleString()}`);
+        return this.skip(group.id, null, 'group_paused', `group paused until ${new Date(Number(group.snoozeUntil)).toLocaleString()}`, undefined, { untilTs: Number(group.snoozeUntil) });
     }
 
     let condScale = 1;
     if (!manual) {
       const cond = await this.evaluateConditions(schedule, group.id);
-      if (!cond.pass) return this.skip(group.id, null, 'condition', cond.reason ?? 'run condition not met');
+      if (!cond.pass)
+        return this.skip(group.id, null, 'condition', cond.reason ?? 'run condition not met', 'reasonCondition', cond.notificationVars);
       condScale = cond.scale;
     }
 
     let weatherMult = 100;
     if (!manual) {
       const decision = await this.weather.evaluate(group.id);
-      if (decision.skip) return this.skip(group.id, null, 'weather', decision.skipReason ?? 'weather');
+      if (decision.skip)
+        return this.skip(group.id, null, 'weather', decision.skipReason ?? 'weather', decision.skipReasonKey, decision.skipReasonVars);
       weatherMult = decision.multiplierPct;
       if (decision.detail.length)
         await this.journal.add('adjust', { groupId: group.id, code: 'temp_scale', detail: decision.detail.join('; ') });
@@ -1228,14 +1266,21 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
       if (!manual && zone.snoozeUntil && Number(zone.snoozeUntil) > now) {
-        await this.skip(group.id, zone.id, 'zone_paused', `zone paused until ${new Date(Number(zone.snoozeUntil)).toLocaleString()}`);
+        await this.skip(group.id, zone.id, 'zone_paused', `zone paused until ${new Date(Number(zone.snoozeUntil)).toLocaleString()}`, undefined, { untilTs: Number(zone.snoozeUntil) });
         continue;
       }
       if (!manual) {
         const zsrc = this.source(zone.sourceId);
         const lvl = zsrc?.capacityL && zsrc.blockBelowPct != null ? this.sourceLevelL(zsrc.id) : null;
         if (zsrc?.capacityL && zsrc.blockBelowPct != null && lvl !== null && (lvl / zsrc.capacityL) * 100 < zsrc.blockBelowPct) {
-          await this.skip(group.id, zone.id, 'source_low', `source "${zsrc.name}" below ${zsrc.blockBelowPct}% (~${Math.round(lvl)} L)`);
+          await this.skip(
+            group.id,
+            zone.id,
+            'source_low',
+            `source "${zsrc.name}" below ${zsrc.blockBelowPct}% (~${Math.round(lvl)} L)`,
+            'reasonSourceLow',
+            { source: zsrc.name, percent: zsrc.blockBelowPct, liters: Math.round(lvl) },
+          );
           continue;
         }
       }
@@ -1257,7 +1302,14 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
         duration += rollover;
         if (duration < (zone.minDurationMin ?? 0)) {
           await this.config.setKV(`rollover:${zone.id}`, duration);
-          await this.skip(group.id, zone.id, 'below_min', `${duration.toFixed(1)}min below minimum, rolled over to next run`);
+          await this.skip(
+            group.id,
+            zone.id,
+            'below_min',
+            `${duration.toFixed(1)}min below minimum, rolled over to next run`,
+            'reasonBelowMin',
+            { minutes: duration },
+          );
           continue;
         }
         if (rollover) await this.config.setKV(`rollover:${zone.id}`, 0);
@@ -1382,8 +1434,10 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           this.queue = this.queue.filter((x) => x.key !== q.key);
           const label = this.onceRuns.get(q.onceId)?.label ?? 'One-off watering';
           const detail = `${label}: could not start within ${Math.round(ONCE_GIVE_UP_MS / 60_000)} min (${q.waitReason})`;
-          await this.skip(q.groupId, q.zoneId, 'once_gave_up', detail);
-          await this.notify.emit('skip', `⏭ ${detail} — dropped.`);
+          // skip() already sends one notification for this — a second one would double up
+          await this.skip(q.groupId, q.zoneId, 'once_gave_up', detail, 'reasonGaveUp', {
+            minutes: Math.round(ONCE_GIVE_UP_MS / 60_000),
+          });
           this.broadcastState();
           continue;
         }
@@ -1396,7 +1450,17 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           now - q.enqueuedAt > 60_000
         ) {
           this.queue = this.queue.filter((x) => x.key !== q.key);
-          await this.skip(q.groupId, q.zoneId, 'conflict_skip', `could not start on time (${q.waitReason}); conflict policy is "skip"`);
+          const mutexPrefix = 'mutex with group ';
+          const reasonKey = q.waitReason.startsWith(mutexPrefix) ? 'reasonConflictMutex' : 'reasonConflictOrder';
+          const group = q.waitReason.slice(q.waitReason.startsWith(mutexPrefix) ? mutexPrefix.length : 'waiting for group '.length);
+          await this.skip(
+            q.groupId,
+            q.zoneId,
+            'conflict_skip',
+            `could not start on time (${q.waitReason}); conflict policy is "skip"`,
+            reasonKey,
+            { group },
+          );
           this.broadcastState();
         }
         continue;
@@ -1529,7 +1593,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (!ok) {
         this.faultZones.add(zone.id);
         await this.journal.add('fault', { zoneId: zone.id, code: 'checkback_on', detail: 'zone did not turn on after retries' });
-        await this.notify.emit('fault', `⚠️ Zone "${zone.name}" failed to turn ON — skipped, rest of the plan continues.`);
+        await this.notify.emit('fault', 'zoneOnFailed', { zone: zone.name });
         if (src?.pumpEntity) await this.releasePump(src);
         return;
       }
@@ -1582,7 +1646,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       if (onceState) {
         if (!onceState.startNotified) {
           onceState.startNotified = true;
-          await this.notify.emit('run_start', `💧 ${onceState.label} started: ${onceState.plannedTotal} zone(s).`);
+          await this.notify.emit('run_start', 'onceStarted', { onceName: onceState.name ?? '', zones: onceState.plannedTotal });
         }
       } else if (groupState && settingsN.groupLevel) {
         if (!groupState.startNotified) {
@@ -1594,10 +1658,10 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
               [q, ...this.pendingStarts, ...this.queue].filter((x) => x.groupRunId === q.groupRunId).map((x) => x.zoneId),
             ).size;
           const g = this.group(q.groupId);
-          await this.notify.emit('run_start', `💧 Group "${g?.name ?? q.groupId}" started: ${planned} zone(s) planned.`);
+          await this.notify.emit('run_start', 'groupStarted', { group: g?.name ?? q.groupId, zones: planned });
         }
       } else {
-        await this.notify.emit('run_start', `💧 Watering started: "${zone.name}" for ${q.durationMin.toFixed(0)} min.`);
+        await this.notify.emit('run_start', 'wateringStarted', { zone: zone.name, minutes: Math.round(q.durationMin) });
       }
       this.broadcastState();
     } finally {
@@ -1650,7 +1714,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     if (!off && zone) {
       this.faultZones.add(zone.id);
       await this.journal.add('fault', { zoneId: zone.id, code: 'stuck_valve', detail: 'zone did not turn OFF — escalating' });
-      await this.notify.emit('fault', `🚨 CRITICAL: zone "${zone.name}" did not turn OFF (stuck valve). Shutting down the source pump.`);
+      await this.notify.emit('fault', 'stuckValve', { zone: zone.name });
       if (src?.pumpEntity) {
         try { await this.ha.turn(src.pumpEntity, false); } catch { /* pump off is best effort here */ }
         this.pumpRefs.set(src.id, 0);
@@ -1722,7 +1786,6 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     }
 
     const next = await this.nextRunTs(run.zoneId);
-    const nextTxt = next ? ` Next watering: ${new Date(next).toLocaleString()}.` : '';
     await this.journal.add('run_end', {
       zoneId: run.zoneId,
       groupId: run.groupId ?? undefined,
@@ -1731,21 +1794,27 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     });
     const groupLevel = run.groupRunId && (await this.config.getSettings()).notifications.groupLevel;
     if (reason === 'rain') {
-      await this.notify.emit('stop_rain', `🌧 Watering of "${zone?.name ?? run.zoneId}" stopped: rain detected.`);
+      await this.notify.emit('stop_rain', 'rainStopped', { zone: zone?.name ?? run.zoneId });
     } else if (onceState) {
       // summarized in one message once the whole one-off has settled
     } else if (groupLevel) {
       if (groupFinished) {
         const g = this.group(run.groupId);
-        const liters = groupFinished.liters ? ` · ~${Math.round(groupFinished.liters)} L` : '';
         const wall = groupFinished.startTs ? (now - groupFinished.startTs) / 60_000 : groupFinished.totalMin ?? 0;
         await this.notify.emit(
           'run_end',
-          `✅ Group "${g?.name ?? run.groupId}" finished: ${groupFinished.zonesDone} zone(s), ${Math.round(wall)} min${liters}.${nextTxt}`,
+          'groupFinished',
+          {
+            group: g?.name ?? run.groupId,
+            zones: groupFinished.zonesDone,
+            minutes: Math.round(wall),
+            liters: groupFinished.liters ? Math.round(groupFinished.liters) : null,
+            nextTs: next,
+          },
         );
       }
     } else {
-      await this.notify.emit('run_end', `✅ Watering finished: "${zone?.name ?? run.zoneId}", ${actualMin.toFixed(0)} min.${nextTxt}`);
+      await this.notify.emit('run_end', 'wateringFinished', { zone: zone?.name ?? run.zoneId, minutes: Math.round(actualMin), nextTs: next });
     }
     this.broadcastState();
   }
@@ -1801,7 +1870,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       // treat the pump like a controller: warn if it is unavailable at start
       if (!this.ha.available(src.pumpEntity)) {
         await this.journal.add('fault', { code: 'pump_unavailable', detail: `${src.pumpEntity} (${src.name}) is unavailable at start` });
-        await this.notify.emit('fault', `⚠️ Pump "${src.pumpEntity}" for source "${src.name}" is UNAVAILABLE — starting anyway; check the controller.`);
+        await this.notify.emit('fault', 'pumpUnavailable', { entity: src.pumpEntity, source: src.name });
       }
       this.pumpPrevOn.set(src.id, this.ha.isOn(src.pumpEntity));
       if (!this.ha.isOn(src.pumpEntity)) {
@@ -2036,7 +2105,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
           code: 'idle_flow',
           detail: `source ${src.name}: ${flow} l/min with no zones running (leak or stuck valve?)`,
         });
-        await this.notify.emit('fault', `🚨 Source "${src.name}": water is flowing (${flow} l/min) while no zones are running — possible leak or stuck valve.`);
+        await this.notify.emit('fault', 'leak', { source: src.name, flow });
       }
     }
   }
@@ -2203,9 +2272,36 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
   // ------------------------------------------------------------------- misc
 
-  private async skip(groupId: string | null, zoneId: string | null, code: string, detail: string) {
+  private async skip(
+    groupId: string | null,
+    zoneId: string | null,
+    code: string,
+    detail: string,
+    reasonKey?: NotificationMessageKey,
+    reasonVars: NotificationVars = {},
+  ) {
     await this.journal.add('skip', { groupId: groupId ?? undefined, zoneId: zoneId ?? undefined, code, detail });
-    await this.notify.emit('skip', `⏭ Watering skipped${zoneId ? ` for zone "${this.zone(zoneId)?.name ?? zoneId}"` : groupId ? ` for group "${this.group(groupId)?.name ?? groupId}"` : ''}: ${detail}`);
+    const reasonByCode: Record<string, NotificationMessageKey> = {
+      paused: 'reasonPaused',
+      group_paused: 'reasonGroupPaused',
+      zone_paused: 'reasonZonePaused',
+      rain_sensor: 'reasonRain',
+      soil_wet: 'reasonSoilWet',
+      condition: 'reasonCondition',
+      weather: 'reasonWeather',
+      fault: 'reasonFault',
+      source_low: 'reasonSourceLow',
+      below_min: 'reasonBelowMin',
+      conflict_skip: 'reasonConflict',
+      once_zone_gone: 'reasonZoneGone',
+    };
+    await this.notify.emit('skip', 'wateringSkipped', {
+      targetKind: zoneId ? 'zone' : groupId ? 'group' : null,
+      targetName: zoneId ? this.zone(zoneId)?.name ?? zoneId : groupId ? this.group(groupId)?.name ?? groupId : null,
+      // an unmapped code must not claim a reason it does not have
+      reasonKey: reasonKey ?? reasonByCode[code] ?? 'reasonUnknown',
+      ...reasonVars,
+    });
     return 0;
   }
 
