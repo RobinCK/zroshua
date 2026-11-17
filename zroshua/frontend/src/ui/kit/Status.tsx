@@ -45,14 +45,17 @@ export function StatusLine({
   word,
   aside,
   compact,
+  wrap,
 }: {
   state: GardenState;
   word: ReactNode;
   aside?: ReactNode;
   compact?: boolean;
+  /** let the words take a second line (narrow tiles on a phone) instead of an ellipsis */
+  wrap?: boolean;
 }) {
   return (
-    <div className={cx(s.line, compact && s.compact)} style={stateStyle(state)}>
+    <div className={cx(s.line, compact && s.compact, wrap && s.wrap)} style={stateStyle(state)}>
       <StatusDot state={state} />
       <span className={s.word}>{word}</span>
       {aside != null && aside !== '' && <span className={s.lineAside}>{aside}</span>}

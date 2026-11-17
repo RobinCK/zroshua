@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import React, { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { cx } from './state';
 import s from './Controls.module.css';
 
@@ -80,6 +80,7 @@ export function ChoiceChips<K extends string | number>({
   square,
   fill,
   scroll,
+  cols,
 }: {
   options: ChoiceOption<K>[];
   value: K | null;
@@ -88,9 +89,16 @@ export function ChoiceChips<K extends string | number>({
   square?: boolean;
   fill?: boolean;
   scroll?: boolean;
+  /** an even grid of this many columns (durations) instead of a wrapping row */
+  cols?: number;
 }) {
   return (
-    <div role="group" aria-label={label} className={cx(s.chips, scroll && s.scroll)}>
+    <div
+      role="group"
+      aria-label={label}
+      className={cx(s.chips, scroll && s.scroll, cols != null && s.cols)}
+      style={cols != null ? ({ '--cols': cols } as React.CSSProperties) : undefined}
+    >
       {options.map((o) => (
         <button
           key={String(o.key)}

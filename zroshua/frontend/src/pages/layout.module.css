@@ -1,0 +1,60 @@
+/* Page layouts shared by the overview, sensors and graphs pages. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .page {
+    gap: 22px;
+  }
+}
+/* a row of panels that wraps: the first one takes twice the space */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: stretch;
+}
+.row > * {
+  min-width: 0;
+  display: flex;
+  flex: 1 1 320px;
+}
+.row > .wide {
+  flex: 2 1 560px;
+}
+.row > .third {
+  flex: 1 1 300px;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.title {
+  margin: 0;
+  font-size: var(--ui-fs-headline);
+  font-weight: var(--ui-fw-headline);
+  letter-spacing: var(--ui-ls-headline);
+}
+.sub {
+  font-size: 14px;
+  color: var(--ui-text-3);
+}
+.right {
+  margin-left: auto;
+}
+/* the panel inside each cell takes the cell's full width and height */
+.row > * > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}

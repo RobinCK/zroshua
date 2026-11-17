@@ -69,6 +69,16 @@
 .compact .word {
   font-weight: 500;
 }
+.wrap {
+  align-items: flex-start;
+}
+.wrap .word {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.wrap > .dot {
+  margin-top: 5px;
+}
 
 .pill {
   flex: none;

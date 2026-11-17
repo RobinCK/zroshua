@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import {
-  ActionIcon,
   Button,
-  Card,
   Checkbox,
   Group,
   Modal,
@@ -13,18 +11,22 @@ import {
   Stack,
   Text,
   TextInput,
-  Title,
 } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { api, Group as ZGroup, WaterSource } from '../api';
+import { api, EngineState, Group as ZGroup, WaterSource } from '../api';
 import { useResource } from '../hooks';
 import { EntitySelect } from '../components/common';
 import { t } from '../i18n';
 import { HintLabel, HintTitle } from '../components/Hint';
+import { CardGrid, Panel, PanelHeader, UiButton } from '../ui/kit';
+import { SourceCard } from '../ui/garden';
+import { sourceView } from '../view/garden';
+import { useGarden } from '../view/useGarden';
 
-export default function SourcesPage() {
+export default function SourcesPage({ state }: { state: EngineState | null }) {
   const { data: sources, reload } = useResource<WaterSource[]>('/sources');
+  const { garden } = useGarden(state, ['sources']);
   const { data: groups } = useResource<ZGroup[]>('/groups');
   const [editing, setEditing] = useState<Partial<WaterSource> | null>(null);
   const notifyErr = (e: any) => notifications.show({ message: e.message, color: 'red' });
@@ -48,30 +50,25 @@ export default function SourcesPage() {
         <Button onClick={() => setEditing({ name: '', type: 'well', pumpStartDelayS: 0, pumpStopDelayS: 0 })}>{t('Add source')}</Button>
       </Group>
 
-      {(sources ?? []).map((s) => (
-        <Card key={s.id} withBorder>
-          <Group justify="space-between">
-            <Group gap="xs">
-              <Text fw={600}>{s.name}</Text>
-              <Text size="sm" c="dimmed">
-                {{ well: t('well'), barrel: t('barrel'), mains: t('mains') }[s.type] ?? s.type}
-                {s.maxFlowLpm ? ` · ${t('budget {n} l/min', { n: s.maxFlowLpm })}` : ''}
-                {s.dependsOn ? ` · ${t('depends on {name}', { name: sources?.find((x) => x.id === s.dependsOn)?.name ?? s.dependsOn })}` : ''}
-                {s.pumpEntity ? ` · ${t('pump')}` : ''}
-                {s.energyEntity ? ` · ${t('energy meter')}` : ''}
-              </Text>
-            </Group>
-            <Group gap={4}>
-              <ActionIcon variant="subtle" onClick={() => setEditing({ ...s })}>
-                <IconEdit size={18} />
-              </ActionIcon>
-              <ActionIcon variant="subtle" color="red" onClick={() => api.del(`/sources/${s.id}`).then(reload).catch(notifyErr)}>
-                <IconTrash size={18} />
-              </ActionIcon>
-            </Group>
-          </Group>
-        </Card>
-      ))}
+      <CardGrid min={320}>
+        {(sources ?? []).map((src) => {
+          const live = garden.sources.find((x) => x.id === src.id);
+          return (
+            <div key={src.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {live ? (
+                <SourceCard source={sourceView(garden, live)} />
+              ) : (
+                <Panel>
+                  <PanelHeader title={src.name} sub={t('loading…')} />
+                </Panel>
+              )}
+              <UiButton variant="outline" size="sm" icon={<IconEdit size={15} />} onClick={() => setEditing({ ...src })}>
+                {t('Edit {name}', { name: src.name })}
+              </UiButton>
+            </div>
+          );
+        })}
+      </CardGrid>
 
       <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? t('Edit source') : t('New source')} size="lg">
         {editing && (
@@ -182,6 +179,22 @@ export default function SourcesPage() {
               onChange={(v) => setEditing({ ...editing, okSensor: v })}
               domains={['binary_sensor']}
             />
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
+              <EntitySelect
+                label={<HintLabel label={t('Pressure sensor')} hint={t('bar, optional — shown on the source card')} />}
+                value={editing.pressureEntity ?? null}
+                onChange={(v) => setEditing({ ...editing, pressureEntity: v })}
+                domains={['sensor']}
+              />
+              <NumberInput
+                label={<HintLabel label={t('Target pressure')} hint={t('the pressure the pump should hold, marked on the gauge')} />}
+                suffix=" bar"
+                decimalScale={1}
+                step={0.1}
+                value={editing.pressureTargetBar ?? ''}
+                onChange={(v) => setEditing({ ...editing, pressureTargetBar: v === '' ? null : Number(v) })}
+              />
+            </SimpleGrid>
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs" verticalSpacing="xs">
               <EntitySelect
                 label={<HintLabel label={t('Flow sensor')} hint={t('l/min, optional')} />}
@@ -256,7 +269,27 @@ export default function SourcesPage() {
                 />
               </SimpleGrid>
             ) : null}
-            <Button onClick={save}>{t('Save')}</Button>
+            <Group justify="space-between">
+              <Button onClick={save}>{t('Save')}</Button>
+              {editing.id && sources?.some((x) => x.id === editing.id) && (
+                <Button
+                  variant="subtle"
+                  color="red"
+                  leftSection={<IconTrash size={16} />}
+                  onClick={() =>
+                    api
+                      .del(`/sources/${editing.id}`)
+                      .then(() => {
+                        setEditing(null);
+                        reload();
+                      })
+                      .catch(notifyErr)
+                  }
+                >
+                  {t('Delete source')}
+                </Button>
+              )}
+            </Group>
           </Stack>
         )}
       </Modal>

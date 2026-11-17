@@ -27,7 +27,7 @@ export function ZoneTile({ zone, onOpen }: { zone: ZoneView; onOpen?: (id: strin
       </IconChip>
       <span className={s.zoneText}>
         <span className={s.zoneName}>{zone.name}</span>
-        <StatusLine state={zone.state} word={zone.label} compact />
+        <StatusLine state={zone.state} word={zone.label} compact wrap />
       </span>
       {zone.state === 'watering' && zone.progress != null && (
         <span className={s.zoneEdge}>

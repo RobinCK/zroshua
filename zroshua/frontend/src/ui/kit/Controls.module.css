@@ -104,6 +104,14 @@
 .chips.scroll::-webkit-scrollbar {
   display: none;
 }
+.chips.cols {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+}
+.chips.cols .chip {
+  width: 100%;
+  padding: 0 4px;
+}
 .chip {
   flex: none;
   display: inline-flex;

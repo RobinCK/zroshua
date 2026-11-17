@@ -1,4 +1,4 @@
-import { IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerStopFilled } from '@tabler/icons-react';
+import { IconPencil, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerStopFilled } from '@tabler/icons-react';
 import {
   IconButton,
   IconChip,
@@ -32,6 +32,7 @@ export function GroupCard({
   onPause,
   onResume,
   onOpen,
+  onEdit,
 }: {
   group: GroupView;
   onRun?: (id: string) => void;
@@ -39,6 +40,8 @@ export function GroupCard({
   onPause?: (id: string) => void;
   onResume?: (id: string) => void;
   onOpen?: (id: string) => void;
+  /** the add-on's groups page: a pencil in the header opens the editor */
+  onEdit?: (id: string) => void;
 }) {
   const g = group;
   return (
@@ -56,6 +59,7 @@ export function GroupCard({
             <span>{g.meta}</span>
           </>
         }
+        aside={onEdit ? <IconButton label={t('Edit {name}', { name: g.name })} variant="ghost" icon={<IconPencil size={18} />} onClick={() => onEdit(g.id)} /> : undefined}
       />
       <Tile state={g.state} grow>
         <StatusLine state={g.state} word={g.word} aside={g.when} />
@@ -115,7 +119,9 @@ export function SourceCard({ source, onOpen }: { source: SourceView; onOpen?: (i
       />
       <Tile state={x.state} grow>
         <StatusLine state={x.state} word={x.word} aside={x.when} />
-        {x.problem ? (
+        {x.metric && <Metric value={x.metric.value} unit={x.metric.unit} aside={x.metric.aside} />}
+        {x.meter && <Meter pct={x.meter.pct} mark={x.meter.mark} state={x.problem ? undefined : x.state} scale={x.meter.scale} />}
+        {x.problem && (
           <>
             <div className={s.headline15}>{x.problem.headline}</div>
             <div className={s.detail} data-tone="err">
@@ -128,11 +134,6 @@ export function SourceCard({ source, onOpen }: { source: SourceView; onOpen?: (i
                 </UiButton>
               </div>
             )}
-          </>
-        ) : (
-          <>
-            {x.metric && <Metric value={x.metric.value} unit={x.metric.unit} aside={x.metric.aside} />}
-            {x.meter && <Meter pct={x.meter.pct} mark={x.meter.mark} state={x.state} scale={x.meter.scale} />}
           </>
         )}
       </Tile>

@@ -289,7 +289,7 @@
 }
 .upTime {
   flex: none;
-  width: 52px;
+  width: 66px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -300,7 +300,8 @@
 }
 .upClock {
   font-family: var(--ui-font-mono);
-  font-size: 15px;
+  font-size: 14px;
+  white-space: nowrap;
   font-weight: 500;
 }
 .upText {

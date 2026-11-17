@@ -1,120 +1,90 @@
 import { useState } from 'react';
-import { BarChart } from '@mantine/charts';
-import { Button, Card, Group, SegmentedControl, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { IconDownload } from '@tabler/icons-react';
+import type { EngineState, WaterSource } from '../api';
 import { useResource } from '../hooks';
 import { t } from '../i18n';
+import { CardGrid, ChoiceChips, UiButton } from '../ui/kit';
+import { ChartCard, FindingsCard, UsageCard } from '../ui/garden';
+import { TOKENS } from '../ui/tokens';
+import { useComputedColorScheme } from '@mantine/core';
+import { chartViews, findingView, lineChartView, type GardenData } from '../view/garden';
+import { liters } from '../view/format';
+import type { DayStat, Insights } from '../view/live';
+import s from './layout.module.css';
 
-interface Daily {
-  days: { day: string; minutes: number; litersMin: number; litersMax: number; energyKwh: number; tailKwh: number }[];
-  totals: { minutes: number; litersMin: number; litersMax: number; energyKwh: number; tailKwh: number };
-  tariff: number | null;
-  currency: string | null;
-}
+const PERIODS = [
+  { key: 7, label: 'Week' },
+  { key: 30, label: 'Month' },
+  { key: 90, label: 'Season' },
+] as const;
 
-function StatTile({ label, value }: { label: string; value: string }) {
-  return (
-    <Card withBorder>
-      <Text size="xs" c="dimmed">
-        {label}
-      </Text>
-      <Text size="xl" fw={700}>
-        {value}
-      </Text>
-    </Card>
+/**
+ * Statistics: one period control for the whole page, then the measures as chart cards (tap a
+ * bar for its day), where the water went and what the period says. The same chart cards are
+ * the Lovelace «chart» view.
+ */
+export default function StatsPage({ state }: { state: EngineState | null }) {
+  const [n, setN] = useState<number>(7);
+  const scheme = useComputedColorScheme('dark');
+  const series = TOKENS[scheme].series;
+  const { data: days } = useResource<DayStat[]>(`/stats/days?days=${n * 2}`, [n]);
+  const { data: insights } = useResource<Insights>(`/insights?days=${n}`, [n]);
+  const { data: sources } = useResource<WaterSource[]>('/sources');
+  const pressureSrc = (sources ?? []).find((x) => x.pressureEntity);
+  const { data: pressure } = useResource<{ ts: number; v: number }[]>(
+    pressureSrc ? `/ha/history?entity=${encodeURIComponent(pressureSrc.pressureEntity!)}&hours=6` : '/health',
+    [pressureSrc?.pressureEntity],
   );
-}
-
-export default function StatsPage() {
-  const [days, setDays] = useState('30');
-  const { data } = useResource<Daily>(`/stats/daily?days=${days}`, [days]);
-
-  const liters = (min: number, max: number) =>
-    min === max
-      ? t('{n} L', { n: Math.round(min) })
-      : t('{min}–{max} L', { min: Math.round(min), max: Math.round(max) });
-
-  const chartData = (data?.days ?? []).map((d) => ({
-    day: d.day.slice(5),
-    liters: Math.round((d.litersMin + d.litersMax) / 2),
-    minutes: Math.round(d.minutes),
-    kWh: Number((d.energyKwh + d.tailKwh).toFixed(2)),
+  const now = state?.now ?? Date.now();
+  const garden = { days: days ?? [], insights: insights ?? null } as GardenData;
+  const charts = chartViews(garden, series, n);
+  const usage = (insights?.usage ?? []).map((u) => ({
+    key: u.groupId,
+    name: u.name,
+    value: u.liters ? liters(u.liters) : '—',
+    share: u.liters && insights?.totalLiters ? `${Math.round((u.liters / insights.totalLiters) * 100)}%` : '',
+    pct: (u.liters / Math.max(1, ...(insights?.usage ?? []).map((x) => x.liters))) * 100,
+    note: u.liters ? t('{count} runs', { count: u.runs }) : t('not watered in this period'),
   }));
+  const findings = (insights?.findings ?? []).map((f, i) => findingView(f, i, now));
 
   return (
-    <Stack>
-      <Group justify="space-between">
-        <Title order={3}>{t('Statistics')}</Title>
-        <Group>
-          <SegmentedControl
-            data={[
-              { value: '7', label: t('Week') },
-              { value: '30', label: t('Month') },
-              { value: '90', label: t('Season') },
-            ]}
-            value={days}
-            onChange={setDays}
-          />
-          <Button component="a" href={`./api/stats/export.csv?days=${days}`} variant="light">
+    <div className={s.page}>
+      <div className={s.head}>
+        <h1 className={s.title}>{t('Statistics')}</h1>
+        <div className={s.right} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <ChoiceChips label={t('Period')} options={PERIODS.map((p) => ({ key: p.key, label: t(p.label) }))} value={n} onChange={setN} />
+          <UiButton size="sm" variant="outline" icon={<IconDownload size={15} />} onClick={() => window.open(`./api/stats/export.csv?days=${Math.max(n, 30)}`, '_blank')}>
             {t('Export CSV')}
-          </Button>
-        </Group>
-      </Group>
+          </UiButton>
+        </div>
+      </div>
 
-      <SimpleGrid cols={{ base: 2, sm: 4 }}>
-        <StatTile
-          label={t('Water (calculated)')}
-          value={data ? liters(data.totals.litersMin, data.totals.litersMax) : '—'}
-        />
-        <StatTile label={t('Watering time')} value={data ? t('{n} min', { n: Math.round(data.totals.minutes) }) : '—'} />
-        <StatTile
-          label={t('Pump energy')}
-          value={data ? t('{n} kWh', { n: (data.totals.energyKwh + data.totals.tailKwh).toFixed(1) }) : '—'}
-        />
-        <StatTile
-          label={data?.tariff ? t('Cost') : t('Refill tail energy')}
-          value={
-            data
-              ? data.tariff
-                ? `${((data.totals.energyKwh + data.totals.tailKwh) * data.tariff).toFixed(0)} ${data.currency ?? ''}`.trim()
-                : t('{n} kWh', { n: data.totals.tailKwh.toFixed(1) })
-              : '—'
-          }
-        />
-      </SimpleGrid>
+      <CardGrid min={340}>
+        {charts.map((c) => (
+          <ChartCard key={c.key} chart={c} />
+        ))}
+      </CardGrid>
 
-      <Card withBorder>
-        <Title order={5} mb="sm">
-          {t('Liters per day (average of range)')}
-        </Title>
-        <BarChart
-          h={220}
-          data={chartData}
-          dataKey="day"
-          series={[{ name: 'liters', label: t('liters'), color: 'blue.6' }]}
-        />
-      </Card>
-      <Card withBorder>
-        <Title order={5} mb="sm">
-          {t('Minutes per day')}
-        </Title>
-        <BarChart
-          h={220}
-          data={chartData}
-          dataKey="day"
-          series={[{ name: 'minutes', label: t('minutes'), color: 'teal.6' }]}
-        />
-      </Card>
-      <Card withBorder>
-        <Title order={5} mb="sm">
-          {t('Pump energy per day (incl. refill tail)')}
-        </Title>
-        <BarChart
-          h={220}
-          data={chartData}
-          dataKey="day"
-          series={[{ name: 'kWh', label: t('kWh'), color: 'grape.6' }]}
-        />
-      </Card>
-    </Stack>
+      <CardGrid min={340}>
+        <FindingsCard title={t('Insights')} sub={n === 7 ? t('Last 7 days') : t('Last {n} days', { n })} items={findings} empty={t('Nothing unusual in this period.')} />
+        <UsageCard title={t('Water by group')} sub={insights ? `${n === 7 ? t('Last 7 days') : t('Last {n} days', { n })} · ${liters(insights.totalLiters)}` : undefined} rows={usage} />
+        {pressureSrc && Array.isArray(pressure) && (
+          <ChartCard
+            chart={lineChartView({
+              key: 'pressure',
+              title: t('Pressure · {name}', { name: pressureSrc.name }),
+              period: t('Last 6 hours · every 15 min'),
+              unit: 'bar',
+              color: 'var(--ui-text-neutral-strong)',
+              points: pressure,
+              hours: 6,
+              now,
+              target: pressureSrc.pressureTargetBar,
+            })}
+          />
+        )}
+      </CardGrid>
+    </div>
   );
 }

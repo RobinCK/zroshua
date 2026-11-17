@@ -96,7 +96,14 @@ export function createUiTheme(tokens: ThemeTokens = TOKENS): MantineThemeOverrid
         defaultProps: { radius: r.card, centered: true, overlayProps: { backgroundOpacity: 0.62, blur: 3 } },
       }),
       Drawer: Drawer.extend({ defaultProps: { overlayProps: { backgroundOpacity: 0.62, blur: 3 } } }),
-      Button: Button.extend({ defaultProps: { radius: r.md } }),
+      // the neutral filled button is the action colour of the kit (light on dark, dark on light)
+      Button: Button.extend({
+        defaultProps: { radius: r.md },
+        vars: (_theme, props) =>
+          (props.variant ?? 'filled') === 'filled' && (!props.color || props.color === 'neutral')
+            ? { root: { '--button-bg': 'var(--ui-action-bg)', '--button-hover': 'var(--ui-action-bg)', '--button-color': 'var(--ui-action-fg)' } }
+            : { root: {} },
+      }),
       ActionIcon: ActionIcon.extend({ defaultProps: { radius: r.md } }),
       SegmentedControl: SegmentedControl.extend({ defaultProps: { radius: r.md } }),
       Tooltip: Tooltip.extend({ defaultProps: { radius: r.md, withArrow: true } }),

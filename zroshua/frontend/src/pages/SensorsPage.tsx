@@ -8,19 +8,48 @@ import {
   Select,
   Stack,
   Switch,
-  Text,
   TextInput,
   Title,
 } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { api, Group as ZGroup, Settings, SoilTrigger, TempTrigger, Zone } from '../api';
+import { api, EngineState, Group as ZGroup, Settings, SoilTrigger, TempTrigger, Zone } from '../api';
 import { useResource } from '../hooks';
 import { EntityMultiSelect, EntitySelect, SliderInput } from '../components/common';
 import { t } from '../i18n';
 import { HintLabel, HintTitle } from '../components/Hint';
+import { CardGrid, Section } from '../ui/kit';
+import { SensorCard } from '../ui/garden';
+import { sensorViews } from '../view/garden';
+import { useGarden } from '../view/useGarden';
+import { useMediaQuery } from '@mantine/hooks';
 
-export default function SensorsPage() {
+/**
+ * Live rain and soil sensors on top — the same cards as the Lovelace «sensors» view, the ones
+ * that need you first and, on a phone, compact — and the trigger settings under them.
+ */
+function LiveSensors({ state }: { state: EngineState | null }) {
+  const { garden } = useGarden(state, ['sensors', 'weather']);
+  const phone = useMediaQuery('(max-width: 640px)');
+  const views = sensorViews(garden);
+  if (!views.length) return null;
+  const need = views.filter((v) => v.state === 'skip' || v.state === 'off').length;
+  return (
+    <Section
+      id="live-sensors"
+      title={t('Rain and soil')}
+      meta={need ? t('{n} sensors · {k} need a look', { n: views.length, k: need }) : t('{n} sensors', { n: views.length })}
+    >
+      <CardGrid min={320}>
+        {views.map((v, i) => (
+          <SensorCard key={v.id} sensor={v} compact={!!phone && i > 0} />
+        ))}
+      </CardGrid>
+    </Section>
+  );
+}
+
+export default function SensorsPage({ state }: { state: EngineState | null }) {
   const { data: settings, reload } = useResource<Settings>('/settings');
   const { data: zones } = useResource<Zone[]>('/zones');
   const { data: groups } = useResource<ZGroup[]>('/groups');
@@ -48,8 +77,9 @@ export default function SensorsPage() {
   ];
 
   return (
-    <Stack>
-      <Title order={3}>{t('Sensors')}</Title>
+    <Stack gap="xl">
+      <LiveSensors state={state} />
+      <Title order={3}>{t('Sensor rules')}</Title>
 
       <Card withBorder>
         <Group justify="space-between" mb="sm">

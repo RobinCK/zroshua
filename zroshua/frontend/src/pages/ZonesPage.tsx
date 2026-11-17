@@ -1,31 +1,30 @@
 import { useState } from 'react';
 import {
-  Badge,
   Button,
-  Card,
   Group,
   Modal,
   NumberInput,
-  Progress,
   Select,
-  SimpleGrid,
   Stack,
   Switch,
-  Text,
   TextInput,
   Title,
-  Tooltip,
-  ActionIcon,
 } from '@mantine/core';
-import { IconDroplet, IconEdit, IconPlayerStop, IconTrash } from '@tabler/icons-react';
+import { IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Settings, WaterSource, Zone } from '../api';
-import { useResource, fmtDur, fmtAgo } from '../hooks';
+import { useResource } from '../hooks';
 import { t } from '../i18n';
-import { EntityMultiSelect, SliderInput, PauseControl } from '../components/common';
+import { EntityMultiSelect, SliderInput } from '../components/common';
 import ScheduleEditor, { emptySchedule } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
 import { HintLabel, HintTitle } from '../components/Hint';
+import { ZoneSheet } from '../components/ZoneSheet';
+import { Panel } from '../ui/kit';
+import { ZoneBoard } from '../ui/garden';
+import { zoneSections } from '../view/garden';
+import { useGarden } from '../view/useGarden';
+import { useMediaQuery } from '@mantine/hooks';
 
 const emptyZone: Partial<Zone> = {
   name: '',
@@ -45,20 +44,16 @@ const emptyZone: Partial<Zone> = {
 };
 
 export default function ZonesPage({ state }: { state: EngineState | null }) {
-  const { data: zones, reload } = useResource<Zone[]>('/zones');
+  const { reload } = useResource<Zone[]>('/zones');
   const { data: sources } = useResource<WaterSource[]>('/sources');
   const { data: settings } = useResource<Settings>('/settings');
-  const { data: lastRuns } = useResource<{ zones: Record<string, number>; groups: Record<string, number> }>('/last-runs');
   const [editing, setEditing] = useState<Partial<Zone> | null>(null);
-  const [runZone, setRunZone] = useState<Zone | null>(null);
-  const [runMinutes, setRunMinutes] = useState(15);
+  const [sheetId, setSheetId] = useState<string | null>(null);
+  const { garden, reload: reloadGarden } = useGarden(state, ['zones', 'groups', 'upcoming', 'lastRuns', 'sources']);
+  const phone = useMediaQuery('(max-width: 640px)');
   const [flowMode, setFlowMode] = useState<'none' | 'value' | 'range'>('none');
   const [busy, setBusy] = useState<BusyBand[]>([]);
 
-  const running = new Set(state?.active.map((a) => a.zoneId));
-  const activeOf = new Map((state?.active ?? []).map((a) => [a.zoneId, a]));
-  const queued = new Map((state?.queue ?? []).map((q) => [q.zoneId, q.waitReason]));
-  const faults = new Set(state?.faults ?? []);
 
   const notifyErr = (e: any) => notifications.show({ message: e.message, color: 'red' });
 
@@ -113,131 +108,31 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
     api.get<{ bands: BusyBand[] }>(`/busy-week${q}`).then((r) => setBusy(r.bands)).catch(() => setBusy([]));
   };
 
-  const startRun = async () => {
-    if (!runZone) return;
-    try {
-      const res = await api.post<{ warnings: string[] }>(`/zones/${runZone.id}/run`, { minutes: runMinutes });
-      if (res.warnings?.length)
-        notifications.show({ title: t('Started with warnings'), message: res.warnings.join('; '), color: 'yellow' });
-      else notifications.show({ message: t('Watering "{name}" for {minutes} min', { name: runZone.name, minutes: runMinutes }), color: 'teal' });
-      setRunZone(null);
-    } catch (e) {
-      notifyErr(e);
-    }
-  };
 
   return (
-    <Stack>
+    <Stack gap="lg">
       <Group justify="space-between">
         <Title order={3}>{t('Zones')}</Title>
         <Button onClick={() => openEdit(emptyZone)}>{t('Add zone')}</Button>
       </Group>
 
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-        {(zones ?? []).map((z) => (
-          // A grid row is as tall as its tallest card, and a watering card grows by
-          // its progress block. Without a column layout every other card kept its
-          // button right under the text, so the buttons in one row sat at different
-          // heights — the footer is pinned to the bottom instead.
-          <Card key={z.id} withBorder opacity={z.enabled ? 1 : 0.5} style={{ display: 'flex', flexDirection: 'column' }}>
-            <Group justify="space-between" mb="xs">
-              <Group gap="xs">
-                <Text fw={600}>{z.name}</Text>
-                {running.has(z.id) && <Badge color="teal" leftSection="●">{t('watering')}</Badge>}
-                {/* a queued zone looked exactly like an idle one, which is what
-                    "I pressed play and nothing happened" really is */}
-                {queued.has(z.id) && (
-                  <Tooltip label={queued.get(z.id)} multiline maw={320}>
-                    <Badge color="yellow" variant="light">
-                      {t('queued')}
-                    </Badge>
-                  </Tooltip>
-                )}
-                {!!z.snoozeUntil && z.snoozeUntil > Date.now() && (
-                  <Badge color="orange" variant="light">
-                    {t('paused')}
-                  </Badge>
-                )}
-                {faults.has(z.id) && (
-                  <Badge
-                    color="red"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => api.post(`/zones/${z.id}/clear-fault`).then(() => reload())}
-                    title={t('Click to clear fault')}
-                  >
-                    {t('fault ✕')}
-                  </Badge>
-                )}
-              </Group>
-              <Group gap={4}>
-                <PauseControl path={`/zones/${z.id}`} pausedUntil={z.snoozeUntil} onChange={reload} />
-                <ActionIcon variant="subtle" onClick={() => openEdit(z)}>
-                  <IconEdit size={18} />
-                </ActionIcon>
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  onClick={() => api.del(`/zones/${z.id}`).then(reload).catch(notifyErr)}
-                >
-                  <IconTrash size={18} />
-                </ActionIcon>
-              </Group>
-            </Group>
-            <Text size="sm" c="dimmed">
-              {t(z.type)} · {fmtDur(z.baseDurationMin)}
-              {z.flowLpm != null &&
-                ` · ${t('{flow} l/min', { flow: typeof z.flowLpm === 'number' ? z.flowLpm : `${z.flowLpm.min}–${z.flowLpm.max}` })}`}
-              {z.sourceId && ` · ${sources?.find((s) => s.id === z.sourceId)?.name ?? z.sourceId}`}
-            </Text>
-            <Text size="xs" c="dimmed" lineClamp={1} style={{ wordBreak: 'break-all' }}>
-              {z.entities.join(', ') || t('no entities')}
-            </Text>
-            <Text size="xs" c="dimmed">
-              {t('Last watered:')} {fmtAgo(lastRuns?.zones[z.id])}
-            </Text>
+      <Panel pad="lg" aria-label={t('Zones')}>
+        <ZoneBoard sections={zoneSections(garden)} onOpen={setSheetId} minTile={phone ? 150 : 210} />
+      </Panel>
 
-            {/* mt="auto" is what keeps every button on the same line across a row */}
-            <Stack gap={4} mt="auto" pt="sm">
-              {running.has(z.id) && (
-                <>
-                  <Progress value={(activeOf.get(z.id)?.progress ?? 0) * 100} animated />
-                  <Text size="xs" c="dimmed">
-                    {t('{dur} left', { dur: fmtDur(Math.max(0, ((activeOf.get(z.id)?.endsAt ?? 0) - Date.now()) / 60_000)) })}
-                  </Text>
-                </>
-              )}
-              {!running.has(z.id) && queued.has(z.id) && (
-                <Text size="xs" c="yellow.7">
-                  {t('waiting: {reason}', { reason: queued.get(z.id) ?? '' })}
-                </Text>
-              )}
-              {running.has(z.id) ? (
-                <Button
-                  fullWidth
-                  color="red"
-                  variant="light"
-                  leftSection={<IconPlayerStop size={16} />}
-                  onClick={() => api.post(`/zones/${z.id}/stop`).catch(notifyErr)}
-                >
-                  {t('Stop')}
-                </Button>
-              ) : (
-                <Button
-                  fullWidth
-                  variant="light"
-                  leftSection={<IconDroplet size={16} />}
-                  onClick={() => {
-                    setRunZone(z);
-                    setRunMinutes(Math.round(z.baseDurationMin));
-                  }}
-                >
-                  {t('Water now')}
-                </Button>
-              )}
-            </Stack>
-          </Card>
-        ))}
-      </SimpleGrid>
+      <ZoneSheet
+        garden={garden}
+        zoneId={sheetId}
+        onClose={() => setSheetId(null)}
+        onChanged={() => {
+          reload();
+          reloadGarden();
+        }}
+        onEdit={(z) => {
+          setSheetId(null);
+          openEdit(z);
+        }}
+      />
 
       <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? t('Edit zone') : t('New zone')} size="lg">
         {editing && (
@@ -397,20 +292,32 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                 onChange={(e) => setEditing({ ...editing, enabled: e.currentTarget.checked })}
               />
             </Group>
-            <Button onClick={save}>{t('Save')}</Button>
+            <Group justify="space-between">
+              <Button onClick={save}>{t('Save')}</Button>
+              {editing.id && (
+                <Button
+                  variant="subtle"
+                  color="red"
+                  leftSection={<IconTrash size={16} />}
+                  onClick={() =>
+                    api
+                      .del(`/zones/${editing.id}`)
+                      .then(() => {
+                        setEditing(null);
+                        reload();
+                        reloadGarden();
+                      })
+                      .catch(notifyErr)
+                  }
+                >
+                  {t('Delete zone')}
+                </Button>
+              )}
+            </Group>
           </Stack>
         )}
       </Modal>
 
-      <Modal opened={!!runZone} onClose={() => setRunZone(null)} title={t('Water "{name}"', { name: runZone?.name ?? '' })}>
-        <Stack>
-          <SliderInput label={t('Duration')} value={runMinutes} onChange={setRunMinutes} min={1} max={runZone?.maxRuntimeMin ?? 120} />
-          <Text size="xs" c="dimmed">
-            {t('Manual runs always start (rain sensor / weather are ignored) and switch off automatically when the timer ends.')}
-          </Text>
-          <Button onClick={startRun}>{t('Start')}</Button>
-        </Stack>
-      </Modal>
     </Stack>
   );
 }

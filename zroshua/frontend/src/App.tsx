@@ -1,23 +1,25 @@
 import { useState } from 'react';
-import { AppShell, Badge, Burger, Group, NavLink, ScrollArea, Text } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { Drawer } from '@mantine/core';
 import {
+  IconAccessPoint,
+  IconCalendarPlus,
   IconCalendarTime,
+  IconCategory,
   IconChartBar,
+  IconDots,
   IconDroplet,
   IconDropletFilled,
   IconLayoutDashboard,
-  IconListDetails,
   IconMap,
-  IconSettings,
-  IconAccessPoint,
-  IconCategory,
   IconNotes,
-  IconCalendarPlus,
+  IconPlant2,
+  IconSettings,
+  type Icon,
 } from '@tabler/icons-react';
 import { useEngineState } from './hooks';
 import { t } from './i18n';
-import DashboardPage from './pages/DashboardPage';
+import { CountBadge, IconButton, StatusPill } from './ui/kit';
+import OverviewPage from './pages/OverviewPage';
 import ZonesPage from './pages/ZonesPage';
 import GroupsPage from './pages/GroupsPage';
 import SourcesPage from './pages/SourcesPage';
@@ -28,135 +30,144 @@ import StatsPage from './pages/StatsPage';
 import JournalPage from './pages/JournalPage';
 import SettingsPage from './pages/SettingsPage';
 import OneTimePage from './pages/OneTimePage';
+import s from './shell.module.css';
 
-const sections = [
-  {
-    label: 'Overview',
-    items: [
-      { key: 'dashboard', label: 'Dashboard', icon: IconLayoutDashboard },
-      { key: 'timeline', label: 'Timeline', icon: IconCalendarTime },
-      { key: 'map', label: 'Site map', icon: IconMap },
-    ],
-  },
-  {
-    label: 'Watering',
-    items: [
-      { key: 'zones', label: 'Zones', icon: IconDroplet },
-      { key: 'groups', label: 'Groups & schedules', icon: IconCategory },
-      { key: 'onetime', label: 'One-off watering', icon: IconCalendarPlus },
-      { key: 'sources', label: 'Water sources', icon: IconAccessPoint },
-      { key: 'sensors', label: 'Sensors', icon: IconListDetails },
-    ],
-  },
-  {
-    label: 'Insights',
-    items: [
-      { key: 'stats', label: 'Statistics', icon: IconChartBar },
-      { key: 'journal', label: 'Journal', icon: IconNotes },
-    ],
-  },
-  {
-    label: 'System',
-    items: [{ key: 'settings', label: 'Settings', icon: IconSettings }],
-  },
-] as const;
+interface PageDef {
+  key: string;
+  label: string;
+  icon: Icon;
+}
 
-type PageKey = (typeof sections)[number]['items'][number]['key'];
+/** Every page, in the order of the top navigation. */
+const PAGES: PageDef[] = [
+  { key: 'dashboard', label: 'Overview', icon: IconLayoutDashboard },
+  { key: 'timeline', label: 'Timeline', icon: IconCalendarTime },
+  { key: 'groups', label: 'Groups', icon: IconCategory },
+  { key: 'zones', label: 'Zones', icon: IconDroplet },
+  { key: 'onetime', label: 'One-off', icon: IconCalendarPlus },
+  { key: 'sources', label: 'Sources', icon: IconAccessPoint },
+  { key: 'sensors', label: 'Sensors', icon: IconPlant2 },
+  { key: 'map', label: 'Map', icon: IconMap },
+  { key: 'stats', label: 'Statistics', icon: IconChartBar },
+  { key: 'journal', label: 'Journal', icon: IconNotes },
+];
 
-const PAGE_KEYS = new Set<string>(sections.flatMap((s) => s.items.map((i) => i.key)));
+/** The phone's bottom bar: the four places you go most, the rest behind «More». */
+const TABS = ['dashboard', 'zones', 'groups', 'stats'];
+
+const PAGE_KEYS = new Set([...PAGES.map((p) => p.key), 'settings']);
 const STORE_KEY = 'zroshua.page';
 // Persist via localStorage, not the URL hash: Home Assistant's ingress reloads the
 // add-on iframe at its base URL on refresh, which would drop a hash.
-const initialPage = (): PageKey => {
+const initialPage = (): string => {
   try {
-    const s = localStorage.getItem(STORE_KEY);
-    if (s && PAGE_KEYS.has(s)) return s as PageKey;
-  } catch { /* private mode */ }
+    const v = localStorage.getItem(STORE_KEY);
+    if (v && PAGE_KEYS.has(v)) return v;
+  } catch {
+    /* private mode */
+  }
   const h = window.location.hash.replace(/^#/, '');
-  return (PAGE_KEYS.has(h) ? h : 'dashboard') as PageKey;
+  return PAGE_KEYS.has(h) ? h : 'dashboard';
 };
 
 export default function App() {
-  const [opened, { toggle, close }] = useDisclosure();
-  const [page, setPage] = useState<PageKey>(initialPage);
+  const [page, setPage] = useState<string>(initialPage);
+  const [more, setMore] = useState(false);
   const { state, journalTick } = useEngineState();
 
-  const goto = (k: PageKey) => {
-    try { localStorage.setItem(STORE_KEY, k); } catch { /* private mode */ }
+  const goto = (k: string) => {
+    if (!PAGE_KEYS.has(k)) return;
+    try {
+      localStorage.setItem(STORE_KEY, k);
+    } catch {
+      /* private mode */
+    }
     setPage(k);
-    close();
+    setMore(false);
+    window.scrollTo({ top: 0 });
   };
 
+  const watering = state?.active.length ?? 0;
+  const paused = !!state?.snoozeUntil && state.snoozeUntil > Date.now();
+  const pill = !state ? null : !state.haConnected ? (
+    <StatusPill state="fault">{t('HA disconnected')}</StatusPill>
+  ) : watering ? (
+    <StatusPill state="watering">{t('{count} watering', { count: watering })}</StatusPill>
+  ) : paused ? (
+    <StatusPill state="paused">{t('paused')}</StatusPill>
+  ) : (
+    <StatusPill state="done">{t('Auto')}</StatusPill>
+  );
+  const faults = state?.faults.length ?? 0;
+
   return (
-    <AppShell
-      header={{ height: 56 }}
-      navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: !opened } }}
-      padding="md"
-    >
-      <AppShell.Header className="z-header" withBorder={false} style={{ boxShadow: '0 1px 0 rgba(128,128,128,.15)' }}>
-        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-          <Group gap="sm" wrap="nowrap">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <span className="z-logo">
-              <IconDropletFilled size={18} />
-            </span>
-            <Text fw={750} size="lg" style={{ letterSpacing: '-0.01em' }}>
-              Zroshua
-            </Text>
-          </Group>
-          <Group gap="xs" wrap="nowrap">
-            {state && !state.haConnected && (
-              <Badge color="red" variant="light" size="lg">
-                {t('HA disconnected')}
-              </Badge>
-            )}
-            {state && state.active.length > 0 && (
-              <Badge color="teal" variant="light" size="lg" leftSection="●">
-                {t('{count} watering', { count: state.active.length })}
-              </Badge>
-            )}
-            {state?.snoozeUntil && (
-              <Badge color="orange" variant="light" size="lg">
-                {t('paused')}
-              </Badge>
-            )}
-          </Group>
-        </Group>
-      </AppShell.Header>
-
-      <AppShell.Navbar p="xs">
-        <ScrollArea>
-          {sections.map((s) => (
-            <div key={s.label}>
-              <div className="z-navsec">{t(s.label)}</div>
-              {s.items.map((p) => (
-                <NavLink
-                  key={p.key}
-                  label={t(p.label)}
-                  leftSection={<p.icon size={18} stroke={1.8} />}
-                  active={page === p.key}
-                  variant="light"
-                  onClick={() => goto(p.key)}
-                />
-              ))}
-            </div>
+    <div className={s.app}>
+      <header className={s.top}>
+        <button type="button" className={s.brand} onClick={() => goto('dashboard')} aria-label={t('Overview')}>
+          <span className={s.mark} aria-hidden="true">
+            <IconDropletFilled size={17} />
+          </span>
+          <span className={s.word}>zroshua</span>
+        </button>
+        <nav className={s.nav} aria-label={t('Sections')}>
+          {PAGES.map((p) => (
+            <button key={p.key} type="button" className={s.navItem} aria-current={page === p.key ? 'page' : undefined} onClick={() => goto(p.key)}>
+              {t(p.label)}
+              {p.key === 'zones' && faults > 0 && <CountBadge value={faults} state="fault" />}
+            </button>
           ))}
-        </ScrollArea>
-      </AppShell.Navbar>
+        </nav>
+        <div className={s.right}>
+          {pill}
+          <IconButton label={t('Settings')} variant="ghost" icon={<IconSettings size={20} />} onClick={() => goto('settings')} />
+        </div>
+      </header>
 
-      <AppShell.Main>
-        {page === 'dashboard' && <DashboardPage state={state} />}
+      <main className={s.main}>
+        {page === 'dashboard' && <OverviewPage state={state} goto={goto} />}
         {page === 'timeline' && <TimelinePage />}
         {page === 'map' && <MapPage state={state} />}
         {page === 'zones' && <ZonesPage state={state} />}
         {page === 'groups' && <GroupsPage state={state} />}
         {page === 'onetime' && <OneTimePage />}
-        {page === 'sources' && <SourcesPage />}
-        {page === 'sensors' && <SensorsPage />}
-        {page === 'stats' && <StatsPage />}
+        {page === 'sources' && <SourcesPage state={state} />}
+        {page === 'sensors' && <SensorsPage state={state} />}
+        {page === 'stats' && <StatsPage state={state} />}
         {page === 'journal' && <JournalPage tick={journalTick} />}
         {page === 'settings' && <SettingsPage />}
-      </AppShell.Main>
-    </AppShell>
+      </main>
+
+      <nav className={s.tabbar} aria-label={t('Sections')}>
+        {TABS.map((k) => {
+          const p = PAGES.find((x) => x.key === k)!;
+          return (
+            <button key={k} type="button" className={s.tab} aria-current={page === k ? 'page' : undefined} onClick={() => goto(k)}>
+              <p.icon size={22} stroke={1.8} />
+              {t(p.label)}
+              {k === 'zones' && faults > 0 && (
+                <span className={s.tabDot}>
+                  <CountBadge value={faults} state="fault" />
+                </span>
+              )}
+            </button>
+          );
+        })}
+        <button type="button" className={s.tab} aria-current={!TABS.includes(page) ? 'page' : undefined} onClick={() => setMore(true)}>
+          <IconDots size={22} stroke={1.8} />
+          {t('More')}
+        </button>
+      </nav>
+
+      <Drawer opened={more} onClose={() => setMore(false)} position="bottom" size="auto" title={t('All sections')}>
+        <div className={s.more}>
+          {[...PAGES.filter((p) => !TABS.includes(p.key)), { key: 'settings', label: 'Settings', icon: IconSettings }].map((p) => (
+            <button key={p.key} type="button" className={s.moreItem} aria-current={page === p.key ? 'page' : undefined} onClick={() => goto(p.key)}>
+              <p.icon size={20} stroke={1.8} />
+              {t(p.label)}
+            </button>
+          ))}
+        </div>
+      </Drawer>
+    </div>
   );
 }

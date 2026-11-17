@@ -88,15 +88,14 @@ export function QuickRun({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <span className={s.label}>{mode === 'zone' ? t('Duration') : t('Duration per zone')}</span>
-            <div className={s.durGrid}>
-              <ChoiceChips
-                label={t('Duration')}
-                square
-                options={opts.map((m, i) => ({ key: m, label: t('{n}m', { n: m }), hint: i === 0 ? t('default') : undefined }))}
-                value={minutes}
-                onChange={setDur}
-              />
-            </div>
+            <ChoiceChips
+              label={t('Duration')}
+              square
+              cols={5}
+              options={opts.map((m, i) => ({ key: m, label: t('{n}m', { n: m }), hint: i === 0 ? t('default') : undefined }))}
+              value={minutes}
+              onChange={setDur}
+            />
           </div>
           <Tile state={cur?.note?.state === 'skip' || cur?.note?.state === 'fault' ? cur.note.state : null}>
             <span className={s.headline15} style={{ fontSize: 14, fontWeight: 600 }}>
