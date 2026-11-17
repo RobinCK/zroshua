@@ -178,14 +178,14 @@ export class Garden {
     });
   }
 
-  /** A week of weather: rain likely tomorrow — the reason the evening lawn run may skip. */
+  /** A week of weather: rain likely the day after tomorrow — what the skip predictions hang on. */
   private forecast() {
     const base = new Date();
     base.setHours(12, 0, 0, 0);
     const rows: [number, number, number, string][] = [
       [27, 10, 0, 'sunny'],
+      [25, 35, 1, 'partlycloudy'],
       [22, 85, 12, 'rainy'],
-      [24, 35, 1, 'partlycloudy'],
       [28, 20, 0, 'sunny'],
       [30, 10, 0, 'sunny'],
       [32, 5, 0, 'sunny'],
