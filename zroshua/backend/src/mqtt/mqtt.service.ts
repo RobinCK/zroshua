@@ -6,6 +6,8 @@ import { Run, Zone } from '../db/entities';
 import { ConfigService } from '../config/config.service';
 import { EngineService } from '../engine/engine.service';
 import { env } from '../env';
+import { SimMqttClient } from '../sim/sim-mqtt';
+import { OverviewService } from '../overview/overview.service';
 
 const AVAIL_TOPIC = 'zroshua/status';
 const DISCOVERY_PREFIX = 'homeassistant';
@@ -36,6 +38,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     @Inject(DATA_SOURCE) ds: DataSource,
     private readonly config: ConfigService,
     private readonly engine: EngineService,
+    private readonly overview: OverviewService,
   ) {
     this.runs = ds.getRepository(Run);
   }
@@ -56,12 +59,15 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     }
     const url = `mqtt://${creds.host}:${creds.port}`;
     this.status = { configured: true, connected: false, broker: `${creds.host}:${creds.port}`, source: creds.source, detail: 'connecting…' };
-    this.client = mqtt.connect(url, {
-      username: creds.user || undefined,
-      password: creds.password || undefined,
-      will: { topic: AVAIL_TOPIC, payload: Buffer.from('offline'), retain: true, qos: 1 },
-      reconnectPeriod: 5000,
-    });
+    // the stand talks to its in-process broker through the same client surface
+    this.client = env.sim.enabled
+      ? (new SimMqttClient() as unknown as MqttClient)
+      : mqtt.connect(url, {
+          username: creds.user || undefined,
+          password: creds.password || undefined,
+          will: { topic: AVAIL_TOPIC, payload: Buffer.from('offline'), retain: true, qos: 1 },
+          reconnectPeriod: 5000,
+        });
     this.client.on('connect', () => {
       this.status.connected = true;
       this.status.detail = 'connected';
@@ -93,6 +99,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
 
   /** Dev env vars take precedence; otherwise ask the Supervisor services API (Mosquitto add-on). */
   private async resolveCredentials(): Promise<{ host: string; port: number; user?: string; password?: string; source: string } | null> {
+    if (env.sim.enabled) return { host: 'simulator', port: 1883, source: 'simulator' };
     if (env.mqtt.host) {
       return { host: env.mqtt.host, port: env.mqtt.port ?? 1883, user: env.mqtt.user, password: env.mqtt.password, source: 'options' };
     }
@@ -346,8 +353,25 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       sk: e.skip === 'certain' ? 1 : e.skip === 'possible' ? 2 : 0,
     }));
 
+    // the same live data the add-on panel shows, so the card can draw the same cards
+    const [sources, sensors, attention, days, insights] = await Promise.all([
+      this.overview.sources().catch(() => []),
+      this.overview.sensors(true).catch(() => []),
+      this.overview.attention().catch(() => []),
+      this.overview.daily(14).catch(() => []),
+      this.overview.insights(7).catch(() => null),
+    ]);
+    const weather = await this.overview.weather().catch(() => null);
+
     const attrs = {
       updated: new Date().toISOString(),
+      sources,
+      sensors: sensors.map((x) => ({ ...x, history: x.history.map((v) => (v == null ? null : Math.round(v * 10) / 10)) })),
+      attention,
+      days,
+      usage: insights?.usage ?? [],
+      findings: insights?.findings ?? [],
+      weather,
       paused: snapshot.paused,
       snoozeUntil: snapshot.snoozeUntil,
       haConnected: snapshot.haConnected,

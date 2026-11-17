@@ -6,7 +6,15 @@ import * as fs from 'fs';
  * local development. MQTT credentials are fetched at runtime from the
  * Supervisor services API (see MqttService) — no bashio required.
  */
-const dataDir = process.env.ZROSHUA_DATA_DIR ?? '/data';
+/**
+ * The stand: `ZROSHUA_SIMULATE=1` replaces Home Assistant with an in-process fake that hosts a
+ * virtual garden (see src/sim), replaces the MQTT broker with an in-process one and keeps its
+ * database in ./.sim-data, so it never touches a real installation.
+ */
+const simulate = process.env.ZROSHUA_SIMULATE === '1' || process.env.ZROSHUA_SIMULATE === 'true';
+const simHaPort = Number(process.env.ZROSHUA_SIM_HA_PORT ?? 8124);
+
+const dataDir = process.env.ZROSHUA_DATA_DIR ?? (simulate ? './.sim-data' : '/data');
 
 function loadOptions(): Record<string, any> {
   try {
@@ -24,8 +32,8 @@ export const env = {
   dataDir,
   publicDir: process.env.ZROSHUA_PUBLIC_DIR ?? '../frontend/dist',
   logLevel: process.env.ZROSHUA_LOG_LEVEL ?? opts.log_level ?? 'info',
-  supervisorToken: process.env.SUPERVISOR_TOKEN ?? '',
-  haWsUrl: process.env.ZROSHUA_HA_WS_URL ?? 'ws://supervisor/core/websocket',
+  supervisorToken: simulate ? 'simulator' : process.env.SUPERVISOR_TOKEN ?? '',
+  haWsUrl: simulate ? `ws://127.0.0.1:${simHaPort}/api/websocket` : process.env.ZROSHUA_HA_WS_URL ?? 'ws://supervisor/core/websocket',
   supervisorApi: process.env.ZROSHUA_SUPERVISOR_API ?? 'http://supervisor',
   telegramToken: process.env.ZROSHUA_TELEGRAM_TOKEN ?? opts.telegram_bot_token ?? '',
   mqtt: {
@@ -34,6 +42,14 @@ export const env = {
     port: process.env.ZROSHUA_MQTT_PORT ? Number(process.env.ZROSHUA_MQTT_PORT) : opts.mqtt_port,
     user: process.env.ZROSHUA_MQTT_USER ?? opts.mqtt_username,
     password: process.env.ZROSHUA_MQTT_PASSWORD ?? opts.mqtt_password,
+  },
+  sim: {
+    enabled: simulate,
+    haPort: simHaPort,
+    /** summer (a group waters, everything healthy) | trouble (offline pump, low battery, stale sensor) | season_off */
+    scenario: (process.env.ZROSHUA_SIM_SCENARIO ?? 'summer') as 'summer' | 'trouble' | 'season_off',
+    /** start from an empty database and seed the garden again */
+    reset: process.env.ZROSHUA_SIM_RESET !== '0',
   },
   db: {
     driver: (process.env.ZROSHUA_DB_DRIVER ?? dbOpts.driver ?? 'sqlite') as 'sqlite' | 'mariadb' | 'postgres',

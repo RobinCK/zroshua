@@ -8,6 +8,7 @@ export interface HaState {
   state: string;
   attributes: Record<string, any>;
   last_changed?: string;
+  last_updated?: string;
 }
 
 /**
@@ -139,6 +140,52 @@ export class HaService extends EventEmitter implements OnModuleInit {
       return 'created';
     } catch {
       return 'unsupported'; // YAML-mode dashboards manage resources in configuration.yaml
+    }
+  }
+
+  private registryCache: { at: number; entities: Map<string, { device_id: string | null }>; devices: Map<string, string> } | null = null;
+
+  /**
+   * Entity → device and device → name, cached for ten minutes. A soil probe's temperature,
+   * light, fertility and battery are found as the other entities of the moisture sensor's device.
+   */
+  async registry(): Promise<{ entities: Map<string, { device_id: string | null }>; devices: Map<string, string> }> {
+    if (this.registryCache && Date.now() - this.registryCache.at < 10 * 60_000) return this.registryCache;
+    try {
+      const [ents, devs]: [any[], any[]] = await Promise.all([
+        this.send({ type: 'config/entity_registry/list' }),
+        this.send({ type: 'config/device_registry/list' }),
+      ]);
+      this.registryCache = {
+        at: Date.now(),
+        entities: new Map(ents.map((e) => [e.entity_id, { device_id: e.device_id ?? null }])),
+        devices: new Map(devs.map((d) => [d.id, d.name_by_user || d.name || d.id])),
+      };
+    } catch (e: any) {
+      // not cached: the next call (HA connected by then) tries again
+      if (this.connected) this.log.warn(`Registry fetch failed: ${e.message}`);
+      return { entities: new Map(), devices: new Map() };
+    }
+    return this.registryCache;
+  }
+
+  /** State history of a few entities (minimal response): [{ s, lu }] per entity, oldest first. */
+  async history(entityIds: string[], hours: number): Promise<Record<string, { s: string; lu: number }[]>> {
+    if (!entityIds.length) return {};
+    try {
+      const res = await this.send({
+        type: 'history/history_during_period',
+        start_time: new Date(Date.now() - hours * 3600_000).toISOString(),
+        end_time: new Date().toISOString(),
+        entity_ids: entityIds,
+        minimal_response: true,
+        no_attributes: true,
+        significant_changes_only: false,
+      });
+      return res ?? {};
+    } catch (e: any) {
+      if (this.connected) this.log.warn(`History fetch failed: ${e.message}`);
+      return {};
     }
   }
 

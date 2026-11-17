@@ -119,6 +119,10 @@ export class WaterSource {
   @Column('float', { nullable: true }) blockBelowPct: number | null;
   // alert when the measured flow deviates from the sum of running zones by more than N %
   @Column('float', { nullable: true }) flowDeviationPct: number | null;
+  // optional pressure sensor of the pump (bar) and the pressure it should hold — shown on the
+  // source card, nothing is decided on it
+  @Column({ type: 'varchar', nullable: true }) pressureEntity: string | null;
+  @Column('float', { nullable: true }) pressureTargetBar: number | null;
 }
 
 export type StopReason =

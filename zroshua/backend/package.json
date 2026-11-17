@@ -6,7 +6,8 @@
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test --experimental-test-isolation=none test/*.test.js",
     "start": "node dist/main.js",
-    "dev": "ts-node src/main.ts"
+    "dev": "ts-node src/main.ts",
+    "dev:sim": "npm run build && ZROSHUA_SIMULATE=1 node dist/main.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

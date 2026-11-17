@@ -14,10 +14,23 @@ import { ActionsController } from './api/actions.controller';
 import { MapController } from './api/map.controller';
 import { StatsController } from './api/stats.controller';
 import { OneTimeController } from './api/one-time.controller';
+import { DevController } from './sim/dev.controller';
+import { OverviewController } from './api/overview.controller';
+import { OverviewService } from './overview/overview.service';
+import { env } from './env';
 
 @Module({
   imports: [DatabaseModule],
-  controllers: [ConfigController, ActionsController, MapController, StatsController, OneTimeController],
-  providers: [HaService, ConfigService, EventsService, JournalService, NotifyService, WeatherService, EngineService, MqttService, CardDeployService],
+  controllers: [
+    ConfigController,
+    ActionsController,
+    MapController,
+    StatsController,
+    OneTimeController,
+    OverviewController,
+    // the stand's card page exists only in simulator mode
+    ...(env.sim.enabled ? [DevController] : []),
+  ],
+  providers: [HaService, ConfigService, EventsService, JournalService, NotifyService, WeatherService, EngineService, MqttService, CardDeployService, OverviewService],
 })
 export class AppModule {}

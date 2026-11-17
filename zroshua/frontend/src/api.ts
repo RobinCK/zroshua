@@ -141,6 +141,8 @@ export interface WaterSource {
   lowReservePct: number | null;
   blockBelowPct: number | null;
   flowDeviationPct: number | null;
+  pressureEntity?: string | null;
+  pressureTargetBar?: number | null;
 }
 
 export interface EngineState {
