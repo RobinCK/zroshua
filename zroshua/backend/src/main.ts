@@ -28,4 +28,9 @@ async function bootstrap() {
   new Logger('Bootstrap').log(`Zroshua listening on :${env.port}`);
 }
 
+// a valve controller must not die on a stray rejection mid-run: log it and keep watching the valves
+process.on('unhandledRejection', (reason: any) => {
+  new Logger('Process').error(`unhandled rejection: ${reason?.stack ?? reason}`);
+});
+
 bootstrap();

@@ -1874,7 +1874,13 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
       }
       this.pumpPrevOn.set(src.id, this.ha.isOn(src.pumpEntity));
       if (!this.ha.isOn(src.pumpEntity)) {
-        await this.ha.turn(src.pumpEntity, true);
+        // best-effort: Home Assistant may refuse to switch an unavailable pump; the run goes on
+        // (the fault above is already logged) instead of the rejection taking the add-on down
+        try {
+          await this.ha.turn(src.pumpEntity, true);
+        } catch (e: any) {
+          this.log.warn(`pump ${src.pumpEntity} did not turn on: ${e?.message ?? e}`);
+        }
         if (src.pumpStartDelayS > 0) await new Promise((r) => setTimeout(r, src.pumpStartDelayS * 1000));
       }
     }
