@@ -467,8 +467,8 @@ export function statusView(d: GardenData): StatusView {
     { label: t('Today'), value: liters(todayL), note: t('{dur} of watering', { dur: minutes(todayM) }) },
     {
       label: t('Next start'),
-      value: next ? when(next.ts, d.now) : '—',
-      note: next ? `${next.groupName || t('One-off watering')} · ${t('{n} zones', { n: next.zones.length })}` : t('nothing planned'),
+      value: next ? whenShort(next.ts, d.now) : '—',
+      note: next ? `${dayWord(next.ts, d.now)} · ${next.groupName || t('One-off watering')}` : t('nothing planned'),
     },
   ];
   if (w?.temperature != null) {

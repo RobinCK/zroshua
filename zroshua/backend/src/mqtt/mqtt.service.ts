@@ -305,11 +305,11 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    await this.publishHub(snapshot, zones, liters, kwh);
+    await this.publishHub(snapshot, zones, liters, kwh, rows);
   }
 
   /** Full snapshot for the Lovelace card: compact state + rich json attributes. */
-  private async publishHub(snapshot: any, zones: Zone[], litersToday: number, kwhToday: number) {
+  private async publishHub(snapshot: any, zones: Zone[], litersToday: number, kwhToday: number, runsToday: Run[] = []) {
     const groups = await this.config.groups.find({ order: { orderIndex: 'ASC' } });
     const settings = await this.config.getSettings();
     const activeZoneIds = new Set(snapshot.active.map((a: any) => a.zoneId));
@@ -326,6 +326,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       ts: u.ts,
       minutes: Math.round(u.durationMin ?? u.zones.reduce((a: number, z: any) => a + z.minutes, 0)),
       zones: u.zones.map((z: any) => z.name),
+      zoneIds: u.zones.map((z: any) => z.zoneId),
+      zoneMinutes: u.zones.map((z: any) => Math.round(z.minutes)),
       willSkip: u.willSkip ?? false,
       skipReason: u.skipReasons?.[0] ?? null,
       maybeSkip: u.maybeSkip?.[0] ?? null,
@@ -363,6 +365,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     ]);
     const weather = await this.overview.weather().catch(() => null);
 
+    const last = await this.engine.lastRuns().catch(() => ({ zones: {} as Record<string, number>, groups: {} as Record<string, number> }));
+
     const attrs = {
       updated: new Date().toISOString(),
       sources,
@@ -384,6 +388,11 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       timeline,
       timelineEnv,
       sourceLevels: (snapshot as any).sourceLevels ?? [],
+      // today's finished runs: the «done» bars of the card's timeline
+      doneToday: runsToday
+        .filter((r) => r.category !== 'tail' && r.endTs)
+        .slice(-120)
+        .map((r) => ({ gid: r.groupId, z: zones.find((z) => z.id === r.zoneId)?.name ?? r.zoneId, s: Number(r.startTs), e: Number(r.endTs) })),
       zones: zones.map((z) => {
         const run = snapshot.active.find((a: any) => a.zoneId === z.id);
         return {
@@ -398,6 +407,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
           maxMin: z.maxRuntimeMin,
           groupIds: groups.filter((g) => g.zoneIds.includes(z.id)).map((g) => g.id),
           endsAt: run ? run.endsAt : null,
+          progress: run ? +run.progress.toFixed(3) : null,
+          lastTs: last.zones[z.id] ?? null,
+          sourceId: z.sourceId,
+          flowLpm: z.flowLpm == null ? null : typeof z.flowLpm === 'number' ? z.flowLpm : (z.flowLpm.min + z.flowLpm.max) / 2,
           pausedUntil: z.snoozeUntil && Number(z.snoozeUntil) > Date.now() ? Number(z.snoozeUntil) : null,
         };
       }),
@@ -413,6 +426,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
           activeZones: snapshot.active.filter((a: any) => a.groupId === g.id).length,
           queuedZones: snapshot.queue.filter((q: any) => q.groupId === g.id).length,
           zoneCount: g.zoneIds.length,
+          zoneIds: g.zoneIds,
+          lastTs: last.groups[g.id] ?? null,
           schedules: (g.schedules ?? []).filter((s) => s.enabled).length,
           nextTs: next?.ts ?? null,
           nextMinutes: next?.minutes ?? null,
@@ -468,6 +483,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       }
       case 'stop_group':
         return void (await this.engine.stopGroup(cmd.groupId));
+      case 'extend_zone':
+        return void (await this.engine.extendZone(cmd.zoneId, Number(cmd.minutes) || 5));
+      case 'clear_fault':
+        return void this.engine.clearFault(cmd.zoneId);
       case 'stop_all':
         return void (await this.engine.stopAll('manual_stop'));
       case 'snooze':
