@@ -1,0 +1,89 @@
+/*
+ * Base element styles on top of Mantine. Colours, fonts and sizes come from the --ui-*
+ * variables written by UiProvider (tokensToCss), so this file never names a hex.
+ */
+
+:root {
+  --ui-safe-top: env(safe-area-inset-top, 0px);
+  --ui-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html,
+body {
+  background: var(--ui-bg-page);
+  color: var(--ui-text-1);
+  /* nothing widens the page sideways: a phone (and Home Assistant around the iframe) would pan it */
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  font-family: var(--ui-font-sans);
+  font-size: var(--ui-fs-body);
+  line-height: var(--ui-line-height);
+  /* digits must not jump while a countdown runs */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  /* a long entity id or name breaks where it would stick out instead of pushing its box wider */
+  overflow-wrap: break-word;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ui-text-1);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--ui-tone-water-halo);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* Mantine surfaces on the kit palette: a card is surface 1 with a 1px border, never a shadow in dark */
+.mantine-Card-root,
+.mantine-Paper-root[data-with-border] {
+  background: var(--ui-surface-1);
+  border-color: var(--ui-border);
+}
+.mantine-Modal-content,
+.mantine-Drawer-content,
+.mantine-Popover-dropdown,
+.mantine-Menu-dropdown {
+  background: var(--ui-surface-elevated);
+  border: 1px solid var(--ui-border);
+  box-shadow: var(--ui-shadow-elevated);
+}
+.mantine-Modal-header,
+.mantine-Drawer-header {
+  background: var(--ui-surface-elevated);
+}
+.mantine-Progress-root {
+  background-color: var(--ui-track);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
