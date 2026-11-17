@@ -1,0 +1,175 @@
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plot {
+  position: relative;
+  height: var(--h, 140px);
+}
+.grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--ui-divider);
+  pointer-events: none;
+}
+.axisLabel {
+  position: absolute;
+  left: 0;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--ui-text-3);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.avg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--ui-control-off);
+  pointer-events: none;
+}
+.avgLabel {
+  position: absolute;
+  right: 0;
+  margin-bottom: 3px;
+  padding-left: 4px;
+  font-size: 11px;
+  color: var(--ui-text-3);
+  background: var(--ui-surface-1);
+  pointer-events: none;
+}
+.bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  border-bottom: 1px solid var(--ui-border-strong);
+}
+.barHit {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.bar {
+  display: block;
+  width: 100%;
+  max-width: 36px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: var(--c);
+  transition: opacity var(--ui-motion);
+}
+.xlabels {
+  display: flex;
+  gap: 6px;
+}
+.xlabel {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--ui-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.xlabel[data-on='true'] {
+  color: var(--ui-text-1);
+  font-weight: 600;
+}
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--ui-font-mono);
+  font-size: 11.5px;
+  color: var(--ui-text-3);
+}
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.hits {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+.hit {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: crosshair;
+}
+.cross {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--ui-control-off);
+  pointer-events: none;
+}
+.marker {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 0 2px var(--ui-surface-1);
+  pointer-events: none;
+}
+.bandLabel {
+  position: absolute;
+  left: 0;
+  margin-top: -16px;
+  font-size: 11px;
+  color: var(--ui-tone-ok-fg);
+  pointer-events: none;
+}
+.readout {
+  min-height: 18px;
+  font-size: 13px;
+  color: var(--ui-text-3);
+  font-variant-numeric: tabular-nums;
+}
+.readout[data-on='true'] {
+  color: var(--ui-text-1);
+}
+.spark {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  height: var(--h, 140px);
+  padding: 0 16px;
+  border-radius: var(--ui-radius-lg);
+  border: 1px dashed var(--ui-border-strong);
+}
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 500;
+}
+.emptyText {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ui-text-3);
+}

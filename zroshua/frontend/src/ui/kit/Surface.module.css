@@ -1,0 +1,155 @@
+/* Panel: the card shell. Tile: an item inside a panel. Same two levels in the add-on and on the card. */
+
+.panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-gap-md);
+  padding: var(--ui-space-16);
+  border-radius: var(--ui-radius-card);
+  background: var(--ui-surface-1);
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-1);
+}
+.panel.padLg {
+  padding: var(--ui-space-20);
+  gap: var(--ui-gap-lg);
+}
+/* a state edge is reserved for the two states you must notice: water flowing and a fault */
+.panel[data-edge='true'] {
+  border-color: var(--s-edge);
+}
+.panel.fill {
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-gap-md);
+  min-width: 0;
+}
+.headerText {
+  flex: 1;
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  font-size: var(--ui-fs-title);
+  font-weight: var(--ui-fw-title);
+  letter-spacing: var(--ui-ls-title);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.titleLg {
+  font-size: var(--ui-fs-title-lg);
+}
+.sub {
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--ui-fs-caption);
+  line-height: 1.35;
+  color: var(--ui-text-3);
+}
+.aside {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-gap-sm);
+  margin-left: auto;
+}
+
+.tile {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--ui-space-12);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface-2);
+  border: 1px solid var(--ui-surface-2);
+}
+.tile[data-tint='true'] {
+  background: var(--s-tint);
+  border-color: var(--s-edge);
+}
+.tile[data-edge='true'] {
+  border-color: var(--s-edge);
+}
+.tile[data-off='true'] {
+  background: transparent;
+  border: 1px dashed var(--ui-border-strong);
+}
+.tile.grow {
+  flex: 1;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 0 4px;
+}
+.sectionTitle {
+  margin: 0;
+  font-size: var(--ui-fs-section);
+  font-weight: var(--ui-fw-section);
+  letter-spacing: var(--ui-ls-section);
+  line-height: 1.25;
+}
+.sectionMeta {
+  font-size: 13px;
+  color: var(--ui-text-3);
+}
+.sectionAction {
+  margin-left: auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--min, 300px)), 1fr));
+  gap: var(--gap, 16px);
+}
+.grid > * {
+  min-width: 0;
+}
+
+/* a row that turns into a horizontal swipe strip on a phone */
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--min, 300px)), 1fr));
+  gap: var(--gap, 16px);
+}
+.strip > * {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .strip {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    margin: 0 calc(-1 * var(--ui-gutter));
+    padding: 0 var(--ui-gutter) 4px;
+    gap: 10px;
+    scrollbar-width: none;
+  }
+  .strip::-webkit-scrollbar {
+    display: none;
+  }
+  .strip > * {
+    flex: none;
+    width: min(300px, 82vw);
+    scroll-snap-align: start;
+  }
+}
