@@ -72,22 +72,33 @@ telegram_bot_token: ""   # optional, from @BotFather
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-Live overview: what is watering right now (with progress, `+5 min` and stop buttons), the
-**queue with the exact reason** each run is waiting (`sequential group busy`, `mutex with
-group X`, `flow budget exceeded`…), info tiles (zones, groups, today's water and time),
-weather with a 7-day forecast, countdowns to upcoming waterings and quick actions
-(stop all / pause all watering for a set number of hours). Tapping a running or queued
-zone opens its action sheet (stop, water for a preset, pause).
+One screen that answers *what is happening, and does anything need me*. A row of **status
+badges** on top — watering now, needs attention, next run, rain sensor, pump pressure, barrel
+level, today's water — each opens its page. The **status card** says it in one sentence
+(*Watering Second fruit trees, Lawn garage*), shows the order of the running group as a
+segmented bar and the most important problem as a red line you can tap, then tiles for
+watering, queued (with the **exact reason** each run waits: `sequential group busy`, `mutex
+with group X`, `flow budget exceeded`…), today's water, next start and weather, and the two
+buttons that matter: **Stop all** and **Pause all** — for 6, 12 or 24 hours, 3, 7 or 14 days;
+manual runs still work. Beside it **Quick run**: pick a zone or a group and a duration, see
+the litres, the end time and whether the source has room, start.
+
+Below come the same cards as on a Home Assistant board: **groups** (mode, next start, run /
+stop, pause), the **next 7 days** with a weather strip, **today** as a 24-hour lane per group,
+**every zone** grouped by group, **water sources** and **needs attention** — what Zroshua
+cannot fix itself: an offline pump, a sensor that went quiet or runs low on battery, a valve
+that does not answer. Tapping a zone opens its sheet: water for a preset, stop, `+5 min`,
+pause, clear a fault.
 
 Upcoming waterings are **predicted, not just listed**: a run that would be skipped under
 the current state carries a red *will skip* badge with the reason — e.g.
 `rain dry-out until 09:17` while the sensor is already dry but the dry-out delay is still
 counting — and a yellow *may skip* badge when it depends on data known only at start time
-(forecast, live sensor conditions). The list includes **a zone's own schedules** (tagged
-*zone*), not only group runs. Each row has a **pause menu**: *skip this run* (pauses just
-that group or zone until the run is past), pause 6/12/24 h, or resume — so you can drop one
-upcoming watering straight from the dashboard. Barrel-type water sources show a **live level
-bar** (estimated or from a level sensor) right in the quick-actions card.
+(forecast, live sensor conditions). The list includes **a zone's own schedules**, not only
+group runs. Each row has a **pause menu**: *skip this run* (pauses just that group or zone
+until the run is past), pause 6/12/24 h, or resume; a one-off run is skipped or cancelled —
+so you can drop one upcoming watering straight from the dashboard. Barrel-type water sources
+show a **live level** (estimated or from a level sensor) on their card and as a status badge.
 
 ![Skip or pause an upcoming run from the dashboard](docs/screenshots/upcoming-pause.png)
 
@@ -250,6 +261,10 @@ or water outlets and must not be cut. The pump doubles as a **controller availab
 if it is `unavailable` at start (or within the pre-start window), you get a fault
 notification and the run continues best-effort.
 
+**Pressure**: give a source a pressure sensor (bar) and a target pressure, and its card — on
+the dashboard and on a Home Assistant board — shows a gauge with the target marked, next to the
+pump state, the flow and what the source feeds.
+
 ![Water source: pump behaviour after a run](docs/screenshots/sources-pump.png)
 
 **Source exclusivity**: mark sources that must *never run at the same time* (a well pump and
@@ -284,6 +299,12 @@ emitters / low pressure).
   and 16:00), run a zone or group for N minutes, then hold a cooldown. Respects the rain
   sensor unless told to ignore it.
 
+The **Sensors** page opens with the live state of every rain and soil sensor — the same cards
+as the Lovelace `sensors` view: moisture against the dry and wet thresholds, the last 24 hours
+as a line, what the trigger will do about it, and every other reading the sensor has — soil
+temperature, light, fertility, battery. A sensor that went quiet or runs low on battery is
+marked and listed first; triggers ignore stale data. The trigger settings are below.
+
 ![Sensors](docs/screenshots/sensors.png)
 
 ### Site map
@@ -309,7 +330,11 @@ zone, purple = another zone, gray = free):
 
 ### Statistics
 
-Calculated liters per run (flow rate × actual duration; ranges give min–max estimates),
+One period for the whole page — week, month or season — then water, pump energy and watering
+time as bar charts (tap a bar to read its day), **water by group** and **insights**: runs
+skipped for rain, wet soil or a run condition and the water that saved, runs the soil sensors
+started, zones not watered in the period. The flow and pressure of a source can be drawn as a
+line over the last hours. Calculated liters per run (flow rate × actual duration; ranges give min–max estimates),
 minutes and **pump energy measured only while watering** (kWh counters and W power sensors
 both work) plus the refill-tail category. Set a tariff and currency to see costs. Daily
 charts and CSV export.
@@ -359,7 +384,10 @@ trigger, updates the zone but leaves the group as it was.
 
 ### Mobile
 
-The UI is mobile-first — this is how the dashboard looks in the HA companion app:
+The UI is mobile-first: on a phone the top navigation becomes a bottom tab bar (Overview,
+Zones, Groups, Statistics, More), rows of cards become swipe strips, sheets open from the
+bottom and controls are at least 40 px tall. This is how the dashboard looks in the HA
+companion app:
 
 <img src="docs/screenshots/mobile-dashboard.png" width="320" alt="Mobile dashboard" />
 
@@ -376,26 +404,51 @@ The UI is mobile-first — this is how the dashboard looks in the HA companion a
 ## Lovelace cards
 
 For controlling irrigation straight from a Home Assistant dashboard — without opening the
-add-on — Zroshua ships a custom Lovelace card with five views. When the Mosquitto add-on is
-present the card works with **zero setup**: the add-on copies `zroshua-card.js` into
-`/config/www` and registers it as a dashboard resource automatically (on YAML-mode
-dashboards, add the resource `/local/zroshua-card.js` as a *module* manually).
+add-on — Zroshua ships a custom Lovelace card. When the Mosquitto add-on is present the card
+works with **zero setup**: the add-on copies `zroshua-card.js` into `/config/www` and registers
+it as a dashboard resource automatically (on YAML-mode dashboards, add the resource
+`/local/zroshua-card.js` as a *module* manually).
 
-Add a card to any view:
+The card draws **the same cards as the add-on**, with the same anatomy, state words and colours
+— its colours are generated from the add-on's design tokens — so a zone looks the same on the
+board and inside. One card type, one view per card; the card has a visual editor too:
 
 ```yaml
 type: custom:zroshua-card
-view: dashboard   # dashboard | groups | zones | upcoming | timeline
-title: Irrigation # optional
+view: status     # see the views below
+title: Garden    # optional
 ```
 
 | View | What it shows |
 |---|---|
-| `dashboard` | Tiles (watering now / queued / water today / next), live runs with progress + stop, the queue with reasons, tap a run/queued zone for its action sheet, and stop-all / pause-all buttons. |
-| `groups` | Modern tiles per group: execution mode, "N watering · M queued" while running, countdown to the next start and a full-width **Run / Stop group** button. |
-| `zones` | Zones grouped into sections by watering group with **filter chips** (All / Active / Idle / Off); tapping a zone opens an action sheet with duration presets and Stop — built for dozens of zones. |
-| `upcoming` | The next scheduled runs with countdowns — runs that will be skipped under the current state (rain dry-out, pause…) are dimmed with a red reason line, uncertain ones get a yellow *may skip*. |
-| `timeline` | Today's 24-hour occupancy strip per group (conflicts in red), with the worst-case temperature boost of each run drawn as a hatched tail. |
+| `status` | What is happening in one sentence, the running group's zone order, the most important problem, tiles (watering, queued with reasons, today, next start, weather), **Stop all** and **Pause all**. `dashboard` is an alias. |
+| `badges` | One compact row of status badges for the top of a board: watering, needs attention, next run, rain sensor, pressure, barrel level, today. |
+| `quick` | Quick run: a zone or a group, a duration, the litres and end time, start. |
+| `groups` | A card per group: mode, zones on, next start or what it waits for, **Run / Stop group**, pause. |
+| `zones` | Every zone, in sections by group, with filter chips — All, Watering, Off, and Queued, Fault, May skip or Paused when there are any; tap a zone for its sheet. Built for dozens of zones. |
+| `upcoming` | The next runs with the weather strip; runs that will be skipped (rain dry-out, pause…) say why, uncertain ones get *may skip*. |
+| `timeline` | Today as a 24-hour lane per group, with a «now» line. |
+| `sources` | Water sources: pump state, pressure gauge with the target, flow, barrel level, what each feeds. |
+| `sensors` | Rain and soil sensors with their thresholds, last 24 hours and every reading — moisture, soil temperature, light, fertility, battery. |
+| `chart` | A week of water, pump energy or watering time as bars (tap a bar), or the history line of any entity. |
+| `insights` | What the last 7 days say: skipped runs and the water saved, soil-triggered runs, water by group. |
+| `attention` | Only what needs you — offline pump, quiet or low-battery sensor, a valve that does not answer; «All good» otherwise. |
+
+| Option | |
+|---|---|
+| `view` | one of the views above, default `status` |
+| `title` | replaces the card's own title |
+| `metric` | `chart`: `water` (default), `energy` or `time` |
+| `entity` | `chart`: draw the history of this entity (a flow, pressure or moisture sensor) instead of a metric |
+| `hours` | `chart` with `entity`: how far back, default 24 |
+| `limit` | `upcoming`: how many runs, default 6 |
+| `open_sections` | `zones`: how many group sections start open (all by default) |
+| `theme` | `auto` (follows the Home Assistant dark mode, default), `dark` or `light` |
+| `ha_theme` | `true`: surfaces and text follow the dashboard theme |
+| `hub` | the hub entity, only if it is not found automatically |
+
+A board that works well on a phone, top to bottom: `badges`, `status`, `quick`, `zones`,
+`upcoming`, `sensors`, `sources`, `chart`.
 
 The card reads a single hub sensor (published over MQTT) and sends actions back through the
 `mqtt.publish` service — so it stays live and needs no per-entity wiring. It locates that
@@ -408,21 +461,32 @@ sensor by its attributes, so there is nothing to configure.
 > *MQTT off*, the card will say it is waiting for the hub entity — see
 > [Troubleshooting](#the-lovelace-card-says-it-is-waiting-for-the-hub-entity).
 
-![Card: groups](docs/screenshots/card-groups.png)
-
-![Card: zones](docs/screenshots/card-zones.png)
-
-| `dashboard` | `upcoming` |
+| `status` | `badges` + `quick` on a phone |
 |---|---|
-| <img src="docs/screenshots/card-dashboard.png" width="390" alt="Card: dashboard" /> | <img src="docs/screenshots/card-upcoming-mobile.png" width="390" alt="Card: upcoming (mobile)" /> |
+| <img src="docs/screenshots/card-dashboard.png" width="460" alt="Card: status" /> | <img src="docs/screenshots/card-quick-mobile.png" width="320" alt="Card: badges and quick run on a phone" /> |
 
-![Card: timeline](docs/screenshots/card-timeline.png)
+| `groups` | `zones` |
+|---|---|
+| <img src="docs/screenshots/card-groups.png" width="460" alt="Card: groups" /> | <img src="docs/screenshots/card-zones.png" width="460" alt="Card: zones" /> |
 
-Group tiles have a **pause** control (and the zone action sheet a Pause / Resume button) so
-you can skip a group or a single zone for a few hours without disabling it. Tapping a zone
-opens a floating action sheet over the list — no scrolling even with dozens of zones:
+| `sources` | `chart` |
+|---|---|
+| <img src="docs/screenshots/card-sources.png" width="460" alt="Card: water sources" /> | <img src="docs/screenshots/card-chart.png" width="460" alt="Card: chart" /> |
 
-<img src="docs/screenshots/card-zone-sheet.png" width="320" alt="Zone action sheet on mobile" />
+| `sensors` | `insights` |
+|---|---|
+| <img src="docs/screenshots/card-sensors.png" width="460" alt="Card: rain and soil sensors" /> | <img src="docs/screenshots/card-insights.png" width="460" alt="Card: insights" /> |
+
+| `upcoming` on a phone | `timeline` |
+|---|---|
+| <img src="docs/screenshots/card-upcoming-mobile.png" width="320" alt="Card: upcoming on a phone" /> | <img src="docs/screenshots/card-timeline.png" width="460" alt="Card: timeline" /> |
+
+Group cards have a **pause** control and the zone sheet a Pause / Resume button, so you can skip
+a group or a single zone without disabling it. Tapping a zone opens its sheet over the list —
+a bottom sheet on a phone — with the time left, the source, flow, next and last run, and the
+one action that fits: water for a preset, stop, `+5 min`, clear a fault:
+
+<img src="docs/screenshots/card-zone-sheet.png" width="320" alt="Zone sheet on a phone" />
 
 ## Native HA entities (MQTT discovery)
 
@@ -449,6 +513,54 @@ cd zroshua/backend && npm install && npm run build && node dist/main.js
 # frontend (React + Vite + Mantine) — dev server proxies /api to :8099
 cd zroshua/frontend && npm install && npm run dev
 ```
+
+### Stand
+
+`ZROSHUA_SIMULATE=1` runs the add-on against an in-process fake Home Assistant with a virtual
+garden: 32 zones in 6 groups, a well pump with pressure and flow sensors, a barrel with a level,
+rain and soil sensors with history, a weather forecast and a week of statistics. Valves, pumps
+and sensors react like real ones, MQTT runs in-process, and nothing touches a real Home
+Assistant. The database lives in `zroshua/backend/.sim-data` and is seeded again at every start.
+
+```bash
+cd zroshua/frontend && npm install && npm run build
+cd ../backend && npm install && npm run dev:sim
+```
+
+The panel is on http://localhost:8099, and the Lovelace cards on a page that plays the Home
+Assistant frontend on http://localhost:8099/api/dev/cards
+(`?layout=phone|desktop&theme=dark|light&views=status,zones`).
+
+| Variable | |
+|---|---|
+| `ZROSHUA_SIM_SCENARIO` | `summer` (default: a group waters, the barrel pump is offline), `calm` (the same garden, the pump online) or `season_off` (schedules off, a cold week) |
+| `ZROSHUA_SIM_RESET=0` | keep the database between starts |
+| `ZROSHUA_PORT`, `ZROSHUA_SIM_HA_PORT` | ports, 8099 and 8124 by default |
+
+`npm run smoke` (in `zroshua/backend`, after both builds) starts its own stand and drives the
+panel and the card in Chromium with Playwright, on a phone and a desktop, in the dark and the
+light theme: every page and every card view renders without console errors, nothing on a phone
+scrolls sideways, and the common flows work end to end — water and stop a zone from its sheet,
+quick run, skip a run from the next 7 days, pause all, filter zones, tap a chart bar, run a zone
+from the card. It uses a global Playwright install.
+
+### UI kit
+
+The panel and the card share one design system, in `zroshua/frontend/src/ui`:
+
+| Layer | |
+|---|---|
+| `ui/tokens` | the single source of colours, state tones, type, radii and spacing (`base.ts`) |
+| `ui/theme` | the Mantine theme and the `--ui-*` CSS variables, generated from the tokens |
+| `ui/kit` | primitives: panel, tile, status line and pill, metric, meter, buttons, chips, tabs, action menu, charts, rows, sheet |
+| `ui/garden` | irrigation cards built only from the kit: zone tile and board, group, source and sensor cards, status, next 7 days, timeline, quick run, charts, findings |
+
+Pages turn API data into view models (`src/view`) and compose these; nothing under `src/ui`
+fetches. Every state — watering, queued, next, done, skip, paused, fault, off — maps to one
+tone, so it looks the same on every page and on the board. To recolour, change
+`ui/tokens/base.ts` and run `npm run tokens:card`: it regenerates the token block inside
+`card/zroshua-card.js`, so the card follows. `npm run check` verifies the layer boundaries,
+that the card's tokens are up to date, and the types.
 
 ### Releases
 

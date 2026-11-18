@@ -193,7 +193,9 @@ the run is skipped with a journal reason).
 - Pump energy is measured **only during runs** (kWh counters or W power sensors both work),
   plus an optional configurable "refill tail" after selected groups, tracked as a separate
   category. Set a tariff to see costs.
-- Charts for liters, minutes and kWh per day; CSV export.
+- Charts for liters, minutes and kWh per day over a week, a month or the season (tap a bar
+  to read its day), water by group, and insights: runs skipped for rain or wet soil and the
+  water saved, runs started by soil sensors, zones not watered. CSV export.
 
 ## Site map
 
@@ -235,12 +237,28 @@ system events.
 
 ## Lovelace cards
 
-A custom card (`custom:zroshua-card`) with five views — `dashboard`, `groups`, `zones`,
-`upcoming`, `timeline` — lets you run groups/zones, watch the current watering, the queue,
-upcoming runs and today's timeline straight from a Home Assistant dashboard. With the
-Mosquitto add-on installed the add-on deploys the card to `/config/www` and registers the
-Lovelace resource automatically (YAML-mode dashboards: add `/local/zroshua-card.js` as a
-module resource yourself). Add it to a view with `type: custom:zroshua-card`, `view: groups`.
+A custom card (`custom:zroshua-card`) draws the same cards as the add-on — the same anatomy,
+state words and colours — straight on a Home Assistant dashboard. One view per card:
+
+- `status` (alias `dashboard`) — what is happening in one sentence, the most important
+  problem, watering / queued / today / next start / weather, Stop all and Pause all;
+- `badges` — one compact row of status badges for the top of a board;
+- `quick` — quick run of a zone or a group for a chosen time;
+- `groups`, `zones` — run, stop and pause groups; every zone by group with filters, a tap
+  opens the zone sheet (water for a preset, stop, +5 min, pause, clear a fault);
+- `upcoming`, `timeline` — the next runs with what may skip them; today per group;
+- `sources`, `sensors` — pumps, pressure, flow and barrel levels; rain and soil sensors with
+  thresholds, the last 24 hours and every reading (soil temperature, light, fertility, battery);
+- `chart` — a week of water, energy or watering time (`metric:`), or the history of any
+  entity (`entity:`, `hours:`);
+- `insights`, `attention` — what the week says; only what needs you.
+
+Other options: `title`, `limit` (upcoming), `open_sections` (zones), `theme: auto | dark |
+light`, `ha_theme: true` to follow the dashboard theme. The card has a visual editor.
+
+With the Mosquitto add-on installed the add-on deploys the card to `/config/www` and registers
+the Lovelace resource automatically (YAML-mode dashboards: add `/local/zroshua-card.js` as a
+module resource yourself). Add it to a view with `type: custom:zroshua-card`, `view: status`.
 The card finds the hub sensor by its attributes — no `entity:` to configure — and sends
 commands via the `mqtt.publish` service.
 
