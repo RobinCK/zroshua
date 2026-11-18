@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.2
+
+A pass over the panel on a phone.
+
+- **Cards in a row are one height.** The water sources and groups rows jumped in height while
+  swiping; every card of a row is now as tall as the tallest, in the panel and in the card.
+- **Rows that scroll sideways line up with the rest of the page** instead of starting at the
+  screen edge.
+- **Zone tiles are one size.** Tiles of a group are one height and a status takes at most two
+  lines, so the board reads as one grid.
+- **Form fields no longer float.** A label that wrapped pushed its input down; fields of a row
+  now line up whatever their labels, sit one under another on a phone, and use the same
+  layout in settings, zones, groups, sources, sensors and the journal.
+- **The timeline's days fit a phone**: seven equal cells, weekday over date, instead of a
+  scrolling strip with a thick scrollbar. The empty day says so, and the rule-conflict note
+  is translated.
+- **Rules between groups read on a phone**: one section per kind, two-group rules gathered
+  around the group they share, each binding a chip with its own delete button.
+
 ## 0.7.1
 
 - **The card's rows scroll inside a Deck Card again.** On a phone the groups and sources rows,
