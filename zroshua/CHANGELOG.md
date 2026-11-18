@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.1
+
+- **The card's rows scroll inside a Deck Card again.** On a phone the groups and sources rows,
+  the zone filter and the status badges scroll sideways, but a container card that pages on a
+  swipe took the gesture: the row did not move and neither did the page. Now the row scrolls,
+  and a swipe anywhere else still turns the page.
+- A row keeps its place when the card redraws, instead of jumping back to the first group.
+- A group's mode icon stays beside its text when the text wraps, on the board and in the
+  panel.
+
 ## 0.7.0
 
 - **A redesign of the panel and the Lovelace card, as one system.** Both draw the same cards
