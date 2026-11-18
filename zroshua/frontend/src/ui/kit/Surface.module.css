@@ -54,6 +54,16 @@
   line-height: 1.35;
   color: var(--ui-text-3);
 }
+/* an icon and its text: the text wraps beside the icon, never under it */
+.sub > svg {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.sub > svg + span {
+  flex: 1 1 0;
+  min-width: 0;
+}
 .aside {
   flex: none;
   display: flex;

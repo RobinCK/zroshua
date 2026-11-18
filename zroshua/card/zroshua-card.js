@@ -22,6 +22,9 @@
  *   ha_theme: false       # true: surfaces and text follow the Home Assistant theme
  *   hub: sensor.zroshua_state   # optional override of the hub entity
  */
+/** Rows that scroll sideways are this element, not a div: container cards that page on a swipe
+ *  (deck-card) leave a gesture that starts on a «…carousel» element to it, so the row scrolls. */
+const STRIP = 'zroshua-carousel';
 const VIEWS = ['status', 'badges', 'quick', 'groups', 'zones', 'upcoming', 'timeline', 'sources', 'sensors', 'chart', 'insights', 'attention'];
 const ALIASES = { dashboard: 'status' };
 
@@ -255,7 +258,8 @@ const STYLE = `
   .title { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
   .title.lg { font-size: 17px; }
   .sub { margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; line-height: 1.35; color: var(--z-t3); }
-  .sub svg { width: 14px; height: 14px; }
+  .sub svg { flex: none; align-self: flex-start; margin-top: 2px; width: 14px; height: 14px; }
+  .sub > svg + span { flex: 1 1 0; min-width: 0; }
   .aside { flex: none; margin-left: auto; display: flex; align-items: center; gap: 8px; }
   .muted { color: var(--z-t3); }
 
@@ -954,7 +958,12 @@ class ZroshuaCard extends HTMLElement {
     this._titled = false;
     const view = this._config.view;
     card.classList.toggle('bare', view === 'badges');
+    // a redraw must not throw a scrolled row back to its start
+    const kept = [...card.querySelectorAll(STRIP)].map((el) => el.scrollLeft);
     card.innerHTML = this[`_v_${view}`](a, now) + this._sheet(a, now);
+    card.querySelectorAll(STRIP).forEach((el, i) => {
+      if (kept[i]) el.scrollLeft = kept[i];
+    });
   }
 
   _onClick(e) {
@@ -1120,7 +1129,7 @@ class ZroshuaCard extends HTMLElement {
     const days = a.days || [];
     const t = days[days.length - 1];
     if (t) out.push(['next', 'Today', `${this._l(t.l)} · ${this._num(t.k, 1)} kWh`]);
-    return `<nav class="badges" aria-label="Irrigation status">${out.map(([st, l, v]) => `<div class="badge s-${st}"><span class="bd"><span class="dot${st === 'watering' ? ' pulse' : ''}"></span></span><span class="bt"><span>${esc(l)}</span><b>${esc(v)}</b></span></div>`).join('')}</nav>`;
+    return `<${STRIP} class="badges" role="navigation" aria-label="Irrigation status">${out.map(([st, l, v]) => `<div class="badge s-${st}"><span class="bd"><span class="dot${st === 'watering' ? ' pulse' : ''}"></span></span><span class="bt"><span>${esc(l)}</span><b>${esc(v)}</b></span></div>`).join('')}</${STRIP}>`;
   }
 
   _v_quick(a, now) {
@@ -1187,7 +1196,7 @@ class ZroshuaCard extends HTMLElement {
   _v_groups(a, now) {
     const groups = a.groups || [];
     return `<div class="panel">${this._head('', 'Groups', `${groups.length} groups · ${(a.active || []).length ? `${new Set((a.active || []).map((r) => r.groupId).filter(Boolean)).size} watering` : 'nothing watering'}`, '', true)}
-      <div class="cards">${groups.map((g) => this._groupPanel(a, g, now)).join('') || '<p class="empty">No groups.</p>'}</div></div>`;
+      <${STRIP} class="cards">${groups.map((g) => this._groupPanel(a, g, now)).join('') || '<p class="empty">No groups.</p>'}</${STRIP}></div>`;
   }
 
   _zoneTile(v) {
@@ -1232,7 +1241,7 @@ class ZroshuaCard extends HTMLElement {
       })
       .join('');
     return `<div class="panel lg">${this._head('', 'Zones', `${zones.length} zones · tap a zone to water or pause it`, '', true)}
-      <div class="chips scroll" role="group" aria-label="Filter zones">${filters.map(([k, l, n]) => `<button type="button" class="ch${ui.filter === k ? ' on' : ''}" aria-pressed="${ui.filter === k}" data-act="filter" data-key="${k}"><span>${l}</span><span class="c">${n}</span></button>`).join('')}</div>
+      <${STRIP} class="chips scroll" role="group" aria-label="Filter zones">${filters.map(([k, l, n]) => `<button type="button" class="ch${ui.filter === k ? ' on' : ''}" aria-pressed="${ui.filter === k}" data-act="filter" data-key="${k}"><span>${l}</span><span class="c">${n}</span></button>`).join('')}</${STRIP}>
       ${body || '<p class="empty">No zones match this filter.</p>'}</div>`;
   }
 
@@ -1332,7 +1341,7 @@ class ZroshuaCard extends HTMLElement {
   _v_sources(a, now) {
     const list = a.sources || [];
     return `<div class="panel">${this._head('', 'Water sources', list.length ? `${list.length} sources` : '', '', true)}
-      <div class="cards">${list.map((s) => this._sourcePanel(a, s, now)).join('') || '<p class="empty">No water sources.</p>'}</div></div>`;
+      <${STRIP} class="cards">${list.map((s) => this._sourcePanel(a, s, now)).join('') || '<p class="empty">No water sources.</p>'}</${STRIP}></div>`;
   }
 
   _sensorPanel(a, s, now, compact) {

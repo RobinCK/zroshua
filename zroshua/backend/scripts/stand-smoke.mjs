@@ -240,6 +240,18 @@ async function cards(browser) {
       check(total >= 12 && waiting === 0, `${tag}: all ${total} views draw from the hub (${waiting} still waiting)`);
       check(errors.length === 0, `${tag}: no console errors (${errors.slice(0, 3).join(' | ')})`);
       if (layout === 'phone') check(await noSideScroll(p), `${tag}: nothing wider than the screen`);
+      if (layout === 'phone') {
+        // a row that scrolls sideways must be a «…carousel» element, or a card that pages on a
+        // swipe around it (deck-card) takes the gesture and the row cannot be scrolled
+        const rows = await p.evaluate(() =>
+          [...document.querySelectorAll('zroshua-card')].flatMap((c) =>
+            [...c.shadowRoot.querySelectorAll('*')]
+              .filter((el) => /auto|scroll/.test(getComputedStyle(el).overflowX) && el.scrollWidth > el.clientWidth + 1)
+              .map((el) => el.localName),
+          ),
+        );
+        check(rows.length > 0 && rows.every((n) => n === 'zroshua-carousel'), `${tag}: every sideways row is a carousel (${rows.join(', ')})`);
+      }
       await p.screenshot({ path: join(outDir, `card-${layout}-${theme}.png`), fullPage: true });
 
       if (layout === 'phone' && theme === 'dark') {
