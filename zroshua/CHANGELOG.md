@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.7.0
+
+- **A redesign of the panel and the Lovelace card, as one system.** Both draw the same cards
+  with the same anatomy — a panel, a status tile, one action — the same state words and the
+  same colours, so a zone looks the same on a Home Assistant board and inside the add-on.
+  Every state (watering, queued, next, done, may skip, paused, fault, off) has one tone
+  everywhere.
+- **The overview answers «what is happening, and does anything need me».** Status badges on
+  top; a status card that says it in one sentence, shows the running group's zone order and
+  the most important problem, with Stop all and **Pause all for 6 h to 14 days**; quick run
+  with the litres, the end time and whether the source has room; then groups, the next 7 days
+  with a weather strip and a menu on every run (skip only this run, pause 6/12/24 h, resume;
+  skip or cancel a one-off), today per group, every zone, water sources and **needs
+  attention** — an offline pump, a sensor that went quiet or runs low on battery, a valve
+  that does not answer.
+- **Sensors show what they measure.** Rain and soil sensors as live cards: moisture against
+  the dry and wet thresholds, the last 24 hours, what the trigger will do, and every other
+  reading — soil temperature, light, fertility, battery.
+- **Water sources can show pressure**: a pressure sensor and a target pressure per source
+  draw a gauge on the source card, next to the pump, the flow and the barrel level.
+- **Statistics** for a week, a month or the season, with bars you can tap, water by group and
+  insights: runs skipped for rain or wet soil and the water saved, runs the soil sensors
+  started, zones not watered.
+- **Built for the phone**: a bottom tab bar, swipe strips of cards, bottom sheets, 40 px
+  controls, no sideways scrolling.
+- **The Lovelace card has twelve views**: `status`, `badges`, `quick`, `groups`, `zones`,
+  `upcoming`, `timeline`, `sources`, `sensors`, `chart` (water, energy, time, or the history
+  of any entity), `insights` and `attention`; `dashboard` still works as an alias of
+  `status`. The zone sheet adds `+5 min` and clear a fault (new MQTT commands `extend_zone`
+  and `clear_fault`), and the card follows the Home Assistant dark mode or `theme:`.
+- New endpoints for the live cards: `GET /api/sources/live`, `/api/sensors/live`,
+  `/api/attention`, `/api/stats/days`, `/api/insights` and `/api/ha/history`; the hub entity
+  carries zone order, last runs and today's finished runs.
+- **A pump that Home Assistant refuses to switch on no longer stops the add-on.** The error
+  is logged, the run goes on best-effort as with an unavailable pump.
+- English says «1 zone», «1 schedule», «in 1 day» — the English plural forms were never
+  loaded. All new text is translated into the eleven languages.
+- For development: a UI kit (`frontend/src/ui`: tokens → theme → primitives → garden cards)
+  with the card's colours generated from the same tokens (`npm run tokens:card`); a stand
+  (`npm run dev:sim`) with a simulated Home Assistant and a virtual garden; and
+  `npm run smoke`, which drives the panel and the card in a real browser on a phone and a
+  desktop.
+
 ## 0.6.0
 
 - **Simplified Chinese** for the web UI, and **notifications in the language you pick**
