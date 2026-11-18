@@ -2,10 +2,13 @@
 // dictionary (a missing translation falls back to the key) and the UI never
 // breaks. Dictionaries live in src/locales/<lang>.json and are kept in sync
 // with the code by `npm run i18n` (see i18next-parser.config.js).
+// The exception is plural forms ("1 zone", not "1 zones") and numbers kept on one
+// line with their unit, so en.json is loaded as well.
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import cs from './locales/cs.json';
 import de from './locales/de.json';
+import en from './locales/en.json';
 import es from './locales/es.json';
 import fr from './locales/fr.json';
 import it from './locales/it.json';
@@ -90,6 +93,7 @@ void i18next.use(initReactI18next).init({
   resources: {
     cs: { translation: cs },
     de: { translation: de },
+    en: { translation: en },
     es: { translation: es },
     fr: { translation: fr },
     it: { translation: it },
