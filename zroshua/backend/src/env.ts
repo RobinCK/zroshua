@@ -46,8 +46,8 @@ export const env = {
   sim: {
     enabled: simulate,
     haPort: simHaPort,
-    /** summer (a group waters, everything healthy) | trouble (offline pump, low battery, stale sensor) | season_off */
-    scenario: (process.env.ZROSHUA_SIM_SCENARIO ?? 'summer') as 'summer' | 'trouble' | 'season_off',
+    /** summer (a group waters, the barrel pump is offline) | calm (the same garden, the pump online) | season_off (schedules off, a cold week) */
+    scenario: (process.env.ZROSHUA_SIM_SCENARIO ?? 'summer') as 'summer' | 'calm' | 'season_off',
     /** start from an empty database and seed the garden again */
     reset: process.env.ZROSHUA_SIM_RESET !== '0',
   },
