@@ -1,5 +1,6 @@
 import { notifications } from '@mantine/notifications';
-import { api } from '../api';
+import { api, type Upcoming } from '../api';
+import type { UpcomingAction } from '../ui/garden';
 import { t } from '../i18n';
 
 /**
@@ -30,4 +31,15 @@ export const actions = {
   pauseGroup: (id: string, hours: number, done?: () => void) => act(() => api.post(`/groups/${id}/pause`, { hours }), hours ? t('paused') : t('Resumed'), done),
   stopAll: (done?: () => void) => act(() => api.post('/stop-all'), t('All stopped'), done),
   pauseAll: (hours: number, done?: () => void) => act(() => api.post('/snooze', { hours }), hours ? t('Paused') : t('Resumed'), done),
+  /** A row of the next 7 days: a one-off is skipped or dropped; otherwise its group or zone is paused — «skip» just past this run. */
+  upcoming: (u: Upcoming, a: UpcomingAction, done?: () => void) => {
+    if (u.kind === 'once') {
+      if (a === 'cancel') return act(() => api.del(`/one-time/${u.targetId}`), t('Cancelled'), done);
+      const paused = a !== 'resume';
+      return act(() => api.post(`/one-time/${u.targetId}/pause`, { paused }), paused ? t('Skipped') : t('Resumed'), done);
+    }
+    const path = u.kind === 'zone' ? `/zones/${u.targetId ?? u.groupId}` : `/groups/${u.targetId ?? u.groupId}`;
+    const hours = a === 'resume' ? 0 : a === 'skip' ? Math.max(0.05, (u.ts + 60_000 - Date.now()) / 3_600_000) : Number(a.slice(5));
+    return act(() => api.post(`${path}/pause`, { hours }), a === 'skip' ? t('Skipped') : hours ? t('paused') : t('Resumed'), done);
+  },
 };

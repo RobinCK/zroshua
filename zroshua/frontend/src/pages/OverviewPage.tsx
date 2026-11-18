@@ -18,6 +18,7 @@ import { ZoneSheet } from '../components/ZoneSheet';
 import { actions } from '../view/actions';
 import {
   badgeViews,
+  findUpcoming,
   findingView,
   groupView,
   quickTargets,
@@ -70,7 +71,7 @@ export default function OverviewPage({ state, goto }: { state: EngineState | nul
           <StatusHero
             status={status}
             onStopAll={() => actions.stopAll(reload)}
-            onPause={() => actions.pauseAll(24, reload)}
+            onPause={(hours) => actions.pauseAll(hours, reload)}
             onResume={() => (status.seasonOff ? goto('groups') : actions.pauseAll(0, reload))}
             onAttention={() => document.getElementById('attention')?.scrollIntoView({ behavior: 'smooth' })}
           />
@@ -119,6 +120,10 @@ export default function OverviewPage({ state, goto }: { state: EngineState | nul
           <UpcomingCard
             days={weatherDays(garden)}
             runs={upcomingViews(garden)}
+            onAction={(key, a) => {
+              const u = findUpcoming(garden, key);
+              if (u) actions.upcoming(u, a, reload);
+            }}
             summary={
               upcomingCount
                 ? skips

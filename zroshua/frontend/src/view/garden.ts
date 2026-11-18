@@ -9,6 +9,7 @@ import type {
   SourceView,
   StatusView,
   TimelineLaneView,
+  UpcomingAction,
   UpcomingView,
   UsageRowView,
   WeatherDayView,
@@ -547,13 +548,25 @@ export function weatherDays(d: GardenData): WeatherDayView[] {
   }));
 }
 
+/** A row's identity: what it would pause, and when it runs. */
+const upcomingKey = (u: Upcoming) => `${u.kind ?? 'group'}:${u.targetId ?? u.groupId}:${u.ts}`;
+
+export function findUpcoming(d: GardenData, key: string): Upcoming | undefined {
+  return d.upcoming.find((u) => upcomingKey(u) === key);
+}
+
 export function upcomingViews(d: GardenData, limit = 6): UpcomingView[] {
   return d.upcoming
     .filter((u) => u.ts > d.now)
     .slice(0, limit)
-    .map((u, i) => {
+    .map((u) => {
       const once = u.kind === 'once';
       const paused = once ? !!u.paused : u.snoozeUntil != null && u.snoozeUntil > d.now;
+      const menu: UpcomingAction[] = once
+        ? [paused ? 'resume' : 'skip', 'cancel']
+        : paused
+          ? ['resume']
+          : ['skip', 'pause6', 'pause12', 'pause24'];
       const dur = u.durationMin ?? u.zones.reduce((a, z) => a + z.minutes, 0);
       const g = d.groups.find((x) => x.id === u.groupId);
       const how =
@@ -564,9 +577,15 @@ export function upcomingViews(d: GardenData, limit = 6): UpcomingView[] {
             : t('{n} zones at once', { n: u.zones.length });
       const state: GardenState = paused ? 'paused' : u.willSkip || (u.maybeSkip?.length ?? 0) > 0 ? 'skip' : 'next';
       const word = paused ? t('Paused') : u.willSkip ? t('Will skip') : (u.maybeSkip?.length ?? 0) > 0 ? t('May skip') : t('Planned');
-      const why = paused || state === 'skip' ? ((u.willSkip ? u.skipReasons?.[0] : u.maybeSkip?.[0]) ?? minutes(dur)) : minutes(dur);
+      const why = paused
+        ? once || !u.snoozeUntil
+          ? t('Skipped')
+          : t('until {time}', { time: whenShort(u.snoozeUntil, d.now) })
+        : state === 'skip'
+          ? ((u.willSkip ? u.skipReasons?.[0] : u.maybeSkip?.[0]) ?? minutes(dur))
+          : minutes(dur);
       return {
-        key: `${u.groupId}_${u.ts}_${i}`,
+        key: upcomingKey(u),
         day: dayWord(u.ts, d.now),
         time: hhmm(u.ts),
         title: once ? u.groupName || t('One-off watering') : u.groupName,
@@ -574,6 +593,8 @@ export function upcomingViews(d: GardenData, limit = 6): UpcomingView[] {
         state,
         word,
         why: why.length > 28 ? `${why.slice(0, 27)}…` : why,
+        paused,
+        actions: menu,
       };
     });
 }

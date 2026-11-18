@@ -1,4 +1,5 @@
-import React, { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import React, { forwardRef, type ButtonHTMLAttributes, type ReactElement, type ReactNode } from 'react';
+import { Menu } from '@mantine/core';
 import { cx } from './state';
 import s from './Controls.module.css';
 
@@ -157,5 +158,46 @@ export function SegmentTabs<K extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+export interface MenuAction<K extends string> {
+  key: K;
+  label: ReactNode;
+  icon?: ReactNode;
+  /** stops or drops something: drawn in the fault colour */
+  danger?: boolean;
+}
+
+/**
+ * A few actions behind one button: pause for 6 · 12 · 24 h, skip or cancel a run. The trigger is
+ * any kit button; items are 40px tall so they are easy to hit with a thumb.
+ */
+export function ActionMenu<K extends string>({
+  trigger,
+  title,
+  note,
+  items,
+  onPick,
+}: {
+  trigger: ReactElement;
+  title?: ReactNode;
+  note?: ReactNode;
+  items: MenuAction<K>[];
+  onPick: (key: K) => void;
+}) {
+  return (
+    <Menu position="bottom-end" withinPortal classNames={{ item: s.menuItem, label: s.menuLabel }}>
+      <Menu.Target>{trigger}</Menu.Target>
+      <Menu.Dropdown>
+        {title != null && <Menu.Label>{title}</Menu.Label>}
+        {items.map((it) => (
+          <Menu.Item key={it.key} leftSection={it.icon} data-danger={it.danger || undefined} onClick={() => onPick(it.key)}>
+            {it.label}
+          </Menu.Item>
+        ))}
+        {note != null && <p className={s.menuNote}>{note}</p>}
+      </Menu.Dropdown>
+    </Menu>
   );
 }

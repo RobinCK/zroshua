@@ -11,10 +11,12 @@ export {
   IconButton,
   ChoiceChips,
   SegmentTabs,
+  ActionMenu,
   type ButtonVariant,
   type ButtonSize,
   type ChoiceOption,
   type TabItem,
+  type MenuAction,
 } from './Controls';
 export { BarChart, LineChart, Sparkline, Readout, EmptyChart, type BarDatum, type LinePoint } from './Charts';
 export { ListRow, RowList, LinedList, LinedRow, EmptyNote, KeyValues } from './Rows';

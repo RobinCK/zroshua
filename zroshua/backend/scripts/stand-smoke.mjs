@@ -173,6 +173,28 @@ async function panelFlows(browser) {
   await waitFor(async () => (await api('/state')).active.some((a) => a.plannedMin === 5), 10000, 'the quick run to start a 5 min zone');
   await api('/stop-all', { method: 'POST' });
 
+  // the next 7 days: a row's menu skips only that run, and the same menu brings it back
+  const next7 = p.locator('[aria-label="Next 7 days"]');
+  await tap(next7.getByRole('button', { name: 'Pause', exact: true }).first());
+  await p.getByRole('menuitem').first().waitFor({ timeout: 5000 }).catch(() => undefined);
+  const rowItems = await p.getByRole('menuitem').allTextContents();
+  check(rowItems.includes('Skip this run') && rowItems.includes('Pause 6 h'), `next 7 days: a row's menu offers skip and pause (${rowItems.join(', ')})`);
+  await p.getByRole('menuitem', { name: 'Skip this run' }).click();
+  await waitFor(async () => (await next7.getByRole('button', { name: 'Resume', exact: true }).count()) > 0, 10000, 'the skipped run to show as paused');
+  await tap(next7.getByRole('button', { name: 'Resume', exact: true }).first());
+  await p.getByRole('menuitem', { name: 'Resume' }).click();
+  await waitFor(async () => (await next7.getByRole('button', { name: 'Resume', exact: true }).count()) === 0, 10000, 'the skipped run to be resumed');
+
+  // «Pause all» asks for how long, from hours to two weeks
+  await tap(p.getByRole('button', { name: /^Pause all/ }));
+  await p.getByRole('menuitem').first().waitFor({ timeout: 5000 }).catch(() => undefined);
+  const durations = await p.getByRole('menuitem').allTextContents();
+  check(durations.length === 6 && durations[0] === 'Pause 6 h' && durations[5] === 'Pause 14 days', `pause all: offers six durations (${durations.join(', ')})`);
+  await p.getByRole('menuitem', { name: 'Pause 12 h' }).click();
+  await waitFor(async () => (await api('/state')).snoozeUntil > Date.now() + 11 * 3_600_000, 10000, 'pause all to pause for 12 h');
+  await tap(p.getByRole('button', { name: 'Resume watering' }));
+  await waitFor(async () => !((await api('/state')).snoozeUntil > Date.now()), 10000, 'watering to resume');
+
   // the bottom tab bar is how a phone moves between pages
   const tab = (name) => p.locator('nav[aria-label="Sections"] button:visible', { hasText: name }).first().click();
 

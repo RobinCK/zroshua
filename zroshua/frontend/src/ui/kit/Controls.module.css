@@ -202,3 +202,26 @@
 .tabs.touch .tab {
   height: var(--ui-h-44);
 }
+
+.menuItem {
+  min-height: var(--ui-h-40);
+  font-family: var(--ui-font-sans);
+  font-size: 14px;
+  color: var(--ui-text-1);
+}
+.menuItem[data-danger] {
+  color: var(--ui-tone-err-fg);
+}
+.menuLabel {
+  font-family: var(--ui-font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-text-3);
+}
+.menuNote {
+  margin: 4px 12px 8px;
+  max-width: 220px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ui-text-3);
+}

@@ -77,6 +77,9 @@ export interface StatusView {
   seasonOff?: boolean;
 }
 
+/** What a row of the next 7 days offers: skip only this run, pause its group or zone, resume; a one-off is skipped or dropped. */
+export type UpcomingAction = 'skip' | 'pause6' | 'pause12' | 'pause24' | 'resume' | 'cancel';
+
 export interface UpcomingView {
   key: string;
   day: string;
@@ -86,7 +89,12 @@ export interface UpcomingView {
   state: GardenState;
   word: string;
   why: string;
+  paused: boolean;
+  actions: UpcomingAction[];
 }
+
+/** «Pause all» durations, in hours. */
+export type PauseHours = 6 | 12 | 24 | 72 | 168 | 336;
 
 export interface WeatherDayView {
   day: string;

@@ -1,17 +1,39 @@
 import type { CSSProperties } from 'react';
 import {
   IconAlertTriangle,
+  IconChevronDown,
   IconChevronRight,
   IconDropletFilled,
+  IconPlayerPause,
   IconPlayerPauseFilled,
+  IconPlayerPlay,
   IconPlayerPlayFilled,
+  IconPlayerSkipForward,
   IconPlayerStopFilled,
+  IconTrash,
 } from '@tabler/icons-react';
-import { EmptyNote, LinedList, LinedRow, Panel, PanelHeader, SegmentBar, StatTiles, StatusPill, UiButton, stateStyle } from '../kit';
+import {
+  ActionMenu,
+  EmptyNote,
+  IconButton,
+  LinedList,
+  LinedRow,
+  Panel,
+  PanelHeader,
+  SegmentBar,
+  StatTiles,
+  StatusPill,
+  UiButton,
+  stateStyle,
+  type MenuAction,
+} from '../kit';
 import type { GardenState } from '../tokens/base';
 import { t } from '../../i18n';
-import type { StatusView, TimelineLaneView, UpcomingView, WeatherDayView } from './types';
+import type { PauseHours, StatusView, TimelineLaneView, UpcomingAction, UpcomingView, WeatherDayView } from './types';
 import s from './garden.module.css';
+
+const PAUSE_ALL: PauseHours[] = [6, 12, 24, 72, 168, 336];
+const pauseLabel = (h: PauseHours) => (h < 72 ? t('Pause {n} h', { n: h }) : t('Pause {count} days', { count: h / 24 }));
 
 /**
  * The top card: what is happening, in one sentence, instead of four zero tiles. «Stop all»
@@ -26,7 +48,7 @@ export function StatusHero({
 }: {
   status: StatusView;
   onStopAll?: () => void;
-  onPause?: () => void;
+  onPause?: (hours: PauseHours) => void;
   onResume?: () => void;
   onAttention?: () => void;
 }) {
@@ -76,9 +98,18 @@ export function StatusHero({
             {t('Resume watering')}
           </UiButton>
         ) : (
-          <UiButton variant="secondary" icon={<IconPlayerPauseFilled size={16} />} onClick={onPause}>
-            {t('Pause all for 24 h')}
-          </UiButton>
+          <ActionMenu
+            title={t('Pause all watering')}
+            note={t('Manual runs still work')}
+            items={PAUSE_ALL.map((h) => ({ key: String(h), label: pauseLabel(h) }))}
+            onPick={(k) => onPause?.(Number(k) as PauseHours)}
+            trigger={
+              <UiButton variant="secondary" icon={<IconPlayerPauseFilled size={16} />}>
+                {t('Pause all')}
+                <IconChevronDown size={14} style={{ marginLeft: 6, verticalAlign: '-2px' }} aria-hidden="true" />
+              </UiButton>
+            }
+          />
         )}
       </div>
     </Panel>
@@ -89,16 +120,28 @@ export function StatusHero({
  * The next week: a weather strip and the runs with what may stop them. Same pills as the
  * zone and group status lines.
  */
+const UPCOMING_ITEMS: Record<UpcomingAction, () => MenuAction<UpcomingAction>> = {
+  skip: () => ({ key: 'skip', label: t('Skip this run'), icon: <IconPlayerSkipForward size={16} /> }),
+  pause6: () => ({ key: 'pause6', label: t('Pause {n} h', { n: 6 }), icon: <IconPlayerPause size={16} /> }),
+  pause12: () => ({ key: 'pause12', label: t('Pause {n} h', { n: 12 }), icon: <IconPlayerPause size={16} /> }),
+  pause24: () => ({ key: 'pause24', label: t('Pause {n} h', { n: 24 }), icon: <IconPlayerPause size={16} /> }),
+  resume: () => ({ key: 'resume', label: t('Resume'), icon: <IconPlayerPlay size={16} /> }),
+  cancel: () => ({ key: 'cancel', label: t('Cancel'), icon: <IconTrash size={16} />, danger: true }),
+};
+
 export function UpcomingCard({
   days,
   runs,
   summary,
   action,
+  onAction,
 }: {
   days: WeatherDayView[];
   runs: UpcomingView[];
   summary?: string;
   action?: React.ReactNode;
+  /** a row's menu: skip only this run, pause its group or zone for a while, or resume it */
+  onAction?: (key: string, action: UpcomingAction) => void;
 }) {
   return (
     <Panel pad="lg" fill aria-label={t('Next 7 days')}>
@@ -136,6 +179,21 @@ export function UpcomingCard({
                 </StatusPill>
                 <span className={s.upWhy}>{r.why}</span>
               </div>
+              {onAction && r.actions.length > 0 && (
+                <ActionMenu
+                  title={r.title}
+                  items={r.actions.map((a) => UPCOMING_ITEMS[a]())}
+                  onPick={(a) => onAction(r.key, a)}
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      label={r.paused ? t('Resume') : t('Pause')}
+                      icon={r.paused ? <IconPlayerPlay size={18} /> : <IconPlayerPause size={18} />}
+                      className={s.upMenu}
+                    />
+                  }
+                />
+              )}
             </LinedRow>
           ))}
         </LinedList>
