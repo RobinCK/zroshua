@@ -450,6 +450,11 @@ title: Garden    # optional
 A board that works well on a phone, top to bottom: `badges`, `status`, `quick`, `zones`,
 `upcoming`, `sensors`, `sources`, `chart`.
 
+Inside a container card that pages on a swipe, such as
+[Deck Card](https://github.com/RobinCK/lovelace-deck-card), the rows that scroll sideways —
+groups, sources, the zone filter, the badges — keep their swipe; swipe anywhere else to turn
+the page.
+
 The card reads a single hub sensor (published over MQTT) and sends actions back through the
 `mqtt.publish` service — so it stays live and needs no per-entity wiring. It locates that
 sensor by its attributes, so there is nothing to configure.
