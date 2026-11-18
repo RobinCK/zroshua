@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { Group, JournalEntry, Run, WaterSource, Zone, type Schedule } from '../db/entities';
+import { Group, GroupRule, JournalEntry, Run, WaterSource, Zone, type Schedule } from '../db/entities';
 import type { ConfigService } from '../config/config.service';
 import { PLAN_GROUPS, PLAN_SENSORS, PLAN_ZONES, valveEntity } from './garden-plan';
 import type { Scenario } from './garden';
@@ -125,6 +125,16 @@ export async function seedConfig(ds: DataSource, config: ConfigService, scenario
       orderIndex: i,
     })),
   );
+
+  // the rules of the real garden: the front lawn and the front drip never share the well with
+  // the other big groups, the lawn goes before the fruit trees, beds and fruit may run together
+  const rule = (type: GroupRule['type'], groups: string[], before: string | null = null, after: string | null = null) => ({ type, groups, before, after });
+  await ds.getRepository(GroupRule).save([
+    rule('order', [], 'front_lawn', 'fruit_drip'),
+    ...['backyard_lawn', 'beds', 'backyard_drip', 'fruit_drip'].map((g) => rule('mutex', ['front_lawn', g])),
+    ...['beds', 'backyard_lawn', 'backyard_drip', 'fruit_drip'].map((g) => rule('mutex', ['front_drip', g])),
+    rule('parallel_ok', ['beds', 'fruit_drip']),
+  ]);
 
   await config.patchSettings({
     weatherEntity: 'weather.home',

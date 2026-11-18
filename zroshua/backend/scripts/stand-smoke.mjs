@@ -125,6 +125,35 @@ async function panel(browser) {
         await p.waitForTimeout(1200);
         check(errors.length === 0, `${tag}: no console errors (${errors.slice(0, 3).join(' | ')})`);
         if (phone) check(await noSideScroll(p), `${tag}: nothing wider than the screen`);
+        if (phone && scheme === 'dark') {
+          // the board reads as one grid: cards of a row, tiles of a group and the fields of a form
+          // row line up whatever their text — a wrapped label or a longer status must not shift them
+          const uneven = await p.evaluate(() => {
+            const bad = [];
+            const spread = (xs) => Math.max(...xs) - Math.min(...xs);
+            for (const row of document.querySelectorAll('[class*="_strip_"]')) {
+              const hs = [...row.children].filter((c) => c.tagName === 'ARTICLE').map((c) => Math.round(c.getBoundingClientRect().height));
+              if (hs.length > 1 && spread(hs) > 1) bad.push(`cards ${hs.join('/')}`);
+            }
+            for (const grid of document.querySelectorAll('[class*="_zgrid_"]')) {
+              const hs = [...grid.querySelectorAll(':scope > button, :scope > * > button')].map((b) => Math.round(b.getBoundingClientRect().height)).filter(Boolean);
+              if (hs.length > 1 && spread(hs) > 1) bad.push(`tiles ${[...new Set(hs)].join('/')}`);
+            }
+            for (const form of document.querySelectorAll('[class*="_fields_"]')) {
+              const rows = new Map();
+              for (const cell of form.children) {
+                const box = cell.getBoundingClientRect();
+                const input = [...cell.querySelectorAll('input:not([type="hidden"]), textarea')].pop();
+                if (!box.height || !input) continue;
+                const key = Math.round(box.bottom);
+                rows.set(key, [...(rows.get(key) || []), Math.round(input.getBoundingClientRect().bottom)]);
+              }
+              for (const bottoms of rows.values()) if (bottoms.length > 1 && spread(bottoms) > 1) bad.push(`fields ${bottoms.join('/')}`);
+            }
+            return bad;
+          });
+          check(uneven.length === 0, `${tag}: cards, tiles and form fields line up (${uneven.slice(0, 4).join(' | ')})`);
+        }
         if (scheme === 'dark' || page === 'dashboard') await p.screenshot({ path: join(outDir, `panel-${page}-${phone ? 'phone' : 'desktop'}-${scheme}.png`), fullPage: true });
         await ctx.close();
       }
