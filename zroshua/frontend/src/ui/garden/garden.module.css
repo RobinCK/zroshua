@@ -59,6 +59,12 @@
 .zone[data-state='off'] .zoneName {
   color: var(--ui-text-2);
 }
+@media (max-width: 640px) {
+  .zone {
+    gap: 10px;
+    padding: 10px;
+  }
+}
 .zoneEdge {
   position: absolute;
   left: 0;
@@ -71,6 +77,8 @@
 .zgrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--min, 200px)), 1fr));
+  /* every tile of a group as tall as the tallest, so the board reads as one grid */
+  grid-auto-rows: 1fr;
   gap: 8px;
 }
 .zgrid > * {
@@ -560,6 +568,7 @@
   scrollbar-width: none;
   margin: 0 calc(-1 * var(--ui-gutter));
   padding: 2px var(--ui-gutter);
+  scroll-padding-inline: var(--ui-gutter);
 }
 .badges[data-scroll='true']::-webkit-scrollbar {
   display: none;
@@ -606,4 +615,76 @@
 .badgeValue {
   font-size: 13.5px;
   font-weight: 600;
+}
+
+/* ---- rules between groups ------------------------------------------------------------- */
+.ruleSec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ruleHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-text-2);
+}
+.ruleTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ui-text-2);
+}
+.ruleRow {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ruleLead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ruleChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ruleChip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 32px;
+  padding-left: 12px;
+  border-radius: var(--ui-radius-pill);
+  background: var(--ui-surface-2);
+  border: 1px solid var(--ui-border);
+  font-size: 13.5px;
+}
+.ruleChipText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ruleChipX {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--ui-radius-pill);
+  background: transparent;
+  color: var(--ui-text-3);
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .ruleChipX:hover {
+    color: var(--ui-tone-err-fg);
+  }
 }

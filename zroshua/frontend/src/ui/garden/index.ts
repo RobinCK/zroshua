@@ -8,5 +8,6 @@ export { GroupCard, SourceCard, SensorCard } from './EntityCards';
 export { StatusHero, UpcomingCard, DayTimeline } from './Overview';
 export { ChartCard, UsageCard, FindingsCard } from './Insights';
 export { QuickRun, StatusBadges } from './Actions';
+export { RulesCard } from './Rules';
 export { ZoneIcon, SourceIcon, SensorIcon, MeasureIcon, ModeIcon } from './icons';
 export type * from './types';

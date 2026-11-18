@@ -206,3 +206,25 @@ export interface QuickTarget {
   /** what will happen: «Well pump has room», «Barrel pump is offline — the run will wait» */
   note?: { state: GardenState; text: string } | null;
 }
+
+export type RuleKind = 'mutex' | 'order' | 'parallel_ok';
+
+/** One rule you can delete: the group it binds to the row's group, or a whole rule of three or more. */
+export interface RuleChipView {
+  ruleId: string;
+  label: string;
+}
+
+/** A line of the rules list: one group and what it is bound to. */
+export interface RuleRowView {
+  key: string;
+  lead: string;
+  items: RuleChipView[];
+}
+
+export interface RuleSectionView {
+  kind: RuleKind;
+  title: string;
+  count: number;
+  rows: RuleRowView[];
+}

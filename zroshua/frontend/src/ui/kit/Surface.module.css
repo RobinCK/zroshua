@@ -143,6 +143,11 @@
 .strip > * {
   min-width: 0;
 }
+/* every card of a row is as tall as the tallest: a filled panel's 100% means nothing in a
+   scrolling row and would stop it from stretching */
+.strip > .panel {
+  height: auto;
+}
 @media (max-width: 640px) {
   .strip {
     display: flex;
@@ -151,6 +156,8 @@
     overscroll-behavior-x: contain;
     margin: 0 calc(-1 * var(--ui-gutter));
     padding: 0 var(--ui-gutter) 4px;
+    /* the first card rests on the page's edge line, like every other block */
+    scroll-padding-inline: var(--ui-gutter);
     gap: 10px;
     scrollbar-width: none;
   }

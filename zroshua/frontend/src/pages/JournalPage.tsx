@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useJournal, useResource } from '../hooks';
 import { Group as ZGroup, Zone } from '../api';
 import { locale, t } from '../i18n';
+import { FieldGrid } from '../ui/kit';
 
 const KIND_COLORS: Record<string, string> = {
   run_start: 'teal',
@@ -69,7 +70,7 @@ export default function JournalPage({ tick }: { tick: number }) {
   return (
     <Stack>
       <Title order={3}>{t('Journal')}</Title>
-      <Group gap="xs" grow wrap="wrap">
+      <FieldGrid cols={2} min={200}>
         <Select
           label={t('Event')}
           placeholder={t('All events')}
@@ -87,7 +88,7 @@ export default function JournalPage({ tick }: { tick: number }) {
           searchable
           clearable
         />
-      </Group>
+      </FieldGrid>
 
       {/* desktop: table */}
       <Card withBorder p={0} visibleFrom="sm">

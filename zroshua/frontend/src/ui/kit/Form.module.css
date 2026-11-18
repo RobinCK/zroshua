@@ -1,0 +1,13 @@
+.fields {
+  --col-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(var(--min), (100% - (var(--cols) - 1) * var(--col-gap)) / var(--cols))), 1fr)
+  );
+  gap: 12px var(--col-gap);
+  align-items: end;
+}
+.fields > * {
+  min-width: 0;
+}

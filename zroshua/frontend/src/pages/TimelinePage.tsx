@@ -1,10 +1,11 @@
 import { Fragment, ReactNode, useMemo, useState } from 'react';
-import { Alert, Badge, Box, Card, Group, ScrollArea, SegmentedControl, Stack, Text, Title, Tooltip } from '@mantine/core';
+import { Alert, Badge, Box, Card, Group, ScrollArea, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { PlanEnvelope, PlanResponse, PlanSegment } from '../api';
 import { useResource } from '../hooks';
 import { locale, t } from '../i18n';
 import { HintTitle } from '../components/Hint';
+import { DayPicker, EmptyNote } from '../ui/kit';
 
 const HOUR_W = 100 / 24;
 
@@ -65,6 +66,15 @@ function dayLabel(offset: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offset);
   return offset === 0 ? t('Today') : d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' });
+}
+
+/** The next seven days for the day picker: weekday over the date. */
+function weekDays() {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return { key: String(i), top: d.toLocaleDateString(locale, { weekday: 'short' }), main: d.getDate(), label: dayLabel(i), today: i === 0 };
+  });
 }
 
 /** Colour alone must never carry meaning — every state is also named in the tooltip. */
@@ -215,171 +225,161 @@ export default function TimelinePage() {
           {t('water busy {p}% of the day', { p: busyPct })}
         </Badge>
       </Group>
-      <ScrollArea type="auto" offsetScrollbars={false}>
-        <SegmentedControl
-          data={Array.from({ length: 7 }, (_, i) => ({ value: String(i), label: dayLabel(i) }))}
-          value={dayOffset}
-          onChange={setDayOffset}
-          fullWidth
-          miw={420}
-        />
-      </ScrollArea>
+      <DayPicker days={weekDays()} value={dayOffset} onChange={setDayOffset} label={t('Days')} />
       {dayConflicts > 0 && (
         <Alert color="red" icon={<IconAlertTriangle size={16} />}>
-          {dayConflicts} scheduled run(s) overlap with a never-overlap / order rule (shown in red). They will be
-          queued or skipped at runtime depending on the conflict policy in Settings — adjust start times to resolve.
+          {t('Runs that break a group rule: {n}. They are drawn in red and will be queued or skipped by the conflict policy in Settings — move a start time to resolve it.', { n: dayConflicts })}
         </Alert>
       )}
 
       <Card withBorder p="sm">
-        <Group gap={0} wrap="nowrap" align="stretch">
-          {/* fixed label column — never scrolls away */}
-          <Box w={132} style={{ flexShrink: 0 }}>
-            <Box h={20} />
-            {rows.map((row) => (
-              <Box key={row.key} h={32} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {row.once && (
-                  <Box
-                    w={10}
-                    h={10}
-                    style={{
-                      flexShrink: 0,
-                      borderRadius: 2,
-                      background: `${ONCE_HATCH}, var(--mantine-color-grape-5)`,
-                    }}
-                  />
-                )}
-                <Text
-                  size="sm"
-                  truncate
-                  pr={8}
-                  title={row.once ? `${row.label} · ${t('one-off')}` : row.label}
-                  style={{ minWidth: 0 }}
-                >
-                  {row.label}
-                </Text>
-              </Box>
-            ))}
-          </Box>
-          <ScrollArea type="auto" style={{ flexGrow: 1, minWidth: 0 }}>
-          <Box miw={560} pr={14}>
-            {/* hour scale */}
-            <Box pos="relative" h={20} style={{ overflow: 'hidden' }}>
-              {Array.from({ length: 13 }, (_, i) => (
-                <Text
-                  key={i}
-                  size="xs"
-                  c="dimmed"
-                  pos="absolute"
-                  style={{
-                    left: `${i * 2 * HOUR_W}%`,
-                    transform: i === 0 ? 'none' : i === 12 ? 'translateX(-100%)' : 'translateX(-50%)',
-                  }}
-                >
-                  {String(i * 2).padStart(2, '0')}
-                </Text>
+        {rows.length === 0 ? (
+          <EmptyNote>{t('Nothing scheduled this day.')}</EmptyNote>
+        ) : (
+          <Group gap={0} wrap="nowrap" align="stretch">
+            {/* fixed label column — never scrolls away */}
+            <Box w={{ base: 96, sm: 132 }} style={{ flexShrink: 0 }}>
+              <Box h={20} />
+              {rows.map((row) => (
+                <Box key={row.key} h={32} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {row.once && (
+                    <Box
+                      w={10}
+                      h={10}
+                      style={{
+                        flexShrink: 0,
+                        borderRadius: 2,
+                        background: `${ONCE_HATCH}, var(--mantine-color-grape-5)`,
+                      }}
+                    />
+                  )}
+                  <Text
+                    size="sm"
+                    truncate
+                    pr={8}
+                    title={row.once ? `${row.label} · ${t('one-off')}` : row.label}
+                    style={{ minWidth: 0 }}
+                  >
+                    {row.label}
+                  </Text>
+                </Box>
               ))}
             </Box>
-            {rows.length === 0 && (
-              <Text c="dimmed" p="md">
-                Nothing scheduled this day.
-              </Text>
-            )}
-            {rows.map((row) => (
-              <Group key={row.key} gap={0} wrap="nowrap" h={32} align="center">
-                <Box pos="relative" h={26} style={{ flexGrow: 1, background: 'var(--ui-track)', borderRadius: 4 }}>
-                  {/* hour gridlines */}
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <Box key={i} pos="absolute" top={0} bottom={0} style={{ left: `${(i + 1) * 2 * HOUR_W}%`, width: 1, background: 'var(--mantine-color-default-border)' }} />
-                  ))}
-                  {/* zone segments at their base (unscaled) positions. A parallel group starts
-                      every zone at once, so its bars coincide exactly — draw such a stack once:
-                      translucent copies would pile up into an opaque block and hide the ghost
-                      state, and only the topmost would be hoverable anyway. */}
-                  {dedupeBars(row.segs).map((s, i) => (
-                    <Tooltip
-                      key={i}
-                      label={barTooltip(
-                        `${s.zoneName}: ${fmt(s.start)}–${fmt(s.end)}${s.conflict ? ' — CONFLICT' : ''}`,
-                        s.kind,
-                        s.skip,
-                        s.skipWhy,
-                      )}
-                    >
-                      <Box
-                        pos="absolute"
-                        top={3}
-                        h={20}
-                        style={{
-                          left: `${pct(s.start)}%`,
-                          width: `${Math.max(0.5, pct(s.end) - pct(s.start))}%`,
-                          background: barBackground(s.kind, s.skip),
-                          borderRadius: 4,
-                          opacity: BAR_OPACITY,
-                          // a conflict outlines whatever fill the skip rules produced, so a
-                          // skipped run can still show that it also collides
-                          boxShadow: s.conflict
-                            ? 'inset 0 0 0 2px var(--mantine-color-red-6), inset 1px 0 0 rgba(0,0,0,.35)'
-                            : 'inset 1px 0 0 rgba(0,0,0,.35)',
-                          // above the finish-window overlay, and a run with a skip state
-                          // sits above a plain one: the tooltip is the only place it
-                          // explains itself, while a plain bar has nothing to say
-                          zIndex: s.skip ? 3 : 2,
-                        }}
-                      />
-                    </Tooltip>
-                  ))}
-                  {/* finish window per run, drawn over the bars: hatched inside = may
-                      finish earlier, hatched tail = worst-case boost, white tick = planned end */}
-                  {row.envs.map((e, i) => {
-                    const color =
-                      e.skip === 'certain'
-                        ? SKIP_CERTAIN_FILL
-                        : e.kind === 'group'
-                          ? 'var(--mantine-color-teal-4)'
-                          : 'var(--mantine-color-grape-4)';
-                    const hatch = (c: string) => `repeating-linear-gradient(135deg, ${c} 0 3px, transparent 3px 7px)`;
-                    const tailOpacity = e.skip ? SKIPPED_ENVELOPE_OPACITY : 1;
-                    return (
-                      <Box key={`e${i}`} style={{ pointerEvents: 'none' }}>
-                        {e.minEnd < e.end && (
-                          <Box
-                            pos="absolute"
-                            top={3}
-                            h={20}
-                            style={{ left: `${pct(e.minEnd)}%`, width: `${Math.max(0, pct(e.end) - pct(e.minEnd))}%`, background: hatch('rgba(0,0,0,.5)') }}
-                          />
+            <ScrollArea type="scroll" scrollbarSize={6} style={{ flexGrow: 1, minWidth: 0 }}>
+            <Box miw={560} pr={14}>
+              {/* hour scale */}
+              <Box pos="relative" h={20} style={{ overflow: 'hidden' }}>
+                {Array.from({ length: 13 }, (_, i) => (
+                  <Text
+                    key={i}
+                    size="xs"
+                    c="dimmed"
+                    pos="absolute"
+                    style={{
+                      left: `${i * 2 * HOUR_W}%`,
+                      transform: i === 0 ? 'none' : i === 12 ? 'translateX(-100%)' : 'translateX(-50%)',
+                    }}
+                  >
+                    {String(i * 2).padStart(2, '0')}
+                  </Text>
+                ))}
+              </Box>
+              {rows.map((row) => (
+                <Group key={row.key} gap={0} wrap="nowrap" h={32} align="center">
+                  <Box pos="relative" h={26} style={{ flexGrow: 1, background: 'var(--ui-track)', borderRadius: 4 }}>
+                    {/* hour gridlines */}
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <Box key={i} pos="absolute" top={0} bottom={0} style={{ left: `${(i + 1) * 2 * HOUR_W}%`, width: 1, background: 'var(--mantine-color-default-border)' }} />
+                    ))}
+                    {/* zone segments at their base (unscaled) positions. A parallel group starts
+                        every zone at once, so its bars coincide exactly — draw such a stack once:
+                        translucent copies would pile up into an opaque block and hide the ghost
+                        state, and only the topmost would be hoverable anyway. */}
+                    {dedupeBars(row.segs).map((s, i) => (
+                      <Tooltip
+                        key={i}
+                        label={barTooltip(
+                          `${s.zoneName}: ${fmt(s.start)}–${fmt(s.end)}${s.conflict ? ' — CONFLICT' : ''}`,
+                          s.kind,
+                          s.skip,
+                          s.skipWhy,
                         )}
-                        {e.worstEnd > e.end && (
-                          <Tooltip label={`${e.groupName}: finishes between ${fmt(e.minEnd)} and ${fmt(e.worstEnd)} (planned ${fmt(e.end)}) depending on temperature scaling`}>
+                      >
+                        <Box
+                          pos="absolute"
+                          top={3}
+                          h={20}
+                          style={{
+                            left: `${pct(s.start)}%`,
+                            width: `${Math.max(0.5, pct(s.end) - pct(s.start))}%`,
+                            background: barBackground(s.kind, s.skip),
+                            borderRadius: 4,
+                            opacity: BAR_OPACITY,
+                            // a conflict outlines whatever fill the skip rules produced, so a
+                            // skipped run can still show that it also collides
+                            boxShadow: s.conflict
+                              ? 'inset 0 0 0 2px var(--mantine-color-red-6), inset 1px 0 0 rgba(0,0,0,.35)'
+                              : 'inset 1px 0 0 rgba(0,0,0,.35)',
+                            // above the finish-window overlay, and a run with a skip state
+                            // sits above a plain one: the tooltip is the only place it
+                            // explains itself, while a plain bar has nothing to say
+                            zIndex: s.skip ? 3 : 2,
+                          }}
+                        />
+                      </Tooltip>
+                    ))}
+                    {/* finish window per run, drawn over the bars: hatched inside = may
+                        finish earlier, hatched tail = worst-case boost, white tick = planned end */}
+                    {row.envs.map((e, i) => {
+                      const color =
+                        e.skip === 'certain'
+                          ? SKIP_CERTAIN_FILL
+                          : e.kind === 'group'
+                            ? 'var(--mantine-color-teal-4)'
+                            : 'var(--mantine-color-grape-4)';
+                      const hatch = (c: string) => `repeating-linear-gradient(135deg, ${c} 0 3px, transparent 3px 7px)`;
+                      const tailOpacity = e.skip ? SKIPPED_ENVELOPE_OPACITY : 1;
+                      return (
+                        <Box key={`e${i}`} style={{ pointerEvents: 'none' }}>
+                          {e.minEnd < e.end && (
                             <Box
                               pos="absolute"
                               top={3}
                               h={20}
-                              style={{
-                                left: `${pct(e.end)}%`,
-                                width: `${Math.max(0, pct(e.worstEnd) - pct(e.end))}%`,
-                                background: hatch(color),
-                                borderRadius: '0 4px 4px 0',
-                                pointerEvents: 'auto',
-                                opacity: tailOpacity,
-                              }}
+                              style={{ left: `${pct(e.minEnd)}%`, width: `${Math.max(0, pct(e.end) - pct(e.minEnd))}%`, background: hatch('rgba(0,0,0,.5)') }}
                             />
-                          </Tooltip>
-                        )}
-                        <Box pos="absolute" top={1} style={{ left: `${pct(e.end)}%`, width: 2, height: 24, background: 'rgba(255,255,255,.85)', borderRadius: 1, opacity: tailOpacity }} />
-                      </Box>
-                    );
-                  })}
-                  {Number(dayOffset) === 0 && nowPct > 0 && nowPct < 100 && (
-                    <Box pos="absolute" top={0} bottom={0} style={{ left: `${nowPct}%`, width: 2, background: 'var(--mantine-color-blue-5)' }} />
-                  )}
-                </Box>
-              </Group>
-            ))}
-          </Box>
-          </ScrollArea>
-        </Group>
+                          )}
+                          {e.worstEnd > e.end && (
+                            <Tooltip label={`${e.groupName}: finishes between ${fmt(e.minEnd)} and ${fmt(e.worstEnd)} (planned ${fmt(e.end)}) depending on temperature scaling`}>
+                              <Box
+                                pos="absolute"
+                                top={3}
+                                h={20}
+                                style={{
+                                  left: `${pct(e.end)}%`,
+                                  width: `${Math.max(0, pct(e.worstEnd) - pct(e.end))}%`,
+                                  background: hatch(color),
+                                  borderRadius: '0 4px 4px 0',
+                                  pointerEvents: 'auto',
+                                  opacity: tailOpacity,
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                          <Box pos="absolute" top={1} style={{ left: `${pct(e.end)}%`, width: 2, height: 24, background: 'rgba(255,255,255,.85)', borderRadius: 1, opacity: tailOpacity }} />
+                        </Box>
+                      );
+                    })}
+                    {Number(dayOffset) === 0 && nowPct > 0 && nowPct < 100 && (
+                      <Box pos="absolute" top={0} bottom={0} style={{ left: `${nowPct}%`, width: 2, background: 'var(--mantine-color-blue-5)' }} />
+                    )}
+                  </Box>
+                </Group>
+              ))}
+            </Box>
+            </ScrollArea>
+          </Group>
+        )}
         {/* Every chip is a swatch of the exact bar fill next to plain label text.
             Colouring the text itself is what breaks: amber on pale amber measures
             1.8:1 in the light scheme, and a swatch also lets the hatch and the

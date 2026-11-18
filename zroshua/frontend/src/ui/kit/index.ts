@@ -12,13 +12,16 @@ export {
   ChoiceChips,
   SegmentTabs,
   ActionMenu,
+  DayPicker,
   type ButtonVariant,
   type ButtonSize,
   type ChoiceOption,
   type TabItem,
   type MenuAction,
+  type DayOption,
 } from './Controls';
 export { BarChart, LineChart, Sparkline, Readout, EmptyChart, type BarDatum, type LinePoint } from './Charts';
 export { ListRow, RowList, LinedList, LinedRow, EmptyNote, KeyValues } from './Rows';
 export { Sheet } from './Sheet';
+export { FieldGrid } from './Form';
 export { stateStyle, cx } from './state';

@@ -1,17 +1,5 @@
 import { useState } from 'react';
-import {
-  Button,
-  Checkbox,
-  Group,
-  Modal,
-  MultiSelect,
-  NumberInput,
-  Select,
-  SimpleGrid,
-  Stack,
-  Text,
-  TextInput,
-} from '@mantine/core';
+import { Button, Checkbox, Group, Modal, MultiSelect, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api, EngineState, Group as ZGroup, WaterSource } from '../api';
@@ -19,7 +7,7 @@ import { useResource } from '../hooks';
 import { EntitySelect } from '../components/common';
 import { t } from '../i18n';
 import { HintLabel, HintTitle } from '../components/Hint';
-import { CardGrid, Panel, PanelHeader, UiButton } from '../ui/kit';
+import { CardGrid, FieldGrid, Panel, PanelHeader, UiButton } from '../ui/kit';
 import { SourceCard } from '../ui/garden';
 import { sourceView } from '../view/garden';
 import { useGarden } from '../view/useGarden';
@@ -73,7 +61,7 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
       <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? t('Edit source') : t('New source')} size="lg">
         {editing && (
           <Stack>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
+            <FieldGrid cols={2} min={200}>
               <TextInput label={t('Name')} value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
               <Select
                 label={t('Type')}
@@ -85,8 +73,8 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                 value={editing.type ?? 'well'}
                 onChange={(v) => setEditing({ ...editing, type: v ?? 'well' })}
               />
-            </SimpleGrid>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
+            </FieldGrid>
+            <FieldGrid cols={2} min={200}>
               <NumberInput
                 label={<HintLabel label={t('Max flow budget')} hint={t('l/min, empty = unlimited')} />}
                 value={editing.maxFlowLpm ?? ''}
@@ -99,8 +87,8 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                 onChange={(v) => setEditing({ ...editing, dependsOn: v })}
                 clearable
               />
-            </SimpleGrid>
-            <Group grow align="flex-start" wrap="wrap">
+            </FieldGrid>
+            <FieldGrid cols={2} min={200}>
               <EntitySelect
                 label={<HintLabel label={t('Pump entity')} hint={t('kept on while any zone of this source runs')} />}
                 value={editing.pumpEntity ?? null}
@@ -119,9 +107,9 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                   onChange={(v) => setEditing({ ...editing, pumpAfterRun: (v as 'off' | 'keep_on' | 'restore') ?? 'off' })}
                 />
               )}
-            </Group>
+            </FieldGrid>
             {editing.pumpEntity && (
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
+              <FieldGrid cols={2} min={160}>
                 <NumberInput
                   label={<HintLabel label={t('Pump start delay')} hint={t('s before valve opens')} />}
                   value={editing.pumpStartDelayS ?? 0}
@@ -132,7 +120,7 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                   value={editing.pumpStopDelayS ?? 0}
                   onChange={(v) => setEditing({ ...editing, pumpStopDelayS: Number(v) || 0 })}
                 />
-              </SimpleGrid>
+              </FieldGrid>
             )}
             <EntitySelect
               label={<HintLabel label={t('Energy meter')} hint={t('W or kWh sensor, counted only during watering')} />}
@@ -140,7 +128,7 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
               onChange={(v) => setEditing({ ...editing, energyEntity: v })}
               domains={['sensor']}
             />
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
+            <FieldGrid cols={2} min={200}>
               <NumberInput
                 label={<HintLabel label={t('Energy tail after watering')} hint={t('min, e.g. barrel refill')} />}
                 value={editing.energyTail?.minutes ?? 0}
@@ -151,7 +139,7 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                   })
                 }
               />
-            </SimpleGrid>
+            </FieldGrid>
             {editing.energyTail && (
               <Stack gap={4}>
                 <Text size="sm">{t('Count the tail after these groups:')}</Text>
@@ -179,7 +167,7 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
               onChange={(v) => setEditing({ ...editing, okSensor: v })}
               domains={['binary_sensor']}
             />
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
+            <FieldGrid cols={2} min={200}>
               <EntitySelect
                 label={<HintLabel label={t('Pressure sensor')} hint={t('bar, optional — shown on the source card')} />}
                 value={editing.pressureEntity ?? null}
@@ -194,8 +182,8 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                 value={editing.pressureTargetBar ?? ''}
                 onChange={(v) => setEditing({ ...editing, pressureTargetBar: v === '' ? null : Number(v) })}
               />
-            </SimpleGrid>
-            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs" verticalSpacing="xs">
+            </FieldGrid>
+            <FieldGrid cols={3} min={160}>
               <EntitySelect
                 label={<HintLabel label={t('Flow sensor')} hint={t('l/min, optional')} />}
                 value={editing.flowSensor ?? null}
@@ -214,7 +202,7 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                 value={editing.flowDeviationPct ?? ''}
                 onChange={(v) => setEditing({ ...editing, flowDeviationPct: v === '' ? null : Number(v) })}
               />
-            </SimpleGrid>
+            </FieldGrid>
             <MultiSelect
               label={
                 <HintLabel
@@ -233,7 +221,7 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
               value={editing.exclusiveWithSourceIds ?? []}
               onChange={(v) => setEditing({ ...editing, exclusiveWithSourceIds: v })}
             />
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" verticalSpacing="xs">
+            <FieldGrid cols={2} min={160}>
               <NumberInput
                 label={<HintLabel label={t('Capacity')} hint={t('Capacity (L) — enables barrel level tracking')} />}
                 suffix={` ${t('L')}`}
@@ -246,9 +234,9 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                 value={editing.refillLpm ?? ''}
                 onChange={(v) => setEditing({ ...editing, refillLpm: v === '' ? null : Number(v) })}
               />
-            </SimpleGrid>
+            </FieldGrid>
             {editing.capacityL ? (
-              <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs" verticalSpacing="xs">
+              <FieldGrid cols={3} min={160}>
                 <EntitySelect
                   label={<HintLabel label={t('Level sensor')} hint={t('Level sensor (%) — overrides the estimate')} />}
                   value={editing.levelEntity ?? null}
@@ -267,7 +255,7 @@ export default function SourcesPage({ state }: { state: EngineState | null }) {
                   value={editing.blockBelowPct ?? ''}
                   onChange={(v) => setEditing({ ...editing, blockBelowPct: v === '' ? null : Number(v) })}
                 />
-              </SimpleGrid>
+              </FieldGrid>
             ) : null}
             <Group justify="space-between">
               <Button onClick={save}>{t('Save')}</Button>

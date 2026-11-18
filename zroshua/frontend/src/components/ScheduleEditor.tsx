@@ -385,7 +385,7 @@ export default function ScheduleEditor({
         })}
       </Stack>
 
-      <Group mt="xs" gap="xs">
+      <Group mt="xs" gap="xs" align="flex-end">
         <TextInput
           label={t('Season from (MM-DD)')}
           size="xs"

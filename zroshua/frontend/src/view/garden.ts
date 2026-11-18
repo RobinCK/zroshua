@@ -1,4 +1,4 @@
-import type { EngineState, Group, PlanResponse, Upcoming, WeatherNow, Zone } from '../api';
+import type { EngineState, Group, GroupRule, PlanResponse, Upcoming, WeatherNow, Zone } from '../api';
 import type {
   BadgeView,
   ChartView,
@@ -10,6 +10,9 @@ import type {
   StatusView,
   TimelineLaneView,
   UpcomingAction,
+  RuleKind,
+  RuleRowView,
+  RuleSectionView,
   UpcomingView,
   UsageRowView,
   WeatherDayView,
@@ -869,4 +872,58 @@ export function quickTargets(d: GardenData): { zones: QuickTarget[]; groups: Qui
       };
     });
   return { zones, groups };
+}
+
+// ---- rules between groups -------------------------------------------------------------
+
+/**
+ * Rules grouped for reading: an order rule hangs off its first group, and two-group rules are
+ * gathered around the group they share most — «Front Garden Lawn: Beds · Backyard Drip …»
+ * instead of a line per pair. A rule of three or more groups stays one chip of its own.
+ */
+export function ruleSections(rules: GroupRule[], nameOf: (id: string) => string): RuleSectionView[] {
+  const KINDS: { kind: RuleKind; title: string }[] = [
+    { kind: 'mutex', title: t('Never overlap') },
+    { kind: 'order', title: t('Order (A before B)') },
+    { kind: 'parallel_ok', title: t('May run in parallel') },
+  ];
+  const byName = (a: RuleRowView, b: RuleRowView) => a.lead.localeCompare(b.lead);
+  const out: RuleSectionView[] = [];
+  for (const { kind, title } of KINDS) {
+    const list = rules.filter((r) => r.type === kind);
+    if (!list.length) continue;
+    const rows: RuleRowView[] = [];
+    if (kind === 'order') {
+      const lead = new Map<string, RuleRowView>();
+      for (const r of list) {
+        const a = r.before ?? '';
+        const row = lead.get(a) ?? { key: `order:${a}`, lead: nameOf(a), items: [] };
+        row.items.push({ ruleId: String(r.id), label: nameOf(r.after ?? '') });
+        lead.set(a, row);
+      }
+      rows.push(...[...lead.values()].sort(byName));
+    } else {
+      let pairs = list.filter((r) => r.groups.length === 2);
+      const wide = list.filter((r) => r.groups.length !== 2);
+      const grouped: RuleRowView[] = [];
+      while (pairs.length) {
+        const count = new Map<string, number>();
+        for (const r of pairs) for (const g of r.groups) count.set(g, (count.get(g) ?? 0) + 1);
+        const anchor = [...count.entries()].sort((x, y) => y[1] - x[1] || nameOf(x[0]).localeCompare(nameOf(y[0])))[0][0];
+        const mine = pairs.filter((r) => r.groups.includes(anchor));
+        grouped.push({
+          key: `${kind}:${anchor}`,
+          lead: nameOf(anchor),
+          items: mine
+            .map((r) => ({ ruleId: String(r.id), label: nameOf(r.groups.find((g) => g !== anchor) ?? anchor) }))
+            .sort((x, y) => x.label.localeCompare(y.label)),
+        });
+        pairs = pairs.filter((r) => !mine.includes(r));
+      }
+      rows.push(...grouped.sort(byName));
+      for (const r of wide) rows.push({ key: `${kind}:${r.id}`, lead: '', items: [{ ruleId: String(r.id), label: r.groups.map(nameOf).join(' + ') }] });
+    }
+    out.push({ kind, title, count: list.length, rows });
+  }
+  return out;
 }

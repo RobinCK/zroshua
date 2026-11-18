@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import {
-  ActionIcon,
-  Badge,
   Button,
-  Card,
   Group,
   Modal,
   MultiSelect,
@@ -11,7 +8,6 @@ import {
   Select,
   Stack,
   Switch,
-  Table,
   Text,
   TextInput,
   Title,
@@ -25,9 +21,9 @@ import { SliderInput } from '../components/common';
 
 import ScheduleEditor, { emptySchedule, estimateRunMinutes, ZoneInfo } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
-import { CardGrid } from '../ui/kit';
-import { GroupCard } from '../ui/garden';
-import { groupView } from '../view/garden';
+import { CardGrid, FieldGrid } from '../ui/kit';
+import { GroupCard, RulesCard } from '../ui/garden';
+import { groupView, ruleSections } from '../view/garden';
 import { actions } from '../view/actions';
 import { useGarden } from '../view/useGarden';
 import { HintLabel } from '../components/Hint';
@@ -146,45 +142,13 @@ export default function GroupsPage({ state }: { state: EngineState | null }) {
         ))}
       </CardGrid>
 
-      <Card withBorder>
-        <Title order={4} mb="sm">
-          {t('Rules between groups')}
-        </Title>
-        <Table>
-          <Table.Tbody>
-            {(rules ?? []).map((r) => (
-              <Table.Tr key={r.id}>
-                <Table.Td>
-                  {r.type === 'order' ? (
-                    <Text size="sm">
-                      <Badge variant="light" color="orange" mr={6}>
-                        {t('order')}
-                      </Badge>
-                      {groupOpts.find((g) => g.value === r.before)?.label ?? r.before} <b>{t('before')}</b>{' '}
-                      {groupOpts.find((g) => g.value === r.after)?.label ?? r.after}
-                    </Text>
-                  ) : (
-                    <Text size="sm">
-                      <Badge variant="light" color={r.type === 'mutex' ? 'red' : 'teal'} mr={6}>
-                        {r.type === 'mutex' ? t('never overlap') : t('may run in parallel')}
-                      </Badge>
-                      {r.groups.map((id) => groupOpts.find((g) => g.value === id)?.label ?? id).join(' + ')}
-                    </Text>
-                  )}
-                </Table.Td>
-                <Table.Td w={40}>
-                  <ActionIcon variant="subtle" color="red" onClick={() => api.del(`/rules/${r.id}`).then(reloadRules).catch(notifyErr)}>
-                    <IconTrash size={16} />
-                  </ActionIcon>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-        <Group mt="sm" align="end">
+      <RulesCard
+        sections={ruleSections(rules ?? [], (id) => groupOpts.find((g) => g.value === id)?.label ?? id)}
+        onDelete={(id) => api.del(`/rules/${id}`).then(reloadRules).catch(notifyErr)}
+      >
+        <FieldGrid cols={4} min={170}>
           <Select
             label={t('Rule')}
-            w={180}
             data={[
               { value: 'mutex', label: t('Never overlap') },
               { value: 'order', label: t('Order (A before B)') },
@@ -195,15 +159,15 @@ export default function GroupsPage({ state }: { state: EngineState | null }) {
           />
           {ruleType === 'order' ? (
             <>
-              <Select label={t('First (A)')} data={groupOpts} value={ruleBefore} onChange={setRuleBefore} w={180} />
-              <Select label={t('Then (B)')} data={groupOpts} value={ruleAfter} onChange={setRuleAfter} w={180} />
+              <Select label={t('First (A)')} data={groupOpts} value={ruleBefore} onChange={setRuleBefore} />
+              <Select label={t('Then (B)')} data={groupOpts} value={ruleAfter} onChange={setRuleAfter} />
             </>
           ) : (
-            <MultiSelect label={t('Groups')} data={groupOpts} value={ruleGroups} onChange={setRuleGroups} w={280} />
+            <MultiSelect label={t('Groups')} data={groupOpts} value={ruleGroups} onChange={setRuleGroups} />
           )}
           <Button onClick={addRule}>{t('Add rule')}</Button>
-        </Group>
-      </Card>
+        </FieldGrid>
+      </RulesCard>
 
       <Modal opened={!!editing} onClose={() => setEditing(null)} title={editing?.id ? t('Edit group') : t('New group')} size="xl">
         {editing && (
@@ -215,7 +179,7 @@ export default function GroupsPage({ state }: { state: EngineState | null }) {
               value={editing.zoneIds ?? []}
               onChange={(v) => setEditing({ ...editing, zoneIds: v })}
             />
-            <Group grow>
+            <FieldGrid cols={4} min={200}>
               <Select
                 label={t('Execution mode')}
                 data={[
@@ -235,7 +199,7 @@ export default function GroupsPage({ state }: { state: EngineState | null }) {
                 onChange={(v) => setEditing({ ...editing, interZoneDelayS: Number(v) || 0 })}
               />
               <NumberInput label={t('Priority')} value={editing.priority ?? 0} onChange={(v) => setEditing({ ...editing, priority: Number(v) || 0 })} />
-            </Group>
+            </FieldGrid>
             <SliderInput label={t('Group multiplier')} value={editing.multiplierPct ?? 100} onChange={(v) => setEditing({ ...editing, multiplierPct: v })} min={0} max={200} unit="%" />
 
             <Group justify="space-between">

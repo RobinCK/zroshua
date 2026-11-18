@@ -75,6 +75,10 @@
 .wrap .word {
   white-space: normal;
   overflow-wrap: anywhere;
+  /* at most two lines: a tile stays the size of its neighbours */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .wrap > .dot {
   margin-top: 5px;

@@ -225,3 +225,45 @@
   line-height: 1.4;
   color: var(--ui-text-3);
 }
+
+.days {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface-2);
+}
+.dayCell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 2px;
+  border: 0;
+  border-radius: var(--ui-radius-md);
+  background: transparent;
+  color: var(--ui-text-2);
+  font-family: var(--ui-font-sans);
+  cursor: pointer;
+}
+.dayCell[aria-selected='true'] {
+  background: var(--ui-surface-4);
+  color: var(--ui-text-1);
+}
+.dayTop {
+  font-size: 11.5px;
+  color: var(--ui-text-3);
+  white-space: nowrap;
+}
+.dayCell[data-today] .dayTop {
+  color: var(--ui-tone-water-fg);
+  font-weight: 600;
+}
+.dayMain {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

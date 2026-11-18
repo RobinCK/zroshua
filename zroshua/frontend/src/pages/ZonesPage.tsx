@@ -20,7 +20,7 @@ import ScheduleEditor, { emptySchedule } from '../components/ScheduleEditor';
 import { BusyBand, overlapsConflict, toMin } from '../components/TimeSlotPicker';
 import { HintLabel, HintTitle } from '../components/Hint';
 import { ZoneSheet } from '../components/ZoneSheet';
-import { Panel } from '../ui/kit';
+import { FieldGrid, Panel } from '../ui/kit';
 import { ZoneBoard } from '../ui/garden';
 import { zoneSections } from '../view/garden';
 import { useGarden } from '../view/useGarden';
@@ -138,7 +138,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
         {editing && (
           <Stack>
             <TextInput label={t('Name')} value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
-            <Group grow>
+            <FieldGrid cols={2} min={180}>
               <Select
                 label={t('Type')}
                 data={[
@@ -158,7 +158,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                 onChange={(v) => setEditing({ ...editing, sourceId: v })}
                 clearable
               />
-            </Group>
+            </FieldGrid>
             <EntityMultiSelect
               label={<HintLabel label={t('Controlled entities')} hint={t('switch / valve')} />}
               value={editing.entities ?? []}
@@ -171,7 +171,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               onChange={(v) => setEditing({ ...editing, baseDurationMin: v })}
               max={180}
             />
-            <Group grow>
+            <FieldGrid cols={2} min={140}>
               <NumberInput
                 label={<HintLabel label={t('Min duration')} hint={t('rollover threshold, min')} />}
                 value={editing.minDurationMin ?? 0}
@@ -182,7 +182,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                 value={editing.maxRuntimeMin ?? 60}
                 onChange={(v) => setEditing({ ...editing, maxRuntimeMin: Number(v) || 60 })}
               />
-            </Group>
+            </FieldGrid>
             <Select
               label={t('Flow rate')}
               data={[
@@ -208,7 +208,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
               />
             )}
             {flowMode === 'range' && (
-              <Group grow>
+              <FieldGrid cols={2} min={120}>
                 <NumberInput
                   label={t('Flow min (l/min)')}
                   value={typeof editing.flowLpm === 'object' && editing.flowLpm ? editing.flowLpm.min : 5}
@@ -229,9 +229,9 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                     })
                   }
                 />
-              </Group>
+              </FieldGrid>
             )}
-            <Group grow>
+            <FieldGrid cols={2} min={120}>
               <NumberInput
                 label={t('Cycle max (min, 0 = off)')}
                 value={editing.cycleSoak?.max_cycle_min ?? 0}
@@ -253,7 +253,7 @@ export default function ZonesPage({ state }: { state: EngineState | null }) {
                   })
                 }
               />
-            </Group>
+            </FieldGrid>
             <Group justify="space-between">
               <HintTitle title={t('Own schedules')} hint={t('waters this zone alone, in addition to its group')} />
               <Button size="xs" variant="light" onClick={() => setEditing({ ...editing, schedules: [...(editing.schedules ?? []), emptySchedule()] })}>

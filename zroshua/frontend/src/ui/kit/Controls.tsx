@@ -161,6 +161,53 @@ export function SegmentTabs<K extends string>({
   );
 }
 
+export interface DayOption<K extends string> {
+  key: K;
+  /** small line on top: the weekday */
+  top: ReactNode;
+  /** the big line: the day of the month */
+  main: ReactNode;
+  /** what a screen reader says: «Today», «Thursday 19» */
+  label: string;
+  today?: boolean;
+}
+
+/**
+ * A week as seven equal cells — weekday over the date, like the weather strip — so all seven
+ * days fit a phone without scrolling. Today is marked; the chosen day is filled.
+ */
+export function DayPicker<K extends string>({
+  days,
+  value,
+  onChange,
+  label,
+}: {
+  days: DayOption<K>[];
+  value: K;
+  onChange: (key: K) => void;
+  label: string;
+}) {
+  return (
+    <div role="tablist" aria-label={label} className={s.days}>
+      {days.map((d) => (
+        <button
+          key={d.key}
+          type="button"
+          role="tab"
+          aria-selected={d.key === value}
+          aria-label={d.label}
+          data-today={d.today || undefined}
+          onClick={() => onChange(d.key)}
+          className={s.dayCell}
+        >
+          <span className={s.dayTop}>{d.top}</span>
+          <span className={s.dayMain}>{d.main}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export interface MenuAction<K extends string> {
   key: K;
   label: ReactNode;

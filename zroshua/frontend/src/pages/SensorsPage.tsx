@@ -18,7 +18,7 @@ import { useResource } from '../hooks';
 import { EntityMultiSelect, EntitySelect, SliderInput } from '../components/common';
 import { t } from '../i18n';
 import { HintLabel, HintTitle } from '../components/Hint';
-import { CardGrid, Section } from '../ui/kit';
+import { CardGrid, FieldGrid, Section } from '../ui/kit';
 import { SensorCard } from '../ui/garden';
 import { sensorViews } from '../view/garden';
 import { useGarden } from '../view/useGarden';
@@ -107,7 +107,7 @@ export default function SensorsPage({ state }: { state: EngineState | null }) {
             onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, entities: v } })}
             domains={['binary_sensor']}
           />
-          <Group grow>
+          <FieldGrid cols={2} min={160}>
             <NumberInput
               label={<HintLabel label={t('Quorum')} hint={t('how many must be wet')} />}
               min={1}
@@ -123,7 +123,7 @@ export default function SensorsPage({ state }: { state: EngineState | null }) {
               value={s.rainSensor.onWetDuringRun}
               onChange={(v) => setS({ ...s, rainSensor: { ...s.rainSensor, onWetDuringRun: (v as any) ?? 'stop_all' } })}
             />
-          </Group>
+          </FieldGrid>
           <SliderInput
             label={<HintLabel label={t('Dry-out delay')} hint={t('watering stays blocked after rain')} />}
             value={s.rainSensor.dryOutHours}
@@ -184,7 +184,7 @@ export default function SensorsPage({ state }: { state: EngineState | null }) {
                     <IconTrash size={16} />
                   </ActionIcon>
                 </Group>
-                <Group grow>
+                <FieldGrid cols={2} min={200}>
                   <EntitySelect label={t('Moisture sensor (%)')} value={trigger.sensor || null} onChange={(v) => set({ sensor: v ?? '' })} domains={['sensor']} />
                   <Select
                     label={t('Waters')}
@@ -195,8 +195,8 @@ export default function SensorsPage({ state }: { state: EngineState | null }) {
                       set({ targetKind: kind as 'zone' | 'group', targetId: id });
                     }}
                   />
-                </Group>
-                <Group grow mt="xs">
+                </FieldGrid>
+                <FieldGrid cols={3} min={160} style={{ marginTop: 'var(--mantine-spacing-xs)' }}>
                   <NumberInput
                     label={t('Start below (%)')}
                     value={trigger.startBelowPct ?? ''}
@@ -208,8 +208,8 @@ export default function SensorsPage({ state }: { state: EngineState | null }) {
                     value={trigger.cooldownHours}
                     onChange={(v) => set({ cooldownHours: Number(v) || 6 })}
                   />
-                </Group>
-                <Group grow mt="xs">
+                </FieldGrid>
+                <FieldGrid cols={2} min={160} style={{ marginTop: 'var(--mantine-spacing-xs)' }}>
                   <NumberInput
                     label={t('Block scheduled watering above (%)')}
                     value={trigger.blockAbovePct ?? ''}
@@ -220,7 +220,7 @@ export default function SensorsPage({ state }: { state: EngineState | null }) {
                     value={trigger.staleAfterHours}
                     onChange={(v) => set({ staleAfterHours: Number(v) || 12 })}
                   />
-                </Group>
+                </FieldGrid>
                 <Switch
                   mt="xs"
                   label={<HintLabel label={t('Ignore rain sensor')} hint={t('Fire and keep watering even while the rain sensor is wet — e.g. soil under a roof or in a greenhouse')} />}
@@ -282,7 +282,7 @@ export default function SensorsPage({ state }: { state: EngineState | null }) {
                     <IconTrash size={16} />
                   </ActionIcon>
                 </Group>
-                <Group grow>
+                <FieldGrid cols={2} min={200}>
                   <EntitySelect label={t('Temperature sensor')} value={trigger.sensor || null} onChange={(v) => set({ sensor: v ?? '' })} domains={['sensor']} />
                   <Select
                     label={t('Waters')}
@@ -293,20 +293,20 @@ export default function SensorsPage({ state }: { state: EngineState | null }) {
                       set({ targetKind: kind as 'zone' | 'group', targetId: id });
                     }}
                   />
-                </Group>
-                <Group grow mt="xs">
+                </FieldGrid>
+                <FieldGrid cols={3} min={160} style={{ marginTop: 'var(--mantine-spacing-xs)' }}>
                   <NumberInput label={t('Above (°C)')} value={trigger.aboveC} onChange={(v) => set({ aboveC: Number(v) || 30 })} />
                   <TextInput type="time" label={t('Window from')} value={trigger.windowFrom} onChange={(e) => e.target.value && set({ windowFrom: e.target.value })} />
                   <TextInput type="time" label={t('Window to')} value={trigger.windowTo} onChange={(e) => e.target.value && set({ windowTo: e.target.value })} />
-                </Group>
-                <Group grow mt="xs">
+                </FieldGrid>
+                <FieldGrid cols={2} min={140} style={{ marginTop: 'var(--mantine-spacing-xs)' }}>
                   <NumberInput label={t('Run (min)')} value={trigger.runMin} onChange={(v) => set({ runMin: Number(v) || 10 })} />
                   <NumberInput
                     label={<HintLabel label={t('Cooldown (h)')} hint={t('24 = at most once a day')} />}
                     value={trigger.cooldownHours}
                     onChange={(v) => set({ cooldownHours: Number(v) || 24 })}
                   />
-                </Group>
+                </FieldGrid>
                 <Switch
                   mt="xs"
                   label={t('Ignore rain sensor')}

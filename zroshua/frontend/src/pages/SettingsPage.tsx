@@ -22,6 +22,7 @@ import { useResource } from '../hooks';
 import { EntitySelect, SliderInput } from '../components/common';
 import { LANG_OPTIONS, setLang, storedLang, t } from '../i18n';
 import { HintLabel, HintTitle } from '../components/Hint';
+import { FieldGrid } from '../ui/kit';
 
 const EVENTS = [
   { value: 'run_start', label: t('Run started') },
@@ -137,7 +138,7 @@ export default function SettingsPage() {
             checked={s.weatherTriggers.enabled}
             onChange={(e) => setS({ ...s, weatherTriggers: { ...s.weatherTriggers, enabled: e.currentTarget.checked } })}
           />
-          <Group grow>
+          <FieldGrid cols={2} min={240}>
             <SliderInput
               label={t('Rain probability threshold')}
               value={s.weatherTriggers.rainProbPct}
@@ -155,7 +156,7 @@ export default function SettingsPage() {
               step={0.5}
               unit="mm"
             />
-          </Group>
+          </FieldGrid>
           <NumberInput
             label={<HintLabel label={t('Freeze protect below')} hint={t('°C, empty = off')} />}
             value={s.weatherTriggers.freezeC ?? ''}
@@ -180,7 +181,7 @@ export default function SettingsPage() {
             value={s.tempScale.groups}
             onChange={(v) => setS({ ...s, tempScale: { ...s.tempScale, groups: v } })}
           />
-          <Group grow>
+          <FieldGrid cols={2} min={220}>
             <Select
               label={t('Temperature input')}
               data={[
@@ -198,7 +199,7 @@ export default function SettingsPage() {
               onChange={(v) => setS({ ...s, tempScale: { ...s.tempScale, yesterdaySensor: v } })}
               domains={['sensor']}
             />
-          </Group>
+          </FieldGrid>
           <Stack gap={4}>
             <Text size="sm">{t('Steps')}</Text>
             {s.tempScale.steps.map((st, i) => (
@@ -421,7 +422,7 @@ export default function SettingsPage() {
           {t('Limits & misc')}
         </Title>
         <Stack>
-          <Group grow>
+          <FieldGrid cols={3} min={160}>
             <NumberInput
               label={<HintLabel label={t('Global max total flow')} hint={t('l/min, empty = off')} />}
               value={s.maxTotalFlowLpm ?? ''}
@@ -438,7 +439,7 @@ export default function SettingsPage() {
               value={s.energyCurrency ?? ''}
               onChange={(e) => setS({ ...s, energyCurrency: e.target.value || null })}
             />
-          </Group>
+          </FieldGrid>
           <Select
             label={
               <HintLabel
